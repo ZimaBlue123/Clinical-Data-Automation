@@ -1,0 +1,21 @@
+# 默认配置：使用当前目录下已有 PDF 与 Excel
+pdf_path: "不同剂量组ADR分析 (TFL).pdf"
+excel_path: "不同剂量组ADR分析 (TFL).xlsx"
+
+rules:
+  - name: "不良事件相关表格"
+    search:
+      keyword: "不良事件"
+      page: null
+    excel:
+      sheet: "Sheet1"
+      cell: "B2"
+      extract: table
+
+  - name: "剂量组相关文本"
+    search:
+      keyword: "剂量"
+      page: null
+    excel:
+      sheet: "Sheet1"
+      cell: "A10"

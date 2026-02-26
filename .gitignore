@@ -1,5 +1,5 @@
 # ==========================================
-# 1. Python (保留原版)
+# 1. Python (Core Engine & Environment)
 # ==========================================
 __pycache__/
 *.py[cod]
@@ -11,7 +11,7 @@ venv/
 env/
 
 # ==========================================
-# 2. IDE & AI Assistants (补齐 Cursor 生态)
+# 2. IDE & AI Assistants (Cybernetics)
 # ==========================================
 .idea/
 .vscode/
@@ -22,19 +22,19 @@ env/
 .DS_Store
 
 # ==========================================
-# 3. 临床数据与配置文件 (强制物理隔离)
+# 3. Clinical Data & Secrets (Absolute Isolation)
 # ==========================================
-# 强烈建议将真实数据放在以下目录，并在此彻底屏蔽
 data/
 raw_data/
 output/
-config_local.yaml
+config.yaml          # 封杀本地真实配置
+config_local.yaml    # 封杀备用本地配置
 
 # ==========================================
-# 4. 日志与临时文件 (保留原版的精准拦截)
+# 4. Logs & Temp Files (Metabolic Waste)
 # ==========================================
 *.log
 *.bak
 *.tmp
-~$* # Excel/PPT 打开时的隐藏锁文件
-*.bak.xlsx   # 图表模块自动备份
+~$* # Excel/PPT 运行时隐形锁文件
+*.bak.xlsx           # 自动化图表模块的冗余备份
