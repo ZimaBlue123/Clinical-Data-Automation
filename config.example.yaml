@@ -1,8 +1,9 @@
-# PDF 路径（相对项目目录或绝对路径）
-pdf_path: "不同剂量组ADR分析 (TFL).pdf"
+# PDF 路径（相对项目根目录或绝对路径）
+pdf_path: "03_PDF_to_Excel/input/不同剂量组ADR分析 (TFL).pdf"
 
 # 目标 Excel 路径（若不存在会创建）
-excel_path: "不同剂量组ADR分析 (TFL).xlsx"
+excel_path: "03_PDF_to_Excel/output/不同剂量组ADR分析 (TFL).xlsx"
+
 
 # 检索并写入规则列表
 rules:

@@ -1,6 +1,7 @@
-# 默认配置：使用当前目录下已有 PDF 与 Excel
-pdf_path: "不同剂量组ADR分析 (TFL).pdf"
-excel_path: "不同剂量组ADR分析 (TFL).xlsx"
+# 默认配置：相对项目根目录（与 README 示例一致）
+pdf_path: "03_PDF_to_Excel/input/不同剂量组ADR分析 (TFL).pdf"
+excel_path: "03_PDF_to_Excel/output/不同剂量组ADR分析 (TFL).xlsx"
+
 
 rules:
   - name: "不良事件相关表格"

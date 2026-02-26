@@ -6,12 +6,15 @@
 
 - Python 3.8+
 - 依赖见 `requirements.txt`
+- Windows 专用依赖（`pywin32`）仅在 Windows + Office 自动化模块中需要
 
 ## 安装
 
 ```bash
 pip install -r requirements.txt
 ```
+
+> 非 Windows 环境若只使用 PDF/Excel 相关模块，可移除或注释 `pywin32` 后再安装。
 
 ## 项目结构
 
