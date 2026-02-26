@@ -1,0 +1,34 @@
+# PDF 路径（相对项目目录或绝对路径）
+pdf_path: "不同剂量组ADR分析 (TFL).pdf"
+
+# 目标 Excel 路径（若不存在会创建）
+excel_path: "不同剂量组ADR分析 (TFL).xlsx"
+
+# 检索并写入规则列表
+rules:
+  # 示例1：按关键词找到文本，写入某单元格
+  - name: "标题或指标A"
+    search:
+      keyword: "不良事件"   # 在 PDF 中查找包含该关键词的段落/表格
+      page: null           # 不指定则全文检索；可填页码如 1
+    excel:
+      sheet: "Sheet1"
+      cell: "B2"           # 将找到的内容写入 B2
+
+  # 示例2：从 PDF 表格提取，写入 Excel 指定区域
+  - name: "剂量组表格"
+    search:
+      keyword: "剂量组"
+      page: 2
+    excel:
+      sheet: "Sheet1"
+      cell: "A5"           # 表格左上角放在 A5，自动向下向右填充
+      extract: table       # 提取为表格（多行多列）
+
+  # 示例3：只按页码取整页文本，写入某列
+  - name: "第3页摘要"
+    search:
+      page: 3
+    excel:
+      sheet: "摘要"
+      cell: "A1"

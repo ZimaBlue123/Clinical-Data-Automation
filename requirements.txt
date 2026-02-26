@@ -1,0 +1,42 @@
+# PDF 解析与文本/表格提取
+pdfplumber>=0.10.0
+
+# Excel 读写（精确到单元格）
+openpyxl>=3.1.0
+# Excel 图表生成（MS Office 兼容，避免 drawing1.xml 损坏）
+pandas>=1.5.0
+xlsxwriter>=3.0.0
+
+# 配置文件解析（可选）
+pyyaml>=6.0
+
+# PDF 转 PPT（pdf_to_ppt.py）
+pymupdf>=1.23.0
+python-pptx>=0.6.21
+Pillow>=10.0.0
+
+# PPT 合并与叙事重组（02_PPT_Merge）
+scikit-learn>=1.0.0  # TF-IDF 相似度计算
+numpy>=1.20.0
+
+# PPT 边角水印去除（06_PPT_Watermark_Removal）
+# 依赖已包含在 python-pptx + Pillow 中
+
+# Windows 自动化（PPT/Word 转 PDF、PPT 导出图片等）
+pywin32>=306
+
+# C 盘清理（10_C_Drive_Cleanup）
+# 使用 Python 标准库，无需新增依赖
+
+# PPTX/PDF 转原生 PPT（11_PPTX_PDF_to_PPT）
+paddleocr>=2.6.0
+paddlepaddle>=2.5.0
+
+# Python 脚本转 EXE（12_Py_to_EXE）
+pyinstaller>=5.13.0
+
+# WiFi 密码查看（13_WiFi_Passwords）
+# 使用 Python 标准库，无需新增依赖
+
+# 目录文件数量统计（14_Folder_File_Count）
+# 依赖已包含在 pandas/openpyxl 中
