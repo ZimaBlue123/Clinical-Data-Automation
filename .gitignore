@@ -9,9 +9,14 @@ __pycache__/
 venv/
 .venv/
 env/
+# [Patch] 拦截 Python 打包与分发产生的残骸
+build/
+dist/
+*.egg-info/
+*.egg
 
 # ==========================================
-# 2. IDE & AI Assistants (Cybernetics)
+# 2. IDE, OS & AI Assistants (Cybernetics & OS Artifacts)
 # ==========================================
 .idea/
 .vscode/
@@ -20,21 +25,30 @@ env/
 *.swp
 *.swo
 .DS_Store
+# [Patch] 拦截 Windows/Mac 系统自动生成的幽灵文件
+Thumbs.db
+Desktop.ini
 
 # ==========================================
-# 3. Clinical Data & Secrets (Absolute Isolation)
+# 3. Clinical Data & Secrets (Absolute Isolation - Level 5)
 # ==========================================
 data/
 raw_data/
 output/
 config.yaml          # 封杀本地真实配置
 config_local.yaml    # 封杀备用本地配置
+# [Patch] 核心密钥与环境变量的绝对隔离区
+.env
+.env.* secrets/             
 
 # ==========================================
-# 4. Logs & Temp Files (Metabolic Waste)
+# 4. Logs, Temp Files & Notebooks (Metabolic Waste)
 # ==========================================
 *.log
 *.bak
 *.tmp
 ~$* # Excel/PPT 运行时隐形锁文件
 *.bak.xlsx           # 自动化图表模块的冗余备份
+# [Patch] 拦截数据处理时产生的中转废料
+~$*.csv
+.ipynb_checkpoints/  # Jupyter Notebook 探索时留存的残影
