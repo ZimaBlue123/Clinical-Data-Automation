@@ -91,6 +91,14 @@ Clinical Data Automation/
 │   ├── output/                       # 输出：wifi_passwords.csv
 │   └── wifi_passwords.py             # 主程序：读取 WiFi 配置
 │
+├── 14_Folder_File_Count/     # 目录文件数量统计模块
+│   ├── output/                       # 输出：统计结果
+│   └── folder_file_count.py          # 主程序：统计目录文件数
+│
+├── 15_Paper_Batch_Download/  # 文献批量下载模块（OA）
+│   ├── output/                       # 输出：下载的 PDF
+│   └── paper_batch_download.py       # 主程序：批量下载
+│
 ├── src/                      # 核心库
 │   ├── __init__.py
 │   ├── pdf_reader.py                 # PDF 内容提取
@@ -621,6 +629,32 @@ python audit_and_fix_consistency.py
   ```bash
   python folder_file_count.py --path "D:\\data" --output "output"
   ```
+
+---
+
+### 15. 文献批量下载（15_Paper_Batch_Download）
+
+根据 DOI / PMID / 标题 / URL 批量下载可公开获取（Open Access）的 PDF。
+
+**📁 使用步骤：**
+
+1. 直接传入查询：
+   ```bash
+   cd 15_Paper_Batch_Download
+   python paper_batch_download.py --queries "10.1038/s41586-020-2649-2" "32788730" "Attention Is All You Need"
+   ```
+
+2. 从文本文件读取（每行一个，支持 `#` 注释）：
+   ```bash
+   python paper_batch_download.py --file "D:\\papers.txt" --mailto "your_email@example.com"
+   ```
+
+3. 查看输出：`15_Paper_Batch_Download/output/`
+
+**功能说明：**
+- 仅下载 **公开可获取** 的 PDF（Open Access），不支持非公开渠道
+- 支持自动修正常见 DOI 误写
+- 自动用论文标题的“主干部分”重命名文件名（提炼前若干关键词）
 
 ---
 
