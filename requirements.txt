@@ -1,4 +1,4 @@
-# PDF 解析与文本/表格提取
+# PDF 解析与文本/表格提取（含 03_PDF_to_Excel、16_PDF_Sanitizer）
 pdfplumber>=0.10.0
 
 # Excel 读写（精确到单元格）

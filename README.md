@@ -99,6 +99,11 @@ Clinical Data Automation/
 │   ├── output/                       # 输出：下载的 PDF
 │   └── paper_batch_download.py       # 主程序：批量下载
 │
+├── 16_PDF_Sanitizer/         # PDF 文件名极简清洗（剪切模式）
+│   ├── input/                        # 输入：待重命名 PDF
+│   ├── output/                       # 输出：重命名后 PDF
+│   └── pdf_sanitizer.py              # 主程序：文件名手术 + 剪切
+│
 ├── src/                      # 核心库
 │   ├── __init__.py
 │   ├── pdf_reader.py                 # PDF 内容提取
@@ -655,6 +660,35 @@ python audit_and_fix_consistency.py
 - 仅下载 **公开可获取** 的 PDF（Open Access），不支持非公开渠道
 - 支持自动修正常见 DOI 误写
 - 自动用论文标题的“主干部分”重命名文件名（提炼前若干关键词）
+
+---
+
+### 16. PDF 标题驱动重命名（16_PDF_Sanitizer）
+
+读取 `input/` 下的 PDF，**优先提取文献标题** 并精简命名，随后 **直接剪切移动** 到 `output/`。
+
+**📁 使用步骤：**
+
+1. 将待处理 PDF 放入 `16_PDF_Sanitizer/input/`
+
+2. 运行脚本：
+   ```bash
+   cd 16_PDF_Sanitizer
+   python pdf_sanitizer.py
+   ```
+
+3. 查看输出：`16_PDF_Sanitizer/output/`
+
+**功能说明：**
+- 优先读取 PDF 元数据 `Title`，无标题则从首页正文抓取标题候选
+- **标题提取规则（当前实现）：**
+  - 仅解析第一页文本
+  - 取前 15 行中的第一条“长度 ≥ 10”的文本作为标题候选
+  - 若解析失败或为空，回退为原文件名
+- 自动移除括号内噪点（年份/下载标记等）
+- 过滤常见介词/连词，提炼前若干关键词
+- 同名冲突自动追加序号（如 `_2`）
+- 执行完毕后 `input/` 将被清空
 
 ---
 
