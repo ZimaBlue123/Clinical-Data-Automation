@@ -1,18 +1,18 @@
 # -*- coding: utf-8 -*-
 """
-本地文献重塑协议 (PDF Sanitizer v6.0 - 终极全视版)
+本地文献重塑协议 (PDF Sanitizer v6.6 - 副标题截断版)
 Vibe: Academic Cyberpunk
-Engine: PyMuPDF | Chrono-Tracker | Bilingual Edge-Pruning | OCR Vision Matrix
+Engine: PyMuPDF | Chrono-Tracker | Visual Hierarchy | Subtitle Severance | OCR
 """
 import re
 import shutil
 from pathlib import Path
+import io
 
 # --- 基础依赖 ---
 import fitz  # pyright: ignore[reportMissingImports]
 from tqdm import tqdm
 from PIL import Image
-import io
 
 # --- 视觉矩阵依赖 (容错加载) ---
 try:
@@ -36,11 +36,14 @@ class PDFSanitizer:
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     @staticmethod
-    def _simplify_filename(name: str, max_words: int = 12, max_chars: int = 40) -> str:
-        """核心文本手术刀 V6：双语自适应解析，全角标点粉碎，边缘修剪"""
+    def _simplify_filename(name: str, max_words: int = 15, max_chars: int = 40) -> str:
+        """核心文本手术刀：副标题截断，双语自适应解析，全角标点粉碎，边缘修剪"""
+        # 0. [核心优化] 副标题物理切除：在遇到中英文冒号时进行硬截断
+        name = re.split(r"[:：]", name)[0]
+
         # 1. 阵营嗅探：检测是否包含中文字符
         is_chinese = bool(re.search(r"[\u4e00-\u9fa5]", name))
-
+        
         # 2. 物理切除：切除各类括号及内部噪点
         cleaned = re.sub(r"[\[\(（【《].*?[\]\)）】》]", "", name)
         
@@ -49,13 +52,13 @@ class PDFSanitizer:
         cleaned = re.sub(r"\s+", " ", cleaned).strip()
 
         if is_chinese:
-            # --- 中文高压压缩逻辑 ---
+            # 中文高压压缩
             cleaned_cjk = cleaned.replace(" ", "")
             if not cleaned_cjk:
                 return "未命名文献_Untitled"
             return cleaned_cjk[:max_chars] 
         else:
-            # --- 纯英文边缘修剪逻辑 ---
+            # 纯英文边缘修剪
             cleaned_en = cleaned.title()
             words = cleaned_en.split()[:max_words]
             dangling_toxins = {
@@ -89,46 +92,88 @@ class PDFSanitizer:
         if not OCR_AVAILABLE or len(doc) == 0:
             return ""
         try:
-            # 渲染首页为 200 DPI 的高精度图像
             pix = doc[0].get_pixmap(dpi=200)
             img = Image.open(io.BytesIO(pix.tobytes("png")))
-            
-            # 启动中英双语识别
             text = pytesseract.image_to_string(img, lang="chi_sim+eng")
             return text.strip()
         except Exception as e:
             print(f"\n[!] 视觉皮层短路: {e}")
             return ""
 
+    @staticmethod
+    def _extract_title_by_visual_hierarchy(page: fitz.Page) -> str:
+        """视觉层级引擎：通过物理字号锁定真实标题"""
+        try:
+            blocks = page.get_text("dict").get("blocks", [])
+            text_sizes = []
+            
+            for b in blocks:
+                if "lines" in b:
+                    for line in b["lines"]:
+                        for span in line["spans"]:
+                            text = span.get("text", "").strip()
+                            size = span.get("size", 0)
+                            if text:
+                                text_sizes.append((size, text))
+            
+            if not text_sizes: return ""
+            
+            size_map = {}
+            for size, text in text_sizes:
+                s = round(size, 1)
+                if s not in size_map: size_map[s] = []
+                size_map[s].append(text)
+                
+            sorted_sizes = sorted(size_map.keys(), reverse=True)
+            
+            # 黑名单：免疫期刊页眉噪点
+            blacklist = {"majorarticle", "researcharticle", "reviewarticle", "clinicalinfectiousdiseases"}
+            
+            for s in sorted_sizes:
+                candidate = " ".join(size_map[s]).strip()
+                compressed_cand = candidate.lower().replace(" ", "")
+                is_toxic = any(noise in compressed_cand for noise in blacklist)
+                
+                # 若无毒且长度合理，直接将其判定为标题
+                if len(candidate) >= 8 and not is_toxic:
+                    return candidate
+        except Exception:
+            pass
+        return ""
+
     def _scan_payload(self, pdf_path: Path) -> tuple[str, str]:
-        """神经元探针 V6：融合元数据、原生文本与 OCR 后备能源"""
+        """神经元探针 V6.6：融合元数据、拓扑探测与 OCR 后备能源"""
         title = ""
         year = "XXXX"
         text_payload = ""
+        hierarchy_title = ""
         
         try:
             with fitz.open(pdf_path) as doc:
                 meta_title = doc.metadata.get("title", "").strip()
                 
-                # 尝试获取原生文本
+                # 尝试获取原生文本与视觉层级
                 if len(doc) > 0:
                     text_payload = doc[0].get_text("text").strip()
+                    hierarchy_title = self._extract_title_by_visual_hierarchy(doc[0])
                 
-                # --- 核心判断：如果原生文本极少（比如扫描版），触发 OCR 视觉矩阵 ---
+                # 如果原生文本极少，触发 OCR
                 if len(text_payload) < 20:
                     text_payload = self._optical_scan(doc)
 
-                # --- 阶段 1: 标题窃取 ---
-                if meta_title and len(meta_title) > 2:
+                # --- 阶段 1: 标题窃取 (多维降维打击) ---
+                if hierarchy_title:
+                    title = hierarchy_title
+                elif meta_title and len(meta_title) > 2 and "microsoft word" not in meta_title.lower():
                     title = meta_title
                 else:
                     lines = [line.strip() for line in text_payload.splitlines() if line.strip()]
-                    for line in lines[:15]: # 扩大搜索范围防噪
-                        if len(line) >= 5: # 兼容极短中文标题
+                    for line in lines[:15]: 
+                        if len(line) >= 5: 
                             title = line
                             break
                             
-                # --- 阶段 2: 时间线锚定 (双语 Chrono-Tracking) ---
+                # --- 阶段 2: 时间线锚定 ---
                 text_head = text_payload[:2000]
                 pattern = r"(?:©|copyright|published|vol\.|date|年|出版|收稿).*?\b(19[5-9]\d|20[0-2]\d)\b"
                 explicit_year = re.search(pattern, text_head, re.IGNORECASE)
@@ -158,7 +203,7 @@ class PDFSanitizer:
             print(f"\n[!] 雷达静默。{self.input_dir.name}/ 区块未扫描到目标。请装填弹药。\n")
             return
 
-        print(f"\n[+] Omni-Sight Protocol V6 启动 | 锁定目标: {len(pdf_targets)}")
+        print(f"\n[+] Protocol V6.6 (Severance) 启动 | 锁定目标: {len(pdf_targets)}")
         print(f"[+] 视觉矩阵(OCR): {'在线' if OCR_AVAILABLE else '离线'}\n")
         
         success_count = 0

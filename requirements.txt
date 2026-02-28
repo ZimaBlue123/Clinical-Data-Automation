@@ -33,6 +33,9 @@ paddleocr>=2.6.0
 paddlepaddle>=2.5.0
 tqdm>=4.66.0
 
+# PDF 标题驱动重命名（16_PDF_Sanitizer - OCR 可选）
+pytesseract>=0.3.10
+
 # 文献批量下载（15_Paper_Batch_Download）
 requests>=2.31.0  # HTTP 请求
 
