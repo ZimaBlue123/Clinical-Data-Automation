@@ -23,7 +23,7 @@ numpy>=1.20.0
 # 依赖已包含在 python-pptx + Pillow 中
 
 # Windows 自动化（PPT/Word 转 PDF、PPT 导出图片等）
-pywin32>=306
+pywin32>=306; platform_system == "Windows"
 
 # C 盘清理（10_C_Drive_Cleanup）
 # 使用 Python 标准库，无需新增依赖
