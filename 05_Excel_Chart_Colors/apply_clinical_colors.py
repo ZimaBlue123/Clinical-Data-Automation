@@ -175,6 +175,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    import sys
     # 非交互环境默认使用 NPG
     palette_choice = args.palette
     if not palette_choice and not sys.stdin.isatty():
