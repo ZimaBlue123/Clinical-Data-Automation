@@ -10,7 +10,7 @@ xlsxwriter>=3.0.0
 # 配置文件解析（可选）
 pyyaml>=6.0
 
-# PDF 转 PPT（pdf_to_ppt.py）
+# PDF 处理（04_PDF_to_PPT、07_PDF_XSS、16_PDF_Sanitizer、17_PDF_eCTD_Converter）
 pymupdf>=1.23.0
 python-pptx>=0.6.21
 Pillow>=10.0.0

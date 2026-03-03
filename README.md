@@ -104,6 +104,11 @@ Clinical Data Automation/
 │   ├── output/                       # 输出：重命名后 PDF
 │   └── pdf_sanitizer.py              # 主程序：文件名手术 + 剪切
 │
+├── 17_PDF_eCTD_Converter/    # PDF eCTD 转换模块（校验+清理+重写保存）
+│   ├── input/                        # 输入：待转换 PDF
+│   ├── output/                       # 输出：转换后的 eCTD PDF
+│   └── pdf_ectd_converter.py         # 主程序：eCTD 校验与转换
+│
 ├── src/                      # 核心库
 │   ├── __init__.py
 │   ├── pdf_reader.py                 # PDF 内容提取
@@ -690,6 +695,40 @@ python audit_and_fix_consistency.py
 - 执行完毕后 `input/` 将被清空
 
 ---
+
+### 17. PDF eCTD 转换（17_PDF_eCTD_Converter）
+
+将 `input/` 下的 PDF 做 eCTD 常见约束的“可提交化”处理：**可读性校验、拒绝密码锁定、移除附件、移除非超链接注释、清理外部/非法链接、重写保存（含 Fast Web View）并导出 Excel 审计报告**。
+
+**📁 使用步骤：**
+
+1. 将待处理 PDF 放入 `17_PDF_eCTD_Converter/input/`
+
+2. 运行脚本（默认 input → output）：
+   ```bash
+   cd 17_PDF_eCTD_Converter
+   python pdf_ectd_converter.py --report "output/ectd_report.xlsx"
+   ```
+
+3. 查看输出：`17_PDF_eCTD_Converter/output/文件名_ectd.pdf`
+   - 审计报告：`17_PDF_eCTD_Converter/output/ectd_report.xlsx`
+
+**可选参数：**
+
+- **仅校验（不输出）**：
+  ```bash
+  python pdf_ectd_converter.py --validate-only --report "output/ectd_report.xlsx"
+  ```
+
+- **覆盖已有输出**：
+  ```bash
+  python pdf_ectd_converter.py --overwrite
+  ```
+
+- **输出保持原文件名（默认追加 _ectd）**：
+  ```bash
+  python pdf_ectd_converter.py --keep-name
+  ```
 
 ## 配置说明
 
