@@ -47,3 +47,6 @@ pyinstaller>=5.13.0
 
 # 目录文件数量统计（14_Folder_File_Count）
 # 依赖已包含在 pandas/openpyxl 中
+
+# 代理配置导出（18_Proxy_Config_Export，Windows）
+# 使用 Python 标准库（os/subprocess/pathlib/datetime），无需新增依赖

@@ -109,6 +109,10 @@ Clinical Data Automation/
 │   ├── output/                       # 输出：转换后的 eCTD PDF
 │   └── pdf_ectd_converter.py         # 主程序：eCTD 校验与转换
 │
+├── 18_Proxy_Config_Export/   # 代理配置导出模块（注册表+环境变量）
+│   ├── output/                       # 输出：代理配置文本
+│   └── proxy_config_export.py        # 主程序：导出代理配置
+│
 ├── src/                      # 核心库
 │   ├── __init__.py
 │   ├── pdf_reader.py                 # PDF 内容提取
@@ -666,6 +670,7 @@ python audit_and_fix_consistency.py
 - 支持自动修正常见 DOI 误写
 - 自动用论文标题的“主干部分”重命名文件名（提炼前若干关键词）
 
+
 ---
 
 ### 16. PDF 标题驱动重命名（16_PDF_Sanitizer）
@@ -729,6 +734,36 @@ python audit_and_fix_consistency.py
   ```bash
   python pdf_ectd_converter.py --keep-name
   ```
+
+### 18. 代理配置导出（18_Proxy_Config_Export）
+
+导出当前系统代理配置（**Windows 注册表 + 环境变量**）到文本文件，便于复制到终端、构建机或远程环境。
+
+**📁 使用步骤：**
+
+1. 运行脚本：
+   ```bash
+   cd 18_Proxy_Config_Export
+   python proxy_config_export.py
+   ```
+
+2. 查看输出：`18_Proxy_Config_Export/output/proxy_config_YYYYMMDD_HHMMSS.txt`
+
+**功能说明：**
+- 读取注册表 `HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings`
+  - `ProxyEnable`（是否启用）
+  - `ProxyServer`（代理地址）
+  - `ProxyOverride`（免代理地址）
+- 读取环境变量：`HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY`（含大小写兼容）
+- 当系统代理已启用时，自动输出可直接复用的：
+  - `http://<proxy_server>`
+  - `https://<proxy_server>`
+  - `NO_PROXY`（将 `;` 自动转换为 `,`）
+- 输出文件带时间戳，默认写入 `18_Proxy_Config_Export/output/`
+
+**说明：**
+- 仅支持 Windows（依赖 `reg query` 读取注册表）
+- 仅使用 Python 标准库，无需额外安装第三方依赖
 
 ## 配置说明
 
