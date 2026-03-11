@@ -15,6 +15,9 @@ pymupdf>=1.23.0
 python-pptx>=0.6.21
 Pillow>=10.0.0
 
+# PDF 合并（19_PDF_Merge）
+pypdf>=4.0.0
+
 # PPT 合并与叙事重组（02_PPT_Merge）
 scikit-learn>=1.0.0  # TF-IDF 相似度计算
 numpy>=1.20.0

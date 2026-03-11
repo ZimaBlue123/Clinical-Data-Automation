@@ -113,6 +113,11 @@ Clinical Data Automation/
 │   ├── output/                       # 输出：代理配置文本
 │   └── proxy_config_export.py        # 主程序：导出代理配置
 │
+├── 19_PDF_Merge/             # PDF 合并模块（自然排序）
+│   ├── input/                        # 输入：待合并 PDF（支持子文件夹）
+│   ├── output/                       # 输出：合并后的 PDF
+│   └── merge_pdf.py                  # 主程序：按自然排序合并
+│
 ├── src/                      # 核心库
 │   ├── __init__.py
 │   ├── pdf_reader.py                 # PDF 内容提取
@@ -450,13 +455,35 @@ python audit_and_fix_consistency.py
    python word_to_pdf.py
    ```
 
-3. 查看输出：`09_Word_to_PDF/output/文件名.pdf`
+3. 查看输出（默认会保留输入目录的相对结构）：
+   - 输入：`input/A/B/test.docx`
+   - 输出：`output/A/B/test.pdf`
 
 **可选参数：**
 
 - **指定输入/输出目录或单个文件：**
   ```bash
   python word_to_pdf.py --input "D:\\DOCS" --output "D:\\PDF"
+  ```
+
+- **递归遍历子文件夹（默认开启）：**
+  ```bash
+  python word_to_pdf.py --recursive
+  ```
+
+- **仅遍历当前目录（关闭递归）：**
+  ```bash
+  python word_to_pdf.py --no-recursive
+  ```
+
+- **保留目录结构输出（默认开启，避免同名文件互相覆盖）：**
+  ```bash
+  python word_to_pdf.py --keep-structure
+  ```
+
+- **不保留目录结构（全部输出到同一层目录）：**
+  ```bash
+  python word_to_pdf.py --no-keep-structure
   ```
 
 - **覆盖已有输出：**
@@ -765,6 +792,41 @@ python audit_and_fix_consistency.py
 - 仅支持 Windows（依赖 `reg query` 读取注册表）
 - 仅使用 Python 标准库，无需额外安装第三方依赖
 
+---
+
+### 19. PDF 合并（19_PDF_Merge）
+
+将 `input/` 下多个 PDF 按“命名从低到高”的自然排序合并为一个 PDF（支持遍历子文件夹，按相对路径排序）。
+
+**📁 使用步骤：**
+
+1. 将待合并 PDF 放入 `19_PDF_Merge/input/`（可放在子文件夹中）
+
+2. 运行脚本（默认 input → output）：
+   ```bash
+   cd 19_PDF_Merge
+   python merge_pdf.py
+   ```
+
+3. 查看输出：`19_PDF_Merge/output/merged.pdf`
+
+**可选参数：**
+
+- **指定输入/输出目录或单个文件：**
+  ```bash
+  python merge_pdf.py --input "D:\\PDFS" --output "D:\\OUT"
+  ```
+
+- **自定义输出文件名：**
+  ```bash
+  python merge_pdf.py --output-name all.pdf
+  ```
+
+- **覆盖已有输出：**
+  ```bash
+  python merge_pdf.py --overwrite
+  ```
+
 ## 配置说明
 
 复制 `config.example.yaml` 为 `config.yaml`，按需修改：
@@ -811,3 +873,7 @@ rules:
 
 - 各模块独立运行，按需使用；输入放 `input/`，输出在 `output/`。
 - 历史优化与代码规范已融入代码与本文档，重大变更见版本记录或 Git 历史。
+
+## 许可证
+
+本项目采用 [MIT License](LICENSE.md) 开源协议。
