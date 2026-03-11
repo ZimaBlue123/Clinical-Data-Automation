@@ -10,6 +10,8 @@
   python pdf_xss_clean.py
   python pdf_xss_clean.py --input "D:\\pdfs" --output "D:\\pdfs_clean"
   python pdf_xss_clean.py --overwrite
+  python pdf_xss_clean.py --no-recursive
+  python pdf_xss_clean.py --no-keep-structure
 """
 from __future__ import annotations
 
@@ -101,11 +103,12 @@ def clean_pdf(pdf_path: Path, output_path: Path, overwrite: bool = False) -> boo
         doc.close()
 
 
-def collect_pdfs(input_path: Path) -> list[Path]:
+def collect_pdfs(input_path: Path, recursive: bool = True) -> list[Path]:
     if input_path.is_file() and input_path.suffix.lower() == ".pdf":
-        return [input_path]
+        return [input_path.resolve()]
     if input_path.is_dir():
-        return sorted(input_path.glob("*.pdf"))
+        pattern = "**/*.pdf" if recursive else "*.pdf"
+        return sorted([p.resolve() for p in input_path.glob(pattern) if p.is_file()])
     return []
 
 
@@ -132,22 +135,38 @@ def main() -> None:
         action="store_true",
         help="覆盖已存在的输出文件",
     )
+    parser.add_argument(
+        "--recursive",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="是否递归遍历子文件夹（默认开启）",
+    )
+    parser.add_argument(
+        "--keep-structure",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="当输入为目录时，是否在输出目录中保留相对目录结构（默认开启）",
+    )
     args = parser.parse_args()
 
     input_path = Path(args.input).expanduser()
     output_dir = Path(args.output).expanduser()
 
-    pdf_files = collect_pdfs(input_path)
+    pdf_files = collect_pdfs(input_path, recursive=args.recursive)
     if not pdf_files:
         print(f"未找到 PDF 文件：{input_path}")
         return
 
     total = 0
     success = 0
+    base_input_dir = input_path.resolve() if input_path.is_dir() else None
     for pdf_path in pdf_files:
         total += 1
-        output_name = f"{pdf_path.stem}_cleaned.pdf"
-        output_path = output_dir / output_name
+        if base_input_dir and args.keep_structure:
+            rel = pdf_path.relative_to(base_input_dir)
+            output_path = (output_dir / rel).with_name(f"{rel.stem}_cleaned.pdf")
+        else:
+            output_path = output_dir / f"{pdf_path.stem}_cleaned.pdf"
         if clean_pdf(pdf_path, output_path, overwrite=args.overwrite):
             success += 1
 

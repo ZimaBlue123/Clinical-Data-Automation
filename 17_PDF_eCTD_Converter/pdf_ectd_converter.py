@@ -44,11 +44,12 @@ def _now_str() -> str:
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
-def _collect_pdfs(input_path: Path) -> list[Path]:
+def _collect_pdfs(input_path: Path, recursive: bool = True) -> list[Path]:
     if input_path.is_file() and input_path.suffix.lower() == ".pdf":
-        return [input_path]
+        return [input_path.resolve()]
     if input_path.is_dir():
-        return sorted([p for p in input_path.glob("*.pdf") if p.is_file()])
+        pattern = "**/*.pdf" if recursive else "*.pdf"
+        return sorted([p.resolve() for p in input_path.glob(pattern) if p.is_file()])
     return []
 
 
@@ -267,7 +268,7 @@ class ECTDComplianceCleaner:
             except Exception:
                 details.append("警告: 无法设置页面布局 OneColumn（6.20）")
 
-            self.output_dir.mkdir(parents=True, exist_ok=True)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
 
             # 6.22: Fast Web View（linearization）
             try:
@@ -339,13 +340,25 @@ def main() -> None:
     parser.add_argument("--overwrite", action="store_true", help="覆盖已存在的输出文件")
     parser.add_argument("--keep-name", action="store_true", help="输出文件名与源文件一致（默认追加 _ectd）")
     parser.add_argument("--validate-only", action="store_true", help="仅做校验，不做输出（仍生成审计报告）")
+    parser.add_argument(
+        "--recursive",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="是否递归遍历子文件夹（默认开启）",
+    )
+    parser.add_argument(
+        "--keep-structure",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="当输入为目录时，是否在输出目录中保留相对目录结构（默认开启）",
+    )
     args = parser.parse_args()
 
     input_path = Path(args.input).expanduser()
     output_dir = Path(args.output).expanduser()
     report_path = Path(args.report).expanduser()
 
-    pdf_files = _collect_pdfs(input_path)
+    pdf_files = _collect_pdfs(input_path, recursive=args.recursive)
     if not pdf_files:
         print(f"[-] 未找到 PDF 文件：{input_path}")
         return
@@ -361,14 +374,21 @@ def main() -> None:
 
     total = 0
     success = 0
+    base_input_dir = input_path.resolve() if input_path.is_dir() else None
 
     for pdf_path in pdf_files:
         total += 1
-        if args.keep_name:
-            out_name = pdf_path.name
+        if base_input_dir and args.keep_structure:
+            rel = pdf_path.relative_to(base_input_dir)
+            if args.keep_name:
+                out_path = output_dir / rel
+            else:
+                out_path = (output_dir / rel).with_name(f"{rel.stem}_ectd.pdf")
         else:
-            out_name = f"{pdf_path.stem}_ectd.pdf"
-        out_path = output_dir / out_name
+            if args.keep_name:
+                out_path = output_dir / pdf_path.name
+            else:
+                out_path = output_dir / f"{pdf_path.stem}_ectd.pdf"
 
         if cleaner.process_pdf(pdf_path, out_path, validate_only=args.validate_only):
             success += 1

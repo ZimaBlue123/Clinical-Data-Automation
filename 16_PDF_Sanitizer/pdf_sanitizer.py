@@ -8,6 +8,7 @@ import re
 import shutil
 from pathlib import Path
 import io
+import argparse
 
 # --- 基础依赖 ---
 import fitz  # pyright: ignore[reportMissingImports]
@@ -26,10 +27,21 @@ except ImportError:
 
 
 class PDFSanitizer:
-    def __init__(self, input_dir: str = "input", output_dir: str = "output"):
+    def __init__(
+        self,
+        input_dir: str = "input",
+        output_dir: str = "output",
+        *,
+        recursive: bool = True,
+        keep_structure: bool = True,
+        overwrite: bool = False,
+    ):
         self.base_dir = Path(__file__).resolve().parent
         self.input_dir = self.base_dir / input_dir
         self.output_dir = self.base_dir / output_dir
+        self.recursive = recursive
+        self.keep_structure = keep_structure
+        self.overwrite = overwrite
 
         # 基础设施初始化
         self.input_dir.mkdir(parents=True, exist_ok=True)
@@ -77,11 +89,11 @@ class PDFSanitizer:
                 
             return "_".join(words)
 
-    def _dedupe_filename(self, base_name: str) -> str:
+    def _dedupe_filename(self, target_dir: Path, base_name: str) -> str:
         """量子态文件覆盖防御"""
         candidate = base_name
         counter = 1
-        while (self.output_dir / f"{candidate}.pdf").exists():
+        while (target_dir / f"{candidate}.pdf").exists():
             candidate = f"{base_name}_{counter}"
             counter += 1
         return candidate
@@ -197,7 +209,8 @@ class PDFSanitizer:
 
     def execute(self) -> None:
         """主控循环"""
-        pdf_targets = list(self.input_dir.glob("*.pdf"))
+        pattern = "**/*.pdf" if self.recursive else "*.pdf"
+        pdf_targets = [p for p in self.input_dir.glob(pattern) if p.is_file()]
 
         if not pdf_targets:
             print(f"\n[!] 雷达静默。{self.input_dir.name}/ 区块未扫描到目标。请装填弹药。\n")
@@ -207,6 +220,8 @@ class PDFSanitizer:
         print(f"[+] 视觉矩阵(OCR): {'在线' if OCR_AVAILABLE else '离线'}\n")
         
         success_count = 0
+        skipped_count = 0
+        base_input_dir = self.input_dir.resolve()
 
         for pdf_path in tqdm(pdf_targets, desc="Sanitizing", unit="file", ascii=" ▖▘▝▗▚▞█"):
             raw_title, year = self._scan_payload(pdf_path)
@@ -214,18 +229,61 @@ class PDFSanitizer:
             
             chronological_name = f"{simplified_name}-{year}"
             
-            final_safe_name = self._dedupe_filename(chronological_name)
-            target_path = self.output_dir / f"{final_safe_name}.pdf"
+            if self.keep_structure:
+                rel_parent = pdf_path.resolve().relative_to(base_input_dir).parent
+                target_dir = (self.output_dir / rel_parent).resolve()
+            else:
+                target_dir = self.output_dir.resolve()
+            target_dir.mkdir(parents=True, exist_ok=True)
+
+            target_path = target_dir / f"{chronological_name}.pdf"
+            if target_path.exists():
+                if not self.overwrite:
+                    skipped_count += 1
+                    continue
+                try:
+                    target_path.unlink()
+                except Exception:
+                    pass
+
+            final_safe_name = self._dedupe_filename(target_dir, chronological_name)
+            target_path = target_dir / f"{final_safe_name}.pdf"
 
             shutil.move(str(pdf_path), str(target_path))
             success_count += 1
 
         print("\n" + "=" * 55)
+        if skipped_count:
+            print(f"[*] 跳过已存在输出: {skipped_count} 个文件（可用 --overwrite 覆盖）")
         print(f"[*] 战场清理完毕 | 成功重塑并跃迁: {success_count} 个文件")
         print(f"[*] 终极归档坐标: {self.output_dir}/")
         print("=" * 55 + "\n")
 
 
 if __name__ == "__main__":
-    sanitizer = PDFSanitizer()
+    parser = argparse.ArgumentParser(description="PDF 标题驱动重命名（支持递归遍历子文件夹）")
+    parser.add_argument("--input", default="input", help="输入目录（相对 16_PDF_Sanitizer/）")
+    parser.add_argument("--output", default="output", help="输出目录（相对 16_PDF_Sanitizer/）")
+    parser.add_argument(
+        "--recursive",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="是否递归遍历子文件夹（默认开启）",
+    )
+    parser.add_argument(
+        "--keep-structure",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="是否在输出目录中保留相对目录结构（默认开启）",
+    )
+    parser.add_argument("--overwrite", action="store_true", help="覆盖已存在的输出文件")
+    args = parser.parse_args()
+
+    sanitizer = PDFSanitizer(
+        input_dir=args.input,
+        output_dir=args.output,
+        recursive=args.recursive,
+        keep_structure=args.keep_structure,
+        overwrite=args.overwrite,
+    )
     sanitizer.execute()

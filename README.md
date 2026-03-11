@@ -395,7 +395,9 @@ python audit_and_fix_consistency.py
    python pdf_xss_clean.py
    ```
 
-3. 查看输出：`07_PDF_XSS/output/文件名_cleaned.pdf`
+3. 查看输出（默认会递归遍历子文件夹，并保留相对目录结构）：
+   - 输入：`input/A/B/test.pdf`
+   - 输出：`output/A/B/test_cleaned.pdf`
 
 **可选参数：**
 
@@ -407,6 +409,16 @@ python audit_and_fix_consistency.py
 - **覆盖已有输出：**
   ```bash
   python pdf_xss_clean.py --overwrite
+  ```
+
+- **仅遍历当前目录（关闭递归）：**
+  ```bash
+  python pdf_xss_clean.py --no-recursive
+  ```
+
+- **不保留目录结构（全部输出到同一层目录）：**
+  ```bash
+  python pdf_xss_clean.py --no-keep-structure
   ```
 
 ---
@@ -716,6 +728,10 @@ python audit_and_fix_consistency.py
 
 3. 查看输出：`16_PDF_Sanitizer/output/`
 
+**补充说明：**
+- 默认会**递归遍历子文件夹**，并在 `output/` 内**保留相对目录结构**
+- 脚本会对 PDF 做“剪切移动”，执行完毕后 `input/` 下的 PDF 会被迁移走（目录可能保留为空）
+
 **功能说明：**
 - **标题提取优先级**：视觉层级标题（最大字号）→ 元数据 `Title` → 正文前 15 行
 - 当正文文本过少时自动启用 OCR 作为后备识别（需 `pytesseract` + 本地 Tesseract）
@@ -725,6 +741,28 @@ python audit_and_fix_consistency.py
 - 自动追加年份后缀（如 `标题-2021.pdf`，年份来源于正文或元数据）
 - 同名冲突自动追加序号（如 `_2`）
 - 执行完毕后 `input/` 将被清空
+
+**可选参数：**
+
+- **指定输入/输出目录（相对 `16_PDF_Sanitizer/`）：**
+  ```bash
+  python pdf_sanitizer.py --input "input" --output "output"
+  ```
+
+- **仅遍历当前目录（关闭递归）：**
+  ```bash
+  python pdf_sanitizer.py --no-recursive
+  ```
+
+- **不保留目录结构（全部输出到同一层目录）：**
+  ```bash
+  python pdf_sanitizer.py --no-keep-structure
+  ```
+
+- **覆盖已存在输出：**
+  ```bash
+  python pdf_sanitizer.py --overwrite
+  ```
 
 ---
 
@@ -742,7 +780,8 @@ python audit_and_fix_consistency.py
    python pdf_ectd_converter.py --report "output/ectd_report.xlsx"
    ```
 
-3. 查看输出：`17_PDF_eCTD_Converter/output/文件名_ectd.pdf`
+3. 查看输出（默认会递归遍历子文件夹，并保留相对目录结构）：
+   - 输出 PDF：`17_PDF_eCTD_Converter/output/.../文件名_ectd.pdf`
    - 审计报告：`17_PDF_eCTD_Converter/output/ectd_report.xlsx`
 
 **可选参数：**
@@ -760,6 +799,16 @@ python audit_and_fix_consistency.py
 - **输出保持原文件名（默认追加 _ectd）**：
   ```bash
   python pdf_ectd_converter.py --keep-name
+  ```
+
+- **仅遍历当前目录（关闭递归）：**
+  ```bash
+  python pdf_ectd_converter.py --no-recursive
+  ```
+
+- **不保留目录结构（全部输出到同一层目录）：**
+  ```bash
+  python pdf_ectd_converter.py --no-keep-structure
   ```
 
 ### 18. 代理配置导出（18_Proxy_Config_Export）
