@@ -25,7 +25,7 @@ numpy>=1.20.0
 # PPT 边角水印去除（06_PPT_Watermark_Removal）
 # 依赖已包含在 python-pptx + Pillow 中
 
-# Windows 自动化（PPT/Word 转 PDF、PPT 导出图片等）
+# Windows 自动化（Word/Excel COM：如 20_Word_to_Excel_to_Figure、PPT/Word 转 PDF 等）
 pywin32>=306; platform_system == "Windows"
 
 # C 盘清理（10_C_Drive_Cleanup）

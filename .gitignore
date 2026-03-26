@@ -34,6 +34,7 @@ Desktop.ini
 # ==========================================
 data/
 raw_data/
+# 说明：output 通常不需要提交（自动生成图表/复刻结果/中间 JSON）
 output/
 config.yaml          # 封杀本地真实配置
 config_local.yaml    # 封杀备用本地配置
@@ -52,3 +53,26 @@ config_local.yaml    # 封杀备用本地配置
 # [Patch] 拦截数据处理时产生的中转废料
 ~$*.csv
 .ipynb_checkpoints/  # Jupyter Notebook 探索时留存的残影
+
+# ==========================================
+# 6. Packaging / Archives (防误传)
+# ==========================================
+*.rar
+
+# ==========================================
+# 5. Module I/O & Skeleton Assets (防止上传泄漏)
+# ==========================================
+# 说明：
+# - input/：原始数据（Word/PDF/RTF/Excel 等）不应提交
+# - output/：生成结果与中间产物（Excel/JSON/日志等）不应提交
+# - Template/：骨架/模板文件（通常是敏感结构数据）不应提交
+# 仅保留 README.md（用于保留目录结构说明）
+**/input/**/*
+**/output/**/*
+**/Template/**/*
+
+!**/input/**/README.md
+!**/output/**/README.md
+!**/Template/**/README.md
+
+!**/.gitkeep

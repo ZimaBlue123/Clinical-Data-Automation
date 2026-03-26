@@ -118,6 +118,15 @@ Clinical Data Automation/
 │   ├── output/                       # 输出：合并后的 PDF
 │   └── merge_pdf.py                  # 主程序：按自然排序合并
 │
+├── 20_Word_to_Excel_to_Figure/ # Word->Excel(表+图) 自动复刻模块
+│   ├── input/                        # 输入：Word/RTF 原始数据文件
+│   ├── Template/                     # 骨架 Excel（保留图表/透视结构）
+│   ├── output/                       # 输出：复刻 Excel + 子表映射计划 JSON
+│   ├── word_to_excel_to_figure.py    # 主程序：从 Word 抽表并填入 Excel
+│   ├── table_mapping_logic.py       # 固化的“子表->Word表映射逻辑”库（供后续新数据复用）
+│   ├── repair_output_by_patch.py    # 兼容性修复脚本（历史用途）
+│   └── README.md                      # 模块说明与命令行用法
+│
 ├── src/                      # 核心库
 │   ├── __init__.py
 │   ├── pdf_reader.py                 # PDF 内容提取
@@ -875,6 +884,32 @@ python audit_and_fix_consistency.py
   ```bash
   python merge_pdf.py --overwrite
   ```
+
+---
+
+### 20. Word -> Excel(表+图) 自动复刻（20_Word_to_Excel_to_Figure）
+
+把 `20_Word_to_Excel_to_Figure/input/` 下的 Word（`.doc/.docx/.rtf`）表格数据抽取出来，填入 `20_Word_to_Excel_to_Figure/Template/` 的骨架 Excel 中指定的图表数据区间（`chart.series.cat/val` 引用区间），生成高保真复刻 Excel（尽量避免 Office/WPS 修复弹窗）。
+
+**推荐工作流（需要你确认映射后再生成 output）：**
+
+1. 先生成候选映射计划（plan only）：
+   ```bash
+   cd 20_Word_to_Excel_to_Figure
+   python word_to_excel_to_figure.py --input-dir "input" --plan-only
+   ```
+   输出到：`output/table_mapping_plan_<骨架xlsx名>.json`
+
+2. 打开 `table_mapping_plan_<骨架xlsx名>.json`，为你确认的候选项添加 `selected: true`
+
+3. 用确认后的映射生成 output：
+   ```bash
+   python word_to_excel_to_figure.py --input-dir "input" --table-map-json "output/table_mapping_plan_<骨架xlsx名>.json"
+   ```
+
+**关键说明：**
+- 骨架 Excel 只放在 `Template/`
+- 当输入文档的“分组/条目排布/拆分列或拆分表”发生变化时，需要你先确认每个 Excel 子表抓取来源的 Word 表格范围
 
 ## 配置说明
 
