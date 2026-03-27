@@ -67,6 +67,8 @@ config_local.yaml    # 封杀备用本地配置
 # - output/：生成结果与中间产物（Excel/JSON/日志等）不应提交
 # - Template/：骨架/模板文件（通常是敏感结构数据）不应提交
 # 仅保留 README.md（用于保留目录结构说明）
+**/input/
+**/output/
 **/input/**/*
 **/output/**/*
 **/Template/**/*

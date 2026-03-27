@@ -215,9 +215,16 @@ Clinical Data Automation/
   python apply_clinical_colors.py --palette NPG
   ```
 
+- **同一组柱/线同色，且仅使用 3 种颜色（默认行为，可调整）：**
+  - 脚本会从每个图表系列标题中提取“组名”，让同一组的 **柱状图** 和 **折线图** 始终保持同色。
+  - 默认每个图表最多使用 **3** 种颜色（超过 3 个组则循环复用颜色）。
+  ```bash
+  python apply_clinical_colors.py --palette Lancet --n-colors 3
+  ```
+
 - **批量处理输入目录：**
   ```bash
-  python apply_clinical_colors.py --batch --input "input" --output "output" --palette Lancet
+  python apply_clinical_colors.py --batch --input "input" --output "output" --palette Lancet --n-colors 3
   ```
 
 ---
