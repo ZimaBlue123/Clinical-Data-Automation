@@ -22,12 +22,23 @@ import re
 import json
 import os
 import shutil
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any, Optional
 
 import openpyxl
 from openpyxl.worksheet.worksheet import Worksheet
+
+from table_mapping_logic import (
+    CellRange,
+    ChartSeriesRefs,
+    WordTableRef,
+    build_table_mapping_plan,
+    label_tokens as _label_tokens,
+    labels_match as _labels_match,
+    load_table_mapping_json,
+    strip_word_cell_text as _strip_word_cell_text,
+    subtable_id_from_cell_range as _subtable_id_from_cell_range,
+)
 
 
 logger = logging.getLogger("word_to_excel_to_figure")
@@ -38,100 +49,12 @@ MODULE_DIR = Path(__file__).resolve().parent
 TEMPLATE_DIR = MODULE_DIR / "Template"
 
 
-@dataclass(frozen=True)
-class CellRange:
-    sheet: str
-    min_row: int
-    max_row: int
-    min_col: int
-    max_col: int
-
-    @property
-    def nrows(self) -> int:
-        return self.max_row - self.min_row + 1
-
-    @property
-    def ncols(self) -> int:
-        return self.max_col - self.min_col + 1
-
-
-@dataclass(frozen=True)
-class ChartSeriesRefs:
-    # cat/val 两个引用区间（通常是同长度的 1 列）
-    cat: CellRange
-    val: CellRange
-
-
-@dataclass(frozen=True)
-class WordTableRef:
-    """
-    指定 Word 文档中的某一个表。
-    table_index 为 doc.Content.Tables 的 1-based 索引。
-    """
-    word_path: str
-    table_index: int
-
-
 def _setup_logging(verbose: bool) -> None:
     level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(
         level=level,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
-
-
-def _strip_word_cell_text(text: str | None) -> str:
-    if text is None:
-        return ""
-    s = str(text)
-    # Word Range.Text 常见结尾标记（单元格/段落）
-    s = s.replace("\x07", "")  # cell mark
-    s = s.replace("\r", "")  # paragraph mark
-    s = s.replace("\x0b", "")
-    s = s.strip()
-    # Excel/Word 有时会带空格或多余不可见字符
-    s = re.sub(r"\s+", "", s)
-    # Excel 输出中可能存在前导单引号（存成文本时）
-    if s.startswith("'"):
-        s = s.lstrip("'")
-    return s
-
-
-def _label_tokens(s: str) -> list[str]:
-    """
-    将 label 文本提取为用于模糊匹配的 token。
-    这里主要抽取字母/数字片段（包含 ADR、PT、gE-TVA01 等）。
-    """
-    s_norm = _strip_word_cell_text(s).upper()
-    # 只保留 A-Z / 0-9 片段，避免中文乱码干扰
-    return re.findall(r"[A-Z0-9]+", s_norm)
-
-
-def _labels_match(cell_text: str | None, target_text: str | None) -> bool:
-    """
-    允许“条目文本轻微变化/乱码/多余字符/空格变化”导致的差异。
-    匹配策略：
-    1) 去空白后完全相等
-    2) 子串包含
-    3) token 覆盖：target 的 token 全出现在 cell_text 中
-    """
-    if target_text is None:
-        return False
-    tgt = _strip_word_cell_text(target_text)
-    if not tgt:
-        return False
-    cell = _strip_word_cell_text(cell_text)
-
-    if cell == tgt:
-        return True
-    if tgt in cell or cell in tgt:
-        return True
-
-    cell_up = cell.upper()
-    toks = _label_tokens(tgt)
-    if toks:
-        return all(t in cell_up for t in toks)
-    return False
 
 
 _NUM_RE = re.compile(r"[-+]?\d+(?:\.\d+)?")
@@ -229,14 +152,6 @@ def _extract_val_header_keys(template_wb: openpyxl.Workbook, sr: ChartSeriesRefs
         if len(keys) >= 5:
             break
     return keys
-
-
-def _subtable_id_from_cell_range(r: CellRange) -> str:
-    """
-    用于把骨架 Excel 的“某个子表/条目块”映射到 Word 表格。
-    约定：用 cat/val 的 CellRange 几何信息生成稳定 id。
-    """
-    return f"{r.sheet}|{r.min_row}|{r.max_row}|{r.min_col}|{r.max_col}"
 
 
 def _cellrange_from_excel_ref(ref: str) -> CellRange:
@@ -725,130 +640,6 @@ def _select_best_skeleton_xlsx(
     return best_path
 
 
-def _plan_table_mappings(
-    template_path: Path,
-    word_parts: list[Path],
-    series_refs: list[ChartSeriesRefs],
-    *,
-    top_k_per_subtable: int = 3,
-) -> dict[str, Any]:
-    """
-    生成“Excel 子表 -> Word 具体表”的候选映射（用于你确认）。
-    输出 JSON 结构见调用端写出的提示。
-    """
-    # 1) 以 cat CellRange 几何定义子表，并抽取该子表的 cat label 文本（用于匹配候选表）
-    template_wb = openpyxl.load_workbook(str(template_path), data_only=False)
-    try:
-        subtables: dict[str, list[ChartSeriesRefs]] = {}
-        for sr in series_refs:
-            sid = _subtable_id_from_cell_range(sr.cat)
-            subtables.setdefault(sid, []).append(sr)
-
-        sub_labels: dict[str, list[str]] = {}
-        sub_cat_samples: dict[str, list[str]] = {}
-        for sid, srs in subtables.items():
-            # 同一个 sid 下 cat_range 几何一致，用第一个 sr 读取 cat
-            sr0 = srs[0]
-            ws_cat = template_wb[sr0.cat.sheet]
-            cat_values = [ws_cat.cell(sr0.cat.min_row + k, sr0.cat.min_col).value for k in range(sr0.cat.nrows)]
-            cat_norm = [_strip_word_cell_text(v) for v in cat_values]
-            cat_norm = [x for x in cat_norm if x]
-            sub_labels[sid] = cat_norm
-            sub_cat_samples[sid] = cat_norm[:5]
-    finally:
-        try:
-            template_wb.close()
-        except Exception:
-            pass
-
-    # 2) 扫描每个 Word part 的所有 tables
-    table_infos: dict[str, list[dict[str, Any]]] = {}
-    with WordComRunner() as runner:
-        for wp in word_parts:
-            doc = runner.open_doc(wp)
-            infos: list[dict[str, Any]] = []
-            tables = doc.Content.Tables
-            for ti in range(1, tables.Count + 1):
-                t = tables.Item(ti)
-                try:
-                    raw = str(t.Range.Text)
-                except Exception:
-                    raw = ""
-                table_text = _strip_word_cell_text(raw)
-                snippet = raw.replace("\r", " ").replace("\n", " ")
-                snippet = re.sub(r"\s+", " ", snippet).strip()
-                snippet = snippet[:140] if len(snippet) > 140 else snippet
-                infos.append({"table_index": ti, "snippet": snippet, "table_text": table_text})
-            table_infos[str(wp)] = infos
-
-    # 3) 为每个子表选 top_k 候选 table（用 cat label fuzzy 匹配表文本得分）
-    subtables_out: dict[str, list[dict[str, Any]]] = {}
-    for sid, cat_labels in sub_labels.items():
-        sample_labels = cat_labels[:6]  # 用前 6 个 label 做匹配打分（速度优先）
-        candidates: list[tuple[int, str, int, str]] = []  # score, word_path, table_index, snippet
-        for wp_str, infos in table_infos.items():
-            for info in infos:
-                table_text = info.get("table_text", "")
-                score = sum(1 for lbl in sample_labels if _labels_match(table_text, lbl))
-                candidates.append((score, wp_str, int(info["table_index"]), str(info.get("snippet", ""))))
-
-        # score 相同：优先表更靠前（table_index 小）
-        candidates.sort(key=lambda x: (-x[0], x[2]))
-        top = candidates[:top_k_per_subtable]
-        subtables_out[sid] = [
-            {
-                "word_file": wp_str,
-                "table_index": ti,
-                "score": score,
-                "snippet": snippet,
-            }
-            for score, wp_str, ti, snippet in top
-        ]
-
-    return {
-        "template_path": str(template_path),
-        "subtables": subtables_out,
-        "subtable_cat_samples": sub_cat_samples,
-        "top_k_per_subtable": top_k_per_subtable,
-        "note": "你需要从每个 subtable 的候选列表里选择真正对应的 Word 表格（table_index）。然后把你的选择写成 table-map-json 供程序二次运行。",
-    }
-
-
-def _load_table_mapping_json(table_map_json_path: Optional[str]) -> dict[str, list[WordTableRef]]:
-    """
-    从 JSON 读取你确认后的 table 映射。
-    默认规则：
-    - 每个 subtable 列表里，如果存在 `selected: true`，则只选这些
-    - 否则默认选列表第一个元素（score 最高）
-    """
-    if not table_map_json_path:
-        return {}
-
-    p = Path(table_map_json_path).expanduser().resolve()
-    if not p.is_file():
-        raise FileNotFoundError(f"--table-map-json 指定文件不存在: {p}")
-
-    data = json.loads(p.read_text(encoding="utf-8"))
-    subtables = data.get("subtables", {}) or {}
-    mapping: dict[str, list[WordTableRef]] = {}
-
-    for sid, cand_list in subtables.items():
-        if not cand_list:
-            continue
-        selected = [c for c in cand_list if bool(c.get("selected"))]
-        if not selected:
-            selected = cand_list[:1]
-        mapping[sid] = [
-            WordTableRef(
-                word_path=str(c.get("word_file")),
-                table_index=int(c.get("table_index")),
-            )
-            for c in selected
-        ]
-
-    return mapping
-
-
 def _write_output_and_self_check(
     template_path: Path,
     out_path: Path,
@@ -1211,6 +1002,51 @@ def _excel_com_write_updates(workbook_path: Path, updates: dict[tuple[str, int, 
             pass
 
 
+def _cell_values_equal_for_patch(a: Any, b: Any, *, rel_tol: float, abs_tol: float) -> bool:
+    if a is None and b is None:
+        return True
+    if a is None or b is None:
+        return False
+    if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+        return math.isclose(float(a), float(b), rel_tol=rel_tol, abs_tol=abs_tol)
+    return _strip_word_cell_text(str(a)) == _strip_word_cell_text(str(b))
+
+
+def _self_check_values(
+    source_path: Path,
+    out_path: Path,
+    series_refs: list[ChartSeriesRefs],
+    *,
+    rel_tol: float = 1e-9,
+    abs_tol: float = 1e-9,
+) -> None:
+    """自检：out_path 与 source_path 在图表 cat/val 引用区间上的单元格值一致（repair_output_by_patch 用）。"""
+    wb_src = openpyxl.load_workbook(str(source_path), data_only=True)
+    wb_out = openpyxl.load_workbook(str(out_path), data_only=True)
+    try:
+        errs: list[str] = []
+        for sr in series_refs:
+            for k in range(sr.cat.nrows):
+                r, c = sr.cat.min_row + k, sr.cat.min_col
+                vs = wb_src[sr.cat.sheet].cell(r, c).value
+                vo = wb_out[sr.cat.sheet].cell(r, c).value
+                if not _cell_values_equal_for_patch(vs, vo, rel_tol=rel_tol, abs_tol=abs_tol):
+                    errs.append(f"cat {sr.cat.sheet}!{r},{c}: src={vs!r} out={vo!r}")
+            for k in range(sr.val.nrows):
+                r, c = sr.val.min_row + k, sr.val.min_col
+                vs = wb_src[sr.val.sheet].cell(r, c).value
+                vo = wb_out[sr.val.sheet].cell(r, c).value
+                if not _cell_values_equal_for_patch(vs, vo, rel_tol=rel_tol, abs_tol=abs_tol):
+                    errs.append(f"val {sr.val.sheet}!{r},{c}: src={vs!r} out={vo!r}")
+        if errs:
+            sample = "\n".join(errs[:20])
+            raise AssertionError(f"自检失败：patch 后值与源文件不一致（前20条）：\n{sample}")
+        logger.info("自检通过：图表引用区间与源文件一致。")
+    finally:
+        wb_src.close()
+        wb_out.close()
+
+
 def _self_check_extraction_coverage(
     series_stats: list[dict[str, Any]],
     *,
@@ -1297,7 +1133,7 @@ def main() -> None:
     logger.info("发现图表 series(cat/val) 引用对数: %d", len(series_refs))
 
     if args.plan_only:
-        plan = _plan_table_mappings(
+        plan = build_table_mapping_plan(
             template_path=skeleton_xlsx,
             word_parts=word_parts,
             series_refs=series_refs,
@@ -1337,7 +1173,7 @@ def main() -> None:
         out_path=out_path,
         word_parts=word_parts,
         series_refs=series_refs,
-        table_mapping=_load_table_mapping_json(args.table_map_json) if args.table_map_json else None,
+        table_mapping=load_table_mapping_json(args.table_map_json or None),
     )
 
 

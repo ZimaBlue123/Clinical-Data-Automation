@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-固化的“Excel 子表 -> Word 表格”映射逻辑。
+Excel 子表 <-> Word 表格映射：数据结构、文本匹配、plan 生成与 JSON 加载。
 
-用途：
-- 先根据 Template 骨架与 input Word/RTF，生成候选映射 plan（供人工确认）
-- 再读取确认后的映射 JSON，在正式生成 output 时限定抓取来源
+主程序 `word_to_excel_to_figure.py` 从这里导入上述能力，避免双轨实现。
 """
 
 from __future__ import annotations
@@ -14,6 +12,8 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
+
+import openpyxl
 
 
 @dataclass(frozen=True)
@@ -27,6 +27,10 @@ class CellRange:
     @property
     def nrows(self) -> int:
         return self.max_row - self.min_row + 1
+
+    @property
+    def ncols(self) -> int:
+        return self.max_col - self.min_col + 1
 
 
 @dataclass(frozen=True)
@@ -78,19 +82,21 @@ def subtable_id_from_cell_range(r: CellRange) -> str:
     return f"{r.sheet}|{r.min_row}|{r.max_row}|{r.min_col}|{r.max_col}"
 
 
-def load_table_mapping_json(table_map_json_path: str) -> dict[str, list[WordTableRef]]:
+def load_table_mapping_json(table_map_json_path: Optional[str]) -> dict[str, list[WordTableRef]]:
     """
     从 JSON 读取你确认后的 table 映射。
-    规则：
-    - 每个 subtable 列表里，如果存在 `selected: true`，则只选这些
-    - 否则默认选列表第一个元素
+    若 path 为 None 或空字符串，返回空 dict。
     """
+    if not table_map_json_path:
+        return {}
+
     p = Path(table_map_json_path).expanduser().resolve()
     if not p.is_file():
-        raise FileNotFoundError(f"table_map_json 不存在: {p}")
+        raise FileNotFoundError(f"--table-map-json 指定文件不存在: {p}")
     data = json.loads(p.read_text(encoding="utf-8"))
     subtables = data.get("subtables", {}) or {}
     mapping: dict[str, list[WordTableRef]] = {}
+
     for sid, cand_list in subtables.items():
         if not cand_list:
             continue
@@ -98,75 +104,96 @@ def load_table_mapping_json(table_map_json_path: str) -> dict[str, list[WordTabl
         if not selected:
             selected = cand_list[:1]
         mapping[sid] = [
-            WordTableRef(word_path=str(c.get("word_file")), table_index=int(c.get("table_index")))
+            WordTableRef(
+                word_path=str(c.get("word_file")),
+                table_index=int(c.get("table_index")),
+            )
             for c in selected
         ]
+
     return mapping
 
 
 def build_table_mapping_plan(
-    *,
-    template_path: str,
-    word_parts: list[str],
+    template_path: Path,
+    word_parts: list[Path],
     series_refs: list[ChartSeriesRefs],
-    word_open_runner: Any,
+    *,
     top_k_per_subtable: int = 3,
 ) -> dict[str, Any]:
     """
-    生成候选映射 plan。
-
-    说明：
-    - word_open_runner 由调用端提供（用于打开 Word 并枚举 tables）
-    - 具体读 Excel/解析 chart series 的逻辑在主程序中完成，这里只负责“打分与组织 plan JSON”
+    生成“Excel 子表 -> Word 具体表”的候选映射（供人工确认）。
     """
-    # 以 cat_range 几何聚类为 subtable
-    subtables: dict[str, list[ChartSeriesRefs]] = {}
-    for sr in series_refs:
-        sid = subtable_id_from_cell_range(sr.cat)
-        subtables.setdefault(sid, []).append(sr)
+    from word_to_excel_to_figure import WordComRunner  # 延迟导入避免循环依赖
 
-    # 从 template 侧抽取每个 subtable 的 cat label 列表（调用端若需要更强控制，可改为传入）
-    # 这里保持为“空”，调用端通常会在 plan JSON 中补充 cat_samples。
-    subtable_cat_samples: dict[str, list[str]] = {sid: [] for sid in subtables.keys()}
+    template_wb = openpyxl.load_workbook(str(template_path), data_only=False)
+    try:
+        subtables: dict[str, list[ChartSeriesRefs]] = {}
+        for sr in series_refs:
+            sid = subtable_id_from_cell_range(sr.cat)
+            subtables.setdefault(sid, []).append(sr)
 
-    # 扫描每个 Word part 的所有 tables 文本
+        sub_labels: dict[str, list[str]] = {}
+        sub_cat_samples: dict[str, list[str]] = {}
+        for sid, srs in subtables.items():
+            sr0 = srs[0]
+            ws_cat = template_wb[sr0.cat.sheet]
+            cat_values = [ws_cat.cell(sr0.cat.min_row + k, sr0.cat.min_col).value for k in range(sr0.cat.nrows)]
+            cat_norm = [strip_word_cell_text(v) for v in cat_values]
+            cat_norm = [x for x in cat_norm if x]
+            sub_labels[sid] = cat_norm
+            sub_cat_samples[sid] = cat_norm[:5]
+    finally:
+        try:
+            template_wb.close()
+        except Exception:
+            pass
+
     table_infos: dict[str, list[dict[str, Any]]] = {}
-    for wp in word_parts:
-        doc = word_open_runner(wp)
-        infos: list[dict[str, Any]] = []
-        tables = doc.Content.Tables
-        for ti in range(1, tables.Count + 1):
-            t = tables.Item(ti)
-            try:
-                raw = str(t.Range.Text)
-            except Exception:
-                raw = ""
-            snippet = raw.replace("\r", " ").replace("\n", " ")
-            snippet = re.sub(r"\s+", " ", snippet).strip()
-            snippet = snippet[:140] if len(snippet) > 140 else snippet
-            infos.append({"table_index": ti, "snippet": snippet, "table_text": strip_word_cell_text(raw)})
-        table_infos[str(wp)] = infos
+    with WordComRunner() as runner:
+        for wp in word_parts:
+            doc = runner.open_doc(wp)
+            infos: list[dict[str, Any]] = []
+            tables = doc.Content.Tables
+            for ti in range(1, tables.Count + 1):
+                t = tables.Item(ti)
+                try:
+                    raw = str(t.Range.Text)
+                except Exception:
+                    raw = ""
+                table_text = strip_word_cell_text(raw)
+                snippet = raw.replace("\r", " ").replace("\n", " ")
+                snippet = re.sub(r"\s+", " ", snippet).strip()
+                snippet = snippet[:140] if len(snippet) > 140 else snippet
+                infos.append({"table_index": ti, "snippet": snippet, "table_text": table_text})
+            table_infos[str(wp)] = infos
 
-    # 候选打分：这里仅提供“占位实现”，实际建议用主程序的 cat label 参与打分
     subtables_out: dict[str, list[dict[str, Any]]] = {}
-    for sid in subtables.keys():
+    for sid, cat_labels in sub_labels.items():
+        sample_labels = cat_labels[:6]
         candidates: list[tuple[int, str, int, str]] = []
         for wp_str, infos in table_infos.items():
             for info in infos:
-                # 占位：无 cat_samples 时 score=0，便于你后续按实际需求替换打分逻辑
-                candidates.append((0, wp_str, int(info["table_index"]), str(info.get("snippet", ""))))
+                table_text = info.get("table_text", "")
+                score = sum(1 for lbl in sample_labels if labels_match(table_text, lbl))
+                candidates.append((score, wp_str, int(info["table_index"]), str(info.get("snippet", ""))))
+
         candidates.sort(key=lambda x: (-x[0], x[2]))
         top = candidates[:top_k_per_subtable]
         subtables_out[sid] = [
-            {"word_file": wp_str, "table_index": ti, "score": score, "snippet": snippet}
+            {
+                "word_file": wp_str,
+                "table_index": ti,
+                "score": score,
+                "snippet": snippet,
+            }
             for score, wp_str, ti, snippet in top
         ]
 
     return {
-        "template_path": str(Path(template_path)),
+        "template_path": str(template_path),
         "subtables": subtables_out,
-        "subtable_cat_samples": subtable_cat_samples,
+        "subtable_cat_samples": sub_cat_samples,
         "top_k_per_subtable": top_k_per_subtable,
-        "note": "请在每个 subtable 候选中标记 selected=true，或保留 top1 作为默认。",
+        "note": "你需要从每个 subtable 的候选列表里选择真正对应的 Word 表格（table_index）。然后把你的选择写成 table-map-json 供程序二次运行。",
     }
-

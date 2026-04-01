@@ -80,8 +80,8 @@ def main() -> None:
     # Excel COM 写入：修复复杂对象结构
     m._excel_com_write_updates(out_path, updates)
 
-    # 自检：输出与模板在图表引用区间上的值一致
-    m._self_check_values(template_path, out_path, series_refs)
+    # 自检：patch 后图表 cat/val 区间应与 source（数据已正确的旧 output）一致
+    m._self_check_values(source_path, out_path, series_refs)
 
 
 if __name__ == "__main__":

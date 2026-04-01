@@ -1,6 +1,6 @@
 # Clinical Data Automation Toolkit
 
-临床数据自动化处理工具集，提供 PDF 数据提取、Excel 图表生成、PPT 整合等自动化分析处理功能。
+临床数据自动化处理工具集，提供 PDF 数据提取与规范化、Excel 图表生成、PPT 整合、文档翻译、网络诊断等自动化分析处理功能。
 
 ## 环境要求
 
@@ -14,7 +14,21 @@
 pip install -r requirements.txt
 ```
 
-> 非 Windows 环境若只使用 PDF/Excel 相关模块，可移除或注释 `pywin32` 后再安装。
+> `requirements.txt` 文件头已注明：非 Windows 或仅使用非 Office 自动化模块时，可移除或注释 `pywin32` 行后再安装；不需要 **11** 时也可注释 Paddle 相关行以减轻安装体积。
+
+## 整体架构
+
+本仓库为 **按编号目录划分的独立工具集**（`01_` … `23_`），共享少量根级资源，各模块可单独使用、互不强制耦合。
+
+| 层次 | 说明 |
+|------|------|
+| **入口** | 各 `NN_*/` 目录内的 `*.py` 脚本或子目录 `README.md` 中的命令行说明。 |
+| **共享库** | `src/`：`pdf_reader`、`excel_writer`、`color_theme` 等，供图表/PDF 等模块引用。 |
+| **配置** | 根目录 `config.yaml` / `config.example.yaml`，主要服务 **03_PDF_to_Excel** 等基于规则的提取。 |
+| **数据约定** | 默认 **`input/` → 脚本 → `output/`**；部分模块支持命令行覆盖路径。 |
+| **运行时** | **纯 Python + 文件库**（openpyxl、pandas、PyMuPDF 等）与 **Windows + Microsoft Office COM**（`pywin32`，用于 Word/Excel/PowerPoint 自动化）两类；后者仅在使用对应模块时需要。 |
+
+**模块 20（Word→Excel 图表数据）数据流简述：** `input/` 中的 Word/RTF → `word_to_excel_to_figure.py` 读取骨架 `Template/*.xlsx` 中的图表 `series(cat/val)` 区间 → 匹配 Word 表格并写回数值；子表与 Word 表的对应关系由 **`table_mapping_logic.py`** 生成/解析 plan JSON（主程序 `import` 该文件，避免重复实现）。若曾用 openpyxl 直接保存破坏了透视/OLAP 结构，可用 **`repair_output_by_patch.py`** 将「数据已正确」的旧文件中的图表区间 patch 回模板副本（Excel COM 写入）。
 
 ## 项目结构
 
@@ -118,14 +132,32 @@ Clinical Data Automation/
 │   ├── output/                       # 输出：合并后的 PDF
 │   └── merge_pdf.py                  # 主程序：按自然排序合并
 │
-├── 20_Word_to_Excel_to_Figure/ # Word->Excel(表+图) 自动复刻模块
-│   ├── input/                        # 输入：Word/RTF 原始数据文件
-│   ├── Template/                     # 骨架 Excel（保留图表/透视结构）
-│   ├── output/                       # 输出：复刻 Excel + 子表映射计划 JSON
-│   ├── word_to_excel_to_figure.py    # 主程序：从 Word 抽表并填入 Excel
-│   ├── table_mapping_logic.py       # 固化的“子表->Word表映射逻辑”库（供后续新数据复用）
-│   ├── repair_output_by_patch.py    # 兼容性修复脚本（历史用途）
-│   └── README.md                      # 模块说明与命令行用法
+├── 20_Word_to_Excel_to_Figure/     # Word→Excel(表+图) 自动复刻（需 Windows+Word+pywin32）
+│   ├── input/                        # 输入：Word/RTF 原始数据
+│   ├── Template/                     # 骨架 Excel（图表/透视等结构）
+│   ├── output/                       # 输出：复刻 Excel、table_mapping_plan_*.json
+│   ├── word_to_excel_to_figure.py    # 主程序：发现图表区间、抽取并 Excel COM 写回
+│   ├── table_mapping_logic.py        # 子表↔Word 表映射与 plan 生成（唯一实现，主程序引用）
+│   ├── repair_output_by_patch.py     # 将旧 output 的图表区间 patch 回模板副本（修结构/弹窗）
+│   ├── fixed_word_to_excel.py        # [Legacy] 硬编码示例脚本
+│   └── README.md                     # 模块说明与命令行
+│
+├── 21_File_Translator/        # 多格式文档翻译模块（双向，免费优先）
+│   ├── input/                        # 输入：待翻译 Excel/CSV/Word/PDF
+│   ├── output/                       # 输出：翻译副本（*_en2zh.* / *_zh2en.*）
+│   ├── file_translator.py            # 主程序：Excel/CSV/Word/PDF 双向翻译
+│   └── README.md                     # 模块说明与命令行用法
+│
+├── 22_DNS_Leak_Detector/      # DNS 泄漏诊断模块（TUN/SOCKS）
+│   ├── output/                       # 输出：诊断 JSON 报告（可选）
+│   ├── dns_leak_detector.py          # 主程序：出口与上游 DNS 一致性检测
+│   └── README.md                     # 模块说明与命令行用法
+│
+├── 23_PDF_Bookmark_Inherit_Zoom/ # PDF 书签「承前缩放」批处理（PyMuPDF）
+│   ├── input/                        # 输入：待处理 PDF
+│   ├── output/                       # 输出：重写书签后的 PDF
+│   ├── pdf_bookmark_inherit_zoom.py  # 主程序：TOC 注入 XYZ / zoom=0，并发批处理
+│   └── README.md                     # 模块说明与快速开始
 │
 ├── src/                      # 核心库
 │   ├── __init__.py
@@ -915,8 +947,139 @@ python audit_and_fix_consistency.py
    ```
 
 **关键说明：**
-- 骨架 Excel 只放在 `Template/`
-- 当输入文档的“分组/条目排布/拆分列或拆分表”发生变化时，需要你先确认每个 Excel 子表抓取来源的 Word 表格范围
+- 骨架 Excel 放在 `Template/`（多骨架时可用 `--template-xlsx` 指定）。
+- 排布变化时先用 `--plan-only` 生成 JSON，在候选项上标记 `selected: true` 后再跑正式生成（详见模块内 `README.md`）。
+- **`table_mapping_logic.py`**：映射 plan 与 JSON 加载的单一数据源，勿维护两套逻辑。
+- **`repair_output_by_patch.py`**：在已有「数据正确」的 xlsx 上，把图表 cat/val 区间拷回模板副本并自检，用于修复 openpyxl 直接保存导致的 Office 结构问题。
+
+---
+
+### 21. 文档双向翻译（21_File_Translator）
+
+对 `input/` 下的 Excel/CSV/Word/PDF 做翻译处理，输出到 `output/`。默认策略为 **translators 免费通道优先**（如 bing/google），并支持 `DeepL` 与 `LibreTranslate` 兜底。
+
+**📁 使用步骤：**
+
+1. 将待翻译文件放入 `21_File_Translator/input/`（支持 `.xlsx/.csv/.docx/.doc/.pdf`）
+2. 运行脚本：
+   ```bash
+   cd 21_File_Translator
+   python file_translator.py --self-test
+   python file_translator.py
+   ```
+3. 查看输出：`21_File_Translator/output/*_en2zh.*` 或 `*_zh2en.*`
+
+**默认行为：**
+- 默认翻译列（Excel/CSV）：`Term`、`SOC`、`Comment`、`PT Name`、`SOC Name`
+- 默认翻译引擎：`auto`（translators -> DeepL -> LibreTranslate -> 原文）
+- 支持方向：`--direction en2zh|zh2en`
+- 支持术语词典优先替换（`--glossary`）
+- 支持 JSON 持久化缓存（`--cache-file`）与文件级并发（`--max-workers`）
+- 对 `.xlsx`：尽量保留原工作簿样式与结构，仅新增双语列
+- 对 `.csv`：输出为 `.xlsx` 双语文件（IME 列表自动兼容前 11 行 metadata）
+- 对 `.docx/.doc`：生成翻译副本，覆盖正文/表格/页眉页脚，并可扩展文本框/脚注
+- 对 `.pdf`：支持覆盖重绘（`overlay`）与仅导出双语文本层（`bilingual-text-layer`）
+- Windows 下默认优先 `COM` 写回引擎，最大化保留图像/对象/排版（避免 `openpyxl` 丢失 WMF）
+- 默认读取 `21_File_Translator/.env`（支持脱敏日志）
+
+**可选参数：**
+
+- **API 自检：**
+  ```bash
+  python file_translator.py --self-test
+  ```
+
+- **指定翻译列（逗号分隔）：**
+  ```bash
+  python file_translator.py --columns "Term,SOC,Comment"
+  ```
+
+- **指定写回引擎：**
+  ```bash
+  python file_translator.py --engine com
+  python file_translator.py --engine openpyxl
+  ```
+
+- **指定翻译引擎：**
+  ```bash
+  python file_translator.py --provider tsfree --ts-engine bing
+  python file_translator.py --provider deepl
+  python file_translator.py --provider libre
+  ```
+
+- **中译英：**
+  ```bash
+  python file_translator.py --direction zh2en
+  ```
+
+- **PDF 仅导出双语文本层：**
+  ```bash
+  python file_translator.py --pdf-mode bilingual-text-layer
+  ```
+  - 该模式会保留原 PDF，并额外输出同名 `*.bilingual.txt` 双语文本层文件。
+
+- **并发与缓存：**
+  ```bash
+  python file_translator.py --max-workers 3 --cache-file "output/translation_cache.json"
+  python file_translator.py --no-cache
+  ```
+  - 并发模式下若检测到 `com` 引擎会自动降级 `openpyxl`，避免 COM 线程安全问题。
+  - 缓存采用“临时文件 + 原子替换”写回，降低意外中断导致缓存损坏的风险。
+
+---
+
+### 22. DNS 泄漏诊断（22_DNS_Leak_Detector）
+
+用于检测“公网出口”与“上游 DNS 解析节点”是否异常偏离，辅助排查代理规则错误、DNS 泄漏与分流配置问题。
+
+**📁 使用步骤：**
+
+1. 运行脚本（默认 TUN 模式）：
+   ```bash
+   cd 22_DNS_Leak_Detector
+   python dns_leak_detector.py --mode tun
+   ```
+
+2. 可选：切换 SOCKS 模式（本地端口）
+   ```bash
+   python dns_leak_detector.py --mode socks --socks-port 10808
+   ```
+
+3. 可选：保存诊断 JSON 报告
+   ```bash
+   python dns_leak_detector.py --save-json
+   ```
+
+**输出说明：**
+- 终端实时日志：链路探活、出口 IP、DNS 区域、风险结论
+- 报告文件（可选）：`22_DNS_Leak_Detector/output/dns_diagnostic_<mode>_<timestamp>.json`
+
+---
+
+### 23. PDF 书签承前缩放（23_PDF_Bookmark_Inherit_Zoom）
+
+批量处理 PDF：通过 **PyMuPDF** 重写目录（TOC），为书签目标注入 **XYZ + zoom=0**，使阅读器在点击书签时 **保持当前缩放比例**（承前缩放）；无书签时仍会执行垃圾回收与流压缩以优化体积。加密 PDF 会跳过并记录失败。
+
+**📁 使用步骤：**
+
+1. 将待处理 PDF 放入 `23_PDF_Bookmark_Inherit_Zoom/input/`
+
+2. 运行脚本（默认读取模块目录下 `input` → `output`，线程数 6）：
+   ```bash
+   cd 23_PDF_Bookmark_Inherit_Zoom
+   python pdf_bookmark_inherit_zoom.py
+   ```
+
+3. 查看输出：`23_PDF_Bookmark_Inherit_Zoom/output/`（与源文件同名）
+
+**可选调整：**
+
+- 修改 `pdf_bookmark_inherit_zoom.py` 末尾的 `INPUT_DIRECTORY`、`OUTPUT_DIRECTORY` 为任意绝对路径（Windows 建议使用原始字符串 `r'C:\...'`）。
+- 调整 `batch_set_scaling(..., max_workers=6)` 中的并发线程数。
+
+**依赖说明：**
+
+- 需安装 `pymupdf`（`fitz`），见根目录 `requirements.txt`。
 
 ## 配置说明
 
@@ -941,6 +1104,7 @@ rules:
 - **Excel 写入扩展**：修改 [`src/excel_writer.py`](src/excel_writer.py)
 - **图表样式与临床配色**：修改 [`01_Excel_Charts/build_charts_xlsxwriter.py`](01_Excel_Charts/build_charts_xlsxwriter.py) 内 `COLOR_MAP` 或 [`src/color_theme.py`](src/color_theme.py)
 - **独立配色模块**： [`05_Excel_Chart_Colors/apply_clinical_colors.py`](05_Excel_Chart_Colors/apply_clinical_colors.py) 支持多期刊预设（NPG、Lancet、NEJM 等）
+- **Word→Excel 图表复刻**：主逻辑在 [`20_Word_to_Excel_to_Figure/word_to_excel_to_figure.py`](20_Word_to_Excel_to_Figure/word_to_excel_to_figure.py)；子表映射与 plan 在 [`20_Word_to_Excel_to_Figure/table_mapping_logic.py`](20_Word_to_Excel_to_Figure/table_mapping_logic.py)
 
 ## 注意事项
 
@@ -950,7 +1114,7 @@ rules:
 4. **路径配置**：PDF 提取依赖文件结构，需根据实际 PDF 调整配置
 5. **模块独立**：各模块独立运行，互不干扰，便于维护和扩展
 6. **PPT 合并**：推荐先运行 `merge_ppt.py` 做基础合并，再运行 `ppt_engine.py` 做叙事重组
-7. **依赖安装**：确保安装所有依赖，特别是 `scikit-learn`（PPT 合并需要）
+7. **依赖安装**：见根目录 `requirements.txt` 分组注释；`scikit-learn`（02）、`pymupdf`（多 PDF 模块含 23）、`requests`（15/22）、`pywin32`（仅 Windows，09/20/08 等 Office 自动化）、`paddleocr`（11，可选注释以减小体积）按所用模块生效
 
 ## 项目优势
 

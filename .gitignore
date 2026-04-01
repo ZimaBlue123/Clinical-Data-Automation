@@ -41,6 +41,15 @@ config_local.yaml    # 封杀备用本地配置
 # [Patch] 核心密钥与环境变量的绝对隔离区
 .env
 .env.* secrets/             
+!**/.env.example
+# [Patch] 凭据与证书文件（避免私密信息泄露）
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_rsa.*
+*.ovpn
 
 # ==========================================
 # 4. Logs, Temp Files & Notebooks (Metabolic Waste)
