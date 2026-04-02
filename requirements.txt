@@ -33,8 +33,9 @@ pyyaml>=6.0
 scikit-learn>=1.0.0
 
 # ---------------------------------------------------------------------------
-# Windows Office 自动化（COM：09/20/08 等；仅 Windows 安装 pywin32）
+# Windows Office 自动化（COM：09/20/24/08 等；仅 Windows 安装 pywin32）
 # 20_Word_to_Excel_to_Figure：Word 读表 + Excel 写回保结构，依赖 openpyxl 与 pywin32
+# 24_Word_Tables_to_Excel：Word 指定表格抽取导出 xlsx，依赖 openpyxl 与 pywin32
 # ---------------------------------------------------------------------------
 pywin32>=306; platform_system == "Windows"
 

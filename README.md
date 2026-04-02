@@ -18,7 +18,7 @@ pip install -r requirements.txt
 
 ## 整体架构
 
-本仓库为 **按编号目录划分的独立工具集**（`01_` … `23_`），共享少量根级资源，各模块可单独使用、互不强制耦合。
+本仓库为 **按编号目录划分的独立工具集**（`01_` … `24_`），共享少量根级资源，各模块可单独使用、互不强制耦合。
 
 | 层次 | 说明 |
 |------|------|
@@ -158,6 +158,12 @@ Clinical Data Automation/
 │   ├── output/                       # 输出：重写书签后的 PDF
 │   ├── pdf_bookmark_inherit_zoom.py  # 主程序：TOC 注入 XYZ / zoom=0，并发批处理
 │   └── README.md                     # 模块说明与快速开始
+│
+├── 24_Word_Tables_to_Excel/      # Word 指定表格抽取为 Excel（精准表头 + 兼容样式）
+│   ├── input/                        # 输入：Word/RTF
+│   ├── output/                       # 输出：xlsx
+│   ├── word_tables_to_excel.py       # 主程序：按表题/序号/表头关键词定位并导出
+│   └── README.md                     # 模块说明与参数
 │
 ├── src/                      # 核心库
 │   ├── __init__.py
@@ -1080,6 +1086,19 @@ python audit_and_fix_consistency.py
 **依赖说明：**
 
 - 需安装 `pymupdf`（`fitz`），见根目录 `requirements.txt`。
+
+### 24. Word 指定表格转 Excel（24_Word_Tables_to_Excel）
+
+将 Word（`.doc/.docx/.rtf`）中指定表格导出为 Excel。定位方式与优先级（详见该目录 `README.md`）：
+
+- **`--merge-tables-from` / `--merge-tables-to`**：多段**顶层** `Document.Tables` 纵向合并（与表题/序号互斥）
+- **`--table-title`**：按表题文本定位
+- **`--table-indices` / `--table-index`**：按 Word 顶层表序号（1-based）
+- **`--header-keywords`**：全量读表后按表头关键字筛选
+
+辅助与自检：`--list-word-tables`（COM，与序号一致）、`--list-docx-tables`（仅 XML，段数常多于顶层表）、`--dry-run`（只统计不写 xlsx）。大表抽取优先按行 `Range.Text`，减轻整表截断与逐格 COM 过慢问题。
+
+导出时支持表头样式化（深色表头、冻结窗格、自动筛选、边框、列宽自适应）；默认 `--header-rows 1`，可按文档结构调整。
 
 ## 配置说明
 

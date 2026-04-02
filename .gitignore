@@ -76,6 +76,7 @@ id_rsa.*
 # - output/：生成结果与中间产物（Excel/JSON/日志等）不应提交
 # - Template/：骨架/模板文件（通常是敏感结构数据）不应提交
 # 仅保留 README.md（用于保留目录结构说明）
+# 例：24_Word_Tables_to_Excel/output/*.xlsx 等大文件由 **/output/ 统一忽略，勿单独提交
 **/input/
 **/output/
 **/input/**/*
