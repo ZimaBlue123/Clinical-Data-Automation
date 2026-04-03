@@ -18,7 +18,7 @@ pip install -r requirements.txt
 
 ## 整体架构
 
-本仓库为 **按编号目录划分的独立工具集**（`01_` … `24_`），共享少量根级资源，各模块可单独使用、互不强制耦合。
+本仓库为 **按编号目录划分的独立工具集**（`01_` … `25_`），共享少量根级资源，各模块可单独使用、互不强制耦合。
 
 | 层次 | 说明 |
 |------|------|
@@ -164,6 +164,13 @@ Clinical Data Automation/
 │   ├── output/                       # 输出：xlsx
 │   ├── word_tables_to_excel.py       # 主程序：按表题/序号/表头关键词定位并导出
 │   └── README.md                     # 模块说明与参数
+│
+├── 25_Watermark_Exclusion/   # PDF 干扰区定位与审计（排除框 + 审计 PDF + 清洗文本）
+│   ├── input/                        # 输入：待分析 PDF
+│   ├── output/                       # 输出：boxes.json / audit_masked.pdf / clean_text / 报告
+│   ├── steps/                        # 管线子步骤（triage、vector、ocr、merge、audit、extract）
+│   ├── main.py                       # 主程序
+│   └── README.md                     # 模块说明、v2 JSON、与 03 联动与 mapping_audit
 │
 ├── src/                      # 核心库
 │   ├── __init__.py
@@ -355,6 +362,16 @@ Clinical Data Automation/
    ```
 
 4. 查看输出：`03_PDF_to_Excel/output/` 文件夹
+
+**可选：配合 25 模块排除页眉/水印干扰区并记录坐标映射审计**
+
+先运行 `25_Watermark_Exclusion` 生成 `*_boxes.json`，再在提取时传入：
+
+```bash
+python main.py --config config.yaml --exclusion-json "../25_Watermark_Exclusion/output/你的文件_boxes.json"
+```
+
+说明与 `mapping_audit` 合并规则见 [`25_Watermark_Exclusion/README.md`](25_Watermark_Exclusion/README.md)。可用 `--no-mapping-audit`、`--mapping-audit-output` 控制审计输出。
 
 #### 3.2 ADR 分级表专用提取
 
@@ -1100,6 +1117,19 @@ python audit_and_fix_consistency.py
 
 导出时支持表头样式化（深色表头、冻结窗格、自动筛选、边框、列宽自适应）；默认 `--header-rows 1`，可按文档结构调整。
 
+### 25. PDF 干扰区定位与审计（25_Watermark_Exclusion）
+
+对 PDF 中疑似水印、页眉页脚或重复干扰区域做 **定位**（矢量关键词或 Tesseract OCR），输出 **v2 排除框 JSON**、**审计叠加 PDF**（半透明框，不物理删除内容）、**按排除区清洗后的逐页文本 JSON**，以及摘要报告。可与 **03_PDF_to_Excel** 的 `--exclusion-json` 联动；`03` 在提供排除文件时会默认生成 **坐标映射审计** `mapping_audit`（合并至同目录 `*_watermark_report.json` 或独立 `*_mapping_audit.json`）。
+
+**快速开始：**
+
+```bash
+cd 25_Watermark_Exclusion
+python main.py --input "input" --output "output"
+```
+
+完整参数、Tesseract 配置、`*_boxes.json` v2 结构及故障排查见该目录 [`README.md`](25_Watermark_Exclusion/README.md)。
+
 ## 配置说明
 
 复制 `config.example.yaml` 为 `config.yaml`，按需修改：
@@ -1119,7 +1149,8 @@ rules:
 
 ## 扩展开发
 
-- **PDF 解析扩展**：修改 [`src/pdf_reader.py`](src/pdf_reader.py)
+- **PDF 解析扩展**：修改 [`src/pdf_reader.py`](src/pdf_reader.py)（含排除框过滤、旋转坐标映射、`mapping_audit`）
+- **PDF 干扰区管线**：[`25_Watermark_Exclusion/main.py`](25_Watermark_Exclusion/main.py) 与 [`25_Watermark_Exclusion/steps/`](25_Watermark_Exclusion/steps/)
 - **Excel 写入扩展**：修改 [`src/excel_writer.py`](src/excel_writer.py)
 - **图表样式与临床配色**：修改 [`01_Excel_Charts/build_charts_xlsxwriter.py`](01_Excel_Charts/build_charts_xlsxwriter.py) 内 `COLOR_MAP` 或 [`src/color_theme.py`](src/color_theme.py)
 - **独立配色模块**： [`05_Excel_Chart_Colors/apply_clinical_colors.py`](05_Excel_Chart_Colors/apply_clinical_colors.py) 支持多期刊预设（NPG、Lancet、NEJM 等）
@@ -1133,7 +1164,7 @@ rules:
 4. **路径配置**：PDF 提取依赖文件结构，需根据实际 PDF 调整配置
 5. **模块独立**：各模块独立运行，互不干扰，便于维护和扩展
 6. **PPT 合并**：推荐先运行 `merge_ppt.py` 做基础合并，再运行 `ppt_engine.py` 做叙事重组
-7. **依赖安装**：见根目录 `requirements.txt` 分组注释；`scikit-learn`（02）、`pymupdf`（多 PDF 模块含 23）、`requests`（15/22）、`pywin32`（仅 Windows，09/20/08 等 Office 自动化）、`paddleocr`（11，可选注释以减小体积）按所用模块生效
+7. **依赖安装**：见根目录 `requirements.txt` 分组注释；`scikit-learn`（02）、`pymupdf`（多 PDF 模块含 23/25）、`pytesseract`（16/25，需本机 Tesseract）、`requests`（15/22）、`pywin32`（仅 Windows，09/20/08 等 Office 自动化）、`paddleocr`（11，可选注释以减小体积）按所用模块生效
 
 ## 项目优势
 

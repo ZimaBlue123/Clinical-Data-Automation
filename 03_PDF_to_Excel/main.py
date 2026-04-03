@@ -9,6 +9,7 @@ import argparse
 import logging
 import sys
 from pathlib import Path
+import json
 
 import yaml
 
@@ -21,6 +22,7 @@ from src.excel_writer import (
     write_text_block,
 )
 from src.pdf_reader import (
+    build_mapping_audit_for_pdf,
     extract_text_from_pdf,
     get_first_table_near_keyword,
     search_by_keyword,
@@ -72,7 +74,13 @@ def resolve_path(base_dir: Path, path_str: str) -> Path:
     return p.resolve()
 
 
-def run_rule(rule: dict, pdf_path: Path, wb, base_dir: Path) -> None:
+def run_rule(
+    rule: dict,
+    pdf_path: Path,
+    wb,
+    base_dir: Path,
+    exclusion_boxes_by_page: dict[int, object] | None = None,
+) -> None:
     """
     执行单个提取规则。
     
@@ -122,14 +130,24 @@ def run_rule(rule: dict, pdf_path: Path, wb, base_dir: Path) -> None:
 
     if extract_mode == "table":
         try:
-            table = get_first_table_near_keyword(pdf_path, keyword or "", page_num)
+            table = get_first_table_near_keyword(
+                pdf_path,
+                keyword or "",
+                page_num,
+                exclusion_boxes_by_page=exclusion_boxes_by_page,
+            )
             if table:
                 write_table(ws, cell, table)
                 logger.info(f"规则 '{name}': 已写入表格到 {sheet_name}!{cell}，共 {len(table)} 行")
                 print(f"  [OK] {name}: 已写入表格到 {sheet_name}!{cell}，共 {len(table)} 行")
             else:
                 # 回退为关键词附近文本
-                hits = search_by_keyword(pdf_path, keyword or "", page_num)
+                hits = search_by_keyword(
+                    pdf_path,
+                    keyword or "",
+                    page_num,
+                    exclusion_boxes_by_page=exclusion_boxes_by_page,
+                )
                 if hits:
                     write_text_block(ws, cell, hits[0][1])
                     logger.info(f"规则 '{name}': 未找到表格，已写入文本到 {sheet_name}!{cell}")
@@ -145,7 +163,12 @@ def run_rule(rule: dict, pdf_path: Path, wb, base_dir: Path) -> None:
     # 文本模式
     if keyword:
         try:
-            hits = search_by_keyword(pdf_path, keyword, page_num)
+            hits = search_by_keyword(
+                pdf_path,
+                keyword,
+                page_num,
+                exclusion_boxes_by_page=exclusion_boxes_by_page,
+            )
             if hits:
                 write_text_block(ws, cell, hits[0][1])
                 logger.info(f"规则 '{name}': 已写入到 {sheet_name}!{cell}")
@@ -160,7 +183,11 @@ def run_rule(rule: dict, pdf_path: Path, wb, base_dir: Path) -> None:
 
     if page_num is not None:
         try:
-            pages_text = extract_text_from_pdf(pdf_path, [page_num])
+            pages_text = extract_text_from_pdf(
+                pdf_path,
+                [page_num],
+                exclusion_boxes_by_page=exclusion_boxes_by_page,
+            )
             if page_num in pages_text and pages_text[page_num].strip():
                 write_text_block(ws, cell, pages_text[page_num].strip())
                 logger.info(f"规则 '{name}': 已写入第 {page_num} 页文本到 {sheet_name}!{cell}")
@@ -182,6 +209,17 @@ def main():
     parser = argparse.ArgumentParser(description="从 PDF 按规则检索并写入 Excel")
     parser.add_argument("--config", "-c", default="config.yaml", help="配置文件路径")
     parser.add_argument("--verbose", "-v", action="store_true", help="显示详细日志")
+    parser.add_argument("--exclusion-json", default=None, help="可选：水印排除框 boxes.json 路径（用于跳过疑似干扰区域）")
+    parser.add_argument(
+        "--no-mapping-audit",
+        action="store_true",
+        help="禁用坐标映射审计（默认在提供 exclusion-json 时生成 mapping_audit）",
+    )
+    parser.add_argument(
+        "--mapping-audit-output",
+        default=None,
+        help="可选：将 mapping_audit 单独写入该 JSON 路径；未指定时合并到同目录 *_watermark_report.json 或写入 *_mapping_audit.json",
+    )
     args = parser.parse_args()
 
     if args.verbose:
@@ -206,6 +244,109 @@ def main():
         excel_path = resolve_path(base_dir, config.get("excel_path", "output.xlsx"))
         rules = config.get("rules", [])
 
+        exclusion_boxes_by_page = None
+        if args.exclusion_json:
+            excl_path = resolve_path(base_dir, args.exclusion_json)
+            if not excl_path.exists():
+                print(f"exclusion-json 不存在: {excl_path}")
+                sys.exit(1)
+            with excl_path.open("r", encoding="utf-8") as f:
+                raw = json.load(f)
+            exclusion_boxes_by_page = {}
+            for page_key, boxes in raw.items():
+                try:
+                    pn = int(page_key)
+                except Exception:
+                    continue
+                # v1: { "1": [[x0,top,x1,bottom], ...], ... }
+                if isinstance(boxes, list):
+                    page_boxes = []
+                    for b in boxes:
+                        if isinstance(b, list) and len(b) == 4:
+                            page_boxes.append((float(b[0]), float(b[1]), float(b[2]), float(b[3])))
+                    if page_boxes:
+                        exclusion_boxes_by_page[pn] = page_boxes
+                    continue
+
+                # v2: { "0": {rotation, mediabox, cropbox, page_width, page_height, boxes:[...]}, ... }
+                if isinstance(boxes, dict):
+                    b_list = boxes.get("boxes") or []
+                    page_boxes = []
+                    for b in b_list:
+                        if isinstance(b, list) and len(b) == 4:
+                            page_boxes.append((float(b[0]), float(b[1]), float(b[2]), float(b[3])))
+                    if page_boxes:
+                        exclusion_boxes_by_page[pn] = {
+                            "rotation": boxes.get("rotation", 0),
+                            "mediabox": boxes.get("mediabox", None),
+                            "cropbox": boxes.get("cropbox", None),
+                            "page_width": boxes.get("page_width", None),
+                            "page_height": boxes.get("page_height", None),
+                            "boxes": page_boxes,
+                        }
+                    continue
+
+        # 坐标映射审计：合并至 *_watermark_report.json 或单独文件
+        if exclusion_boxes_by_page and not args.no_mapping_audit:
+            excl_path = resolve_path(base_dir, args.exclusion_json) if args.exclusion_json else None
+            if excl_path and excl_path.exists():
+                try:
+                    mapping_audit = build_mapping_audit_for_pdf(pdf_path, exclusion_boxes_by_page)
+                    stem = excl_path.stem
+                    pdf_stem = stem[: -len("_boxes")] if stem.endswith("_boxes") else stem
+                    out_dir = excl_path.parent
+
+                    if args.mapping_audit_output:
+                        audit_out = resolve_path(base_dir, args.mapping_audit_output)
+                    else:
+                        audit_out = None
+
+                    wm_path = out_dir / f"{pdf_stem}_watermark_report.json"
+                    standalone_path = out_dir / f"{pdf_stem}_mapping_audit.json"
+
+                    if audit_out:
+                        payload = {
+                            "mapping_audit": mapping_audit,
+                            "source": "03_PDF_to_Excel",
+                            "pdf": str(pdf_path),
+                            "exclusion_json": str(excl_path),
+                        }
+                        audit_out.parent.mkdir(parents=True, exist_ok=True)
+                        with audit_out.open("w", encoding="utf-8") as f:
+                            json.dump(payload, f, indent=2, ensure_ascii=False)
+                        logger.info("mapping_audit 已写入: %s", audit_out)
+                    elif wm_path.exists():
+                        with wm_path.open("r", encoding="utf-8") as f:
+                            wr = json.load(f)
+                        if not isinstance(wr, dict):
+                            wr = {}
+                        wr["mapping_audit"] = mapping_audit
+                        wr["mapping_audit_source"] = "03_PDF_to_Excel"
+                        with wm_path.open("w", encoding="utf-8") as f:
+                            json.dump(wr, f, indent=2, ensure_ascii=False)
+                        logger.info("mapping_audit 已合并至: %s", wm_path)
+                    else:
+                        payload = {
+                            "mapping_audit": mapping_audit,
+                            "source": "03_PDF_to_Excel",
+                            "pdf": str(pdf_path),
+                            "exclusion_json": str(excl_path),
+                            "note": f"未找到 {wm_path.name}，已写入独立审计文件",
+                        }
+                        with standalone_path.open("w", encoding="utf-8") as f:
+                            json.dump(payload, f, indent=2, ensure_ascii=False)
+                        logger.info("mapping_audit 已写入: %s", standalone_path)
+
+                    anom = mapping_audit.get("anomalies") or {}
+                    logger.info(
+                        "mapping_audit 汇总: clamped=%s dropped=%s severe_distortion_pages=%s",
+                        anom.get("clamped_boxes_count"),
+                        anom.get("dropped_boxes_count"),
+                        anom.get("severe_area_distortion_pages"),
+                    )
+                except Exception as e:
+                    logger.warning("mapping_audit 生成失败（不影响抽取）: %s", e)
+
         if not isinstance(rules, list):
             logger.error("配置文件中 rules 必须是列表")
             print("配置文件中 rules 必须是列表")
@@ -225,7 +366,7 @@ def main():
         for i, rule in enumerate(rules, 1):
             print(f"处理规则 {i}/{len(rules)}: {rule.get('name', '未命名规则')}")
             try:
-                run_rule(rule, pdf_path, wb, base_dir)
+                run_rule(rule, pdf_path, wb, base_dir, exclusion_boxes_by_page=exclusion_boxes_by_page)
                 success_count += 1
             except Exception as e:
                 logger.error(f"规则 {i} 执行失败: {e}")
