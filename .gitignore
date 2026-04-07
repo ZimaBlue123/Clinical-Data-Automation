@@ -34,13 +34,26 @@ Desktop.ini
 # ==========================================
 data/
 raw_data/
+# 常见二进制原始/结果文件（防误传）
+*.pdf
+*.doc
+*.docx
+*.rtf
+*.ppt
+*.pptx
+*.xls
+*.xlsx
+*.csv
+*.zip
 # 说明：output 通常不需要提交（自动生成图表/复刻结果/中间 JSON）
 output/
 config.yaml          # 封杀本地真实配置
+/config.yaml
 config_local.yaml    # 封杀备用本地配置
 # [Patch] 核心密钥与环境变量的绝对隔离区
 .env
-.env.* secrets/             
+.env.*
+secrets/
 !**/.env.example
 # [Patch] 凭据与证书文件（避免私密信息泄露）
 *.pem

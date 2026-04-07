@@ -294,7 +294,7 @@ def build_mapping_audit_for_pdf(
     """
     对整份 PDF 逐页计算排除框坐标映射审计（面积守恒、钳制、丢弃）。
 
-    在 `03_PDF_to_Excel` 使用 `--exclusion-json` 时调用，结果可合并入 `*_watermark_report.json`
+    在 `11_PDF_to_Excel_Rule_Extract` 使用 `--exclusion-json` 时调用，结果可合并入 `*_watermark_report.json`
     的 `mapping_audit` 节点，满足可追溯审计要求。
     """
     pdf_path = Path(pdf_path)
