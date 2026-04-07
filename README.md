@@ -2,6 +2,8 @@
 
 临床数据自动化处理工具集，提供 PDF 数据提取与规范化、Excel 图表生成、PPT 整合、文档翻译、网络诊断等自动化分析处理功能。
 
+> English version: [`README_EN.md`](README_EN.md)（中英文 README 需同步更新）
+
 ## 环境要求
 
 - Python 3.8+
