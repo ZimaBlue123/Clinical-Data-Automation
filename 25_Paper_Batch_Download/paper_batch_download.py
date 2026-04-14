@@ -12,14 +12,17 @@ from __future__ import annotations
 
 import argparse
 import io
+import json
+import random
 import re
 import sys
 import time
 import shutil
 import urllib3
+from collections import defaultdict
 from pathlib import Path
 from typing import Iterable
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 import requests
 import fitz  # PyMuPDF
@@ -38,6 +41,17 @@ try:
 except ImportError:
     OCR_AVAILABLE = False
 
+# 标题中默认保持小写的功能词（首词/尾词除外）
+LOWERCASE_TITLE_WORDS = {
+    "a", "an", "the", "and", "but", "or", "nor", "so", "yet",
+    "as", "at", "by", "for", "in", "of", "on", "per", "to", "via", "vs", "v",
+}
+
+DANGLING_TOXINS = {
+    "and", "or", "of", "for", "to", "in", "on", "with", "by", "from",
+    "the", "a", "an", "at", "as", "what", "which", "that", "is", "are",
+}
+
 
 # ==========================================
 # 模块一：本地文献重塑协议 (PDF Sanitizer)
@@ -47,6 +61,23 @@ class PDFSanitizer:
         self.temp_dir = temp_dir
         self.output_dir = output_dir
         self.output_dir.mkdir(parents=True, exist_ok=True)
+
+    @staticmethod
+    def _smart_title_case(text: str) -> str:
+        """英文标题格式化：中间功能词保持小写，首尾词强制首字母大写。"""
+        raw_words = text.split()
+        if not raw_words:
+            return ""
+
+        formatted_words = []
+        last_idx = len(raw_words) - 1
+        for idx, word in enumerate(raw_words):
+            lower_word = word.lower()
+            if idx not in (0, last_idx) and lower_word in LOWERCASE_TITLE_WORDS:
+                formatted_words.append(lower_word)
+            else:
+                formatted_words.append(lower_word.capitalize())
+        return " ".join(formatted_words)
 
     @staticmethod
     def _simplify_filename(name: str, max_words: int = 15, max_chars: int = 40) -> str:
@@ -72,16 +103,12 @@ class PDFSanitizer:
             return cleaned_cjk[:max_chars] 
         else:
             # 纯英文边缘修剪
-            cleaned_en = cleaned.title()
+            cleaned_en = PDFSanitizer._smart_title_case(cleaned)
             words = cleaned_en.split()[:max_words]
-            dangling_toxins = {
-                "And", "Or", "Of", "For", "To", "In", "On", "With", "By", "From", 
-                "The", "A", "An", "At", "As", "What", "Which", "That", "Is", "Are"
-            }
             # 切除坏死边缘
-            while words and words[-1] in dangling_toxins:
+            while words and words[-1].lower() in DANGLING_TOXINS:
                 words.pop()
-            while words and words[0] in dangling_toxins:
+            while words and words[0].lower() in DANGLING_TOXINS:
                 words.pop(0)
 
             if not words:
@@ -252,7 +279,12 @@ class PaperDownloader:
         output_dir: Path, 
         mailto: str | None = None, 
         sleep_seconds: float = 1.2,
-        proxy: str | None = None
+        proxy: str | None = None,
+        safe_mode: bool = True,
+        min_interval: float = 2.0,
+        max_retries: int = 4,
+        backoff_base: float = 1.0,
+        mirror_cooldown_seconds: float = 120.0,
     ):
         self.output_dir = output_dir
         # 下载阶段先将文件放入专属缓存区
@@ -261,8 +293,18 @@ class PaperDownloader:
         
         self.mailto = mailto
         self.sleep_seconds = max(sleep_seconds, 0.0)
+        self.safe_mode = safe_mode
+        self.min_interval = max(min_interval, 0.0)
+        self.max_retries = max(max_retries, 0)
+        self.backoff_base = max(backoff_base, 0.2)
+        self.mirror_cooldown_seconds = max(mirror_cooldown_seconds, 10.0)
         self.session = requests.Session()
         self.session.headers.update(HEADERS_REQ)
+        self.last_request_ts: dict[str, float] = defaultdict(float)
+        self.host_blocked_until: dict[str, float] = defaultdict(float)
+        self._cache_dirty = False
+        self.cache_path = self.output_dir / ".request_cache.json"
+        self.cache = self._load_cache()
         
         if proxy:
             self.session.proxies = {"http": proxy, "https": proxy}
@@ -272,6 +314,85 @@ class PaperDownloader:
             "https://sci-hub.red", "https://sci-hub.box", "https://sci-hub.ee",
             "https://sci-hub.mk", "https://sci-hub.al"
         ]
+
+    def _load_cache(self) -> dict[str, dict[str, str]]:
+        default_cache = {"title_to_doi": {}, "pmid_to_doi": {}, "doi_to_pdf": {}}
+        if not self.cache_path.exists():
+            return default_cache
+        try:
+            payload = json.loads(self.cache_path.read_text(encoding="utf-8"))
+            if not isinstance(payload, dict):
+                return default_cache
+            for key in default_cache:
+                if not isinstance(payload.get(key), dict):
+                    payload[key] = {}
+            return payload
+        except Exception:
+            return default_cache
+
+    def _save_cache(self) -> None:
+        if not self._cache_dirty:
+            return
+        try:
+            self.cache_path.write_text(
+                json.dumps(self.cache, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        except Exception:
+            pass
+
+    def _wait_for_host_slot(self, host: str) -> None:
+        if not self.safe_mode:
+            return
+        now = time.time()
+        blocked_until = self.host_blocked_until.get(host, 0.0)
+        if blocked_until > now:
+            time.sleep(blocked_until - now)
+            now = time.time()
+        gap = now - self.last_request_ts.get(host, 0.0)
+        if gap < self.min_interval:
+            time.sleep(self.min_interval - gap)
+
+    def _compute_retry_delay(self, attempt: int, retry_after: str | None) -> float:
+        if retry_after:
+            try:
+                return max(float(retry_after), self.backoff_base)
+            except ValueError:
+                pass
+        exp = self.backoff_base * (2 ** max(attempt - 1, 0))
+        jitter = random.uniform(0.1, 0.8)
+        return exp + jitter
+
+    def _request(self, method: str, url: str, **kwargs) -> requests.Response:
+        host = urlparse(url).netloc.lower()
+        retries = self.max_retries if self.safe_mode else 0
+        timeout = kwargs.pop("timeout", 15)
+        kwargs["timeout"] = timeout
+
+        last_exc: Exception | None = None
+        for attempt in range(1, retries + 2):
+            self._wait_for_host_slot(host)
+            try:
+                response = self.session.request(method, url, **kwargs)
+                self.last_request_ts[host] = time.time()
+
+                if response.status_code in (429, 403) or response.status_code >= 500:
+                    if attempt <= retries:
+                        delay = self._compute_retry_delay(attempt, response.headers.get("Retry-After"))
+                        response.close()
+                        time.sleep(delay)
+                        continue
+                return response
+            except requests.RequestException as exc:
+                self.last_request_ts[host] = time.time()
+                last_exc = exc
+                if attempt <= retries:
+                    time.sleep(self._compute_retry_delay(attempt, None))
+                    continue
+                raise
+        if last_exc:
+            raise last_exc
+        raise RuntimeError(f"Request failed unexpectedly: {url}")
 
     @staticmethod
     def _classify_query(query: str) -> str:
@@ -297,29 +418,55 @@ class PaperDownloader:
         return cleaned, None
 
     def _title_to_doi(self, title: str) -> str | None:
+        cached = self.cache["title_to_doi"].get(title)
+        if cached:
+            return cached
         try:
-            res = self.session.get("https://api.crossref.org/works", params={"query.title": title, "rows": 1}, timeout=12)
+            res = self._request("GET", "https://api.crossref.org/works", params={"query.title": title, "rows": 1}, timeout=12)
+            res.raise_for_status()
             items = res.json().get("message", {}).get("items", [])
-            if items: return items[0].get("DOI")
+            if items:
+                doi = items[0].get("DOI")
+                if doi:
+                    self.cache["title_to_doi"][title] = doi
+                    self._cache_dirty = True
+                return doi
         except Exception: pass
         return None
 
     def _pmid_to_doi(self, pmid: str) -> str | None:
+        cached = self.cache["pmid_to_doi"].get(pmid)
+        if cached:
+            return cached
         try:
             url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi"
-            res = self.session.get(url, params={"db": "pubmed", "id": pmid, "retmode": "json"}, timeout=12)
+            res = self._request("GET", url, params={"db": "pubmed", "id": pmid, "retmode": "json"}, timeout=12)
+            res.raise_for_status()
             doc = res.json().get("result", {}).get(pmid, {})
             for item in doc.get("articleids", []):
-                if item.get("idtype") == "doi": return item.get("value")
+                if item.get("idtype") == "doi":
+                    doi = item.get("value")
+                    if doi:
+                        self.cache["pmid_to_doi"][pmid] = doi
+                        self._cache_dirty = True
+                    return doi
         except Exception: pass
         return None
 
     def _unpaywall_pdf(self, doi: str) -> str | None:
         if not self.mailto: return None
+        cached = self.cache["doi_to_pdf"].get(doi)
+        if cached:
+            return cached
         try:
-            res = self.session.get(f"https://api.unpaywall.org/v2/{doi}", params={"email": self.mailto}, timeout=12)
+            res = self._request("GET", f"https://api.unpaywall.org/v2/{doi}", params={"email": self.mailto}, timeout=12)
+            res.raise_for_status()
             best = res.json().get("best_oa_location") or {}
-            return best.get("url_for_pdf") or best.get("url")
+            resolved = best.get("url_for_pdf") or best.get("url")
+            if resolved:
+                self.cache["doi_to_pdf"][doi] = resolved
+                self._cache_dirty = True
+            return resolved
         except Exception: return None
 
     @staticmethod
@@ -339,14 +486,17 @@ class PaperDownloader:
 
     def _doi_landing_pdf(self, doi: str) -> str | None:
         try:
-            res = self.session.get(f"https://doi.org/{doi}", timeout=15, allow_redirects=True)
+            res = self._request("GET", f"https://doi.org/{doi}", timeout=15, allow_redirects=True)
             return self._find_pdf_in_html(res.text, res.url)
         except Exception: return None
 
     def _scihub_pdf(self, doi: str) -> str | None:
         for mirror in self.scihub_mirrors:
             try:
-                res = self.session.get(f"{mirror}/{doi}", timeout=12)
+                host = urlparse(mirror).netloc.lower()
+                if self.safe_mode and self.host_blocked_until.get(host, 0.0) > time.time():
+                    continue
+                res = self._request("GET", f"{mirror}/{doi}", timeout=12)
                 res.raise_for_status()
                 match = re.search(r'(?:iframe|embed|object)[^>]+(?:id=["\']pdf["\']|type=["\']application/pdf["\'])[^>]*src=["\'](.*?)["\']', res.text, re.I)
                 if not match: match = re.search(r"location\.href=['\"](.*?)['\"]", res.text, re.I)
@@ -358,12 +508,15 @@ class PaperDownloader:
                     self.scihub_mirrors.remove(mirror)
                     self.scihub_mirrors.insert(0, mirror)
                     return pdf_url
-            except Exception: continue
+            except Exception:
+                if self.safe_mode:
+                    self.host_blocked_until[host] = time.time() + self.mirror_cooldown_seconds
+                continue
         return None
 
     def _url_to_pdf(self, url: str) -> str | None:
         try:
-            with self.session.get(url, timeout=15, stream=True, allow_redirects=True) as res:
+            with self._request("GET", url, timeout=15, stream=True, allow_redirects=True) as res:
                 content_type = res.headers.get('Content-Type', '').lower()
                 if 'application/pdf' in content_type: return res.url
                 return self._find_pdf_in_html(res.text, res.url)
@@ -372,7 +525,7 @@ class PaperDownloader:
     def _download_pdf(self, pdf_url: str, filename: str) -> None:
         # 下载到临时缓存区
         path = self.temp_dir / f"{filename}.pdf"
-        with self.session.get(pdf_url, stream=True, timeout=20) as res:
+        with self._request("GET", pdf_url, stream=True, timeout=20) as res:
             res.raise_for_status()
             with path.open("wb") as f:
                 for chunk in res.iter_content(chunk_size=8192):
@@ -413,6 +566,9 @@ class PaperDownloader:
                 pdf_url = self._url_to_pdf(target)
             elif q_type == "doi":
                 pdf_url = (self._unpaywall_pdf(target) or self._plos_pdf_from_doi(target) or self._doi_landing_pdf(target) or self._scihub_pdf(target))
+                if pdf_url:
+                    self.cache["doi_to_pdf"][target] = pdf_url
+                    self._cache_dirty = True
 
             if pdf_url:
                 try:
@@ -439,6 +595,7 @@ class PaperDownloader:
         except Exception:
             pass
 
+        self._save_cache()
         self._print_report(results)
         return results
 
@@ -471,6 +628,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--mailto", default=None, help="Unpaywall 邮箱（用于提升 OA 命中率）")
     parser.add_argument("--sleep", type=float, default=1.2, help="请求间隔秒数")
     parser.add_argument("--proxy", default=None, help="网络代理地址，例如：http://127.0.0.1:15715")
+    parser.add_argument(
+        "--safe-mode",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="启用防限流安全模式（主机限速、重试退避、镜像冷却；默认开启）",
+    )
+    parser.add_argument("--min-interval", type=float, default=2.0, help="同一主机请求最小间隔秒数（safe-mode 下生效）")
+    parser.add_argument("--max-retries", type=int, default=4, help="单请求最大重试次数（safe-mode 下生效）")
+    parser.add_argument("--backoff-base", type=float, default=1.0, help="指数退避基础秒数（safe-mode 下生效）")
+    parser.add_argument("--mirror-cooldown", type=float, default=120.0, help="Sci-Hub 镜像失败冷却秒数（safe-mode 下生效）")
     return parser.parse_args()
 
 def main() -> None:
@@ -503,7 +670,17 @@ def main() -> None:
     out_dir = Path(args.output) if args.output else output_dir
     if not out_dir.is_absolute(): out_dir = output_dir / out_dir
 
-    downloader = PaperDownloader(out_dir, mailto=args.mailto, sleep_seconds=args.sleep, proxy=args.proxy)
+    downloader = PaperDownloader(
+        out_dir,
+        mailto=args.mailto,
+        sleep_seconds=args.sleep,
+        proxy=args.proxy,
+        safe_mode=args.safe_mode,
+        min_interval=args.min_interval,
+        max_retries=args.max_retries,
+        backoff_base=args.backoff_base,
+        mirror_cooldown_seconds=args.mirror_cooldown,
+    )
     downloader.download(queries)
 
 if __name__ == "__main__":

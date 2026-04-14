@@ -47,13 +47,13 @@ paddlepaddle>=2.5.0
 tqdm>=4.66.0
 
 # ---------------------------------------------------------------------------
-# OCR 可选后端（10_PDF_Batch_to_Excel 血清报告 OCR、15_PDF_Sanitizer 标题后备、19_PDF_Watermark_Removal 扫描页定位）
+# OCR 可选后端（10_PDF_Batch_to_Excel 血清报告 OCR、15_PDF_Title_Renamer 标题后备、19_PDF_Watermark_Removal 扫描页定位）
 # 另需本机安装 Tesseract 可执行文件；可用环境变量 TESSERACT_CMD_PATH 指定路径。
 # ---------------------------------------------------------------------------
 pytesseract>=0.3.10
 
 # ---------------------------------------------------------------------------
-# 网络与翻译（25_Paper_Batch_Download / 20_File_Translator / 27_DNS_Leak_Detector）
+# 网络与翻译（25_Paper_Batch_Download 含安全模式限速/退避重试 / 20_File_Translator / 27_DNS_Leak_Detector）
 # ---------------------------------------------------------------------------
 requests>=2.31.0
 translators>=5.9.2
@@ -68,3 +68,14 @@ pyinstaller>=5.13.0
 # 以下模块仅标准库，无额外 pip 包：22_C_Drive_Cleanup、23_WiFi_Passwords、
 # 24_Folder_File_Count（复用 pandas/openpyxl）、26_Proxy_Config_Export
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# SAE 抽取（28_SAE_Extractor：pdf2image 用于 PDF 页渲染 OCR；urllib3 由 requests 引入，显式下限与上游一致）
+# ---------------------------------------------------------------------------
+pdf2image>=1.16.0
+urllib3>=2.0.0
+
+# ---------------------------------------------------------------------------
+# 开发 / 提交钩子（可选：根目录 .pre-commit-config.yaml + scripts/check_secrets.py）
+# ---------------------------------------------------------------------------
+pre-commit>=3.7.0

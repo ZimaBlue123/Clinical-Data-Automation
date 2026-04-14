@@ -15,6 +15,54 @@ import fitz  # pyright: ignore[reportMissingImports]
 from tqdm import tqdm
 from PIL import Image
 
+# 标题中默认保持小写的功能词（首词/尾词除外）
+LOWERCASE_TITLE_WORDS = {
+    "a",
+    "an",
+    "the",
+    "and",
+    "but",
+    "or",
+    "nor",
+    "so",
+    "yet",
+    "as",
+    "at",
+    "by",
+    "for",
+    "in",
+    "of",
+    "on",
+    "per",
+    "to",
+    "via",
+    "vs",
+    "v",
+}
+
+DANGLING_TOXINS = {
+    "and",
+    "or",
+    "of",
+    "for",
+    "to",
+    "in",
+    "on",
+    "with",
+    "by",
+    "from",
+    "the",
+    "a",
+    "an",
+    "at",
+    "as",
+    "what",
+    "which",
+    "that",
+    "is",
+    "are",
+}
+
 # --- 视觉矩阵依赖 (容错加载) ---
 try:
     import pytesseract
@@ -48,6 +96,23 @@ class PDFSanitizer:
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     @staticmethod
+    def _smart_title_case(text: str) -> str:
+        """英文标题格式化：中间功能词保持小写，首尾词强制首字母大写。"""
+        raw_words = text.split()
+        if not raw_words:
+            return ""
+
+        formatted_words = []
+        last_idx = len(raw_words) - 1
+        for idx, word in enumerate(raw_words):
+            lower_word = word.lower()
+            if idx not in (0, last_idx) and lower_word in LOWERCASE_TITLE_WORDS:
+                formatted_words.append(lower_word)
+            else:
+                formatted_words.append(lower_word.capitalize())
+        return " ".join(formatted_words)
+
+    @staticmethod
     def _simplify_filename(name: str, max_words: int = 15, max_chars: int = 40) -> str:
         """核心文本手术刀：副标题截断，双语自适应解析，全角标点粉碎，边缘修剪"""
         # 0. [核心优化] 副标题物理切除：在遇到中英文冒号时进行硬截断
@@ -71,16 +136,12 @@ class PDFSanitizer:
             return cleaned_cjk[:max_chars] 
         else:
             # 纯英文边缘修剪
-            cleaned_en = cleaned.title()
+            cleaned_en = PDFSanitizer._smart_title_case(cleaned)
             words = cleaned_en.split()[:max_words]
-            dangling_toxins = {
-                "And", "Or", "Of", "For", "To", "In", "On", "With", "By", "From", 
-                "The", "A", "An", "At", "As", "What", "Which", "That", "Is", "Are"
-            }
             # 切除坏死边缘
-            while words and words[-1] in dangling_toxins:
+            while words and words[-1].lower() in DANGLING_TOXINS:
                 words.pop()
-            while words and words[0] in dangling_toxins:
+            while words and words[0].lower() in DANGLING_TOXINS:
                 words.pop(0)
 
             if not words:
@@ -262,8 +323,8 @@ class PDFSanitizer:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="PDF 标题驱动重命名（支持递归遍历子文件夹）")
-    parser.add_argument("--input", default="input", help="输入目录（相对 15_PDF_Sanitizer/）")
-    parser.add_argument("--output", default="output", help="输出目录（相对 15_PDF_Sanitizer/）")
+    parser.add_argument("--input", default="input", help="输入目录（相对 15_PDF_Title_Renamer/）")
+    parser.add_argument("--output", default="output", help="输出目录（相对 15_PDF_Title_Renamer/）")
     parser.add_argument(
         "--recursive",
         action=argparse.BooleanOptionalAction,

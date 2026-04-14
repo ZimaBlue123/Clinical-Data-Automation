@@ -17,13 +17,20 @@ pip install -r requirements.txt
 ```
 
 > `requirements.txt` 文件头已注明：非 Windows 或仅使用非 Office 自动化模块时，可移除或注释 `pywin32` 行后再安装；不需要 **14_PPTX_PDF_to_PPT** 时也可注释 Paddle 相关行以减轻安装体积。
+>
+> **提交前检查（可选）**：安装预提交钩子可在 commit 前运行 YAML 检查与本仓库敏感信息扫描（`scripts/check_secrets.py`，主要为 **28_SAE_Extractor** 等场景的 API Token 防误提交）：
+>
+> ```bash
+> pip install pre-commit
+> pre-commit install
+> ```
 
 ## 整体架构
 
-本仓库为 **按编号目录划分的独立工具集**（`01_` … `27_`）。整体遵循两条规则：
+本仓库为 **按编号目录划分的独立工具集**（`01_` … `28_`）。整体遵循两条规则：
 
 1. **结构分层清晰**：根级公共资源（`src/`、`config*.yaml`）与各独立模块目录分离。
-2. **模块顺序固定**：以目录编号作为唯一顺序基准，按 **`01_` → `27_`** 递增组织与阅读。
+2. **模块顺序固定**：以目录编号作为唯一顺序基准，按 **`01_` → `28_`** 递增组织与阅读。
 
 | 层次 | 说明 |
 |------|------|
@@ -38,8 +45,8 @@ pip install -r requirements.txt
 - **Excel 相关（01-02）**：`01_Excel_Charts` → `02_Excel_Chart_Colors`
 - **PowerPoint 相关（03-05）**：`03_PPT_Merge` → `04_PPT_Watermark_Removal` → `05_PPT_to_PDF`
 - **Word 相关（06-09）**：`06_Word_to_PDF` → `07_Word_to_Excel_to_Figure` → `08_Word_Tables_to_Excel` → `09_Word_All_Tables_to_Excel`
-- **PDF 相关（11-19）**：`11_PDF_to_Excel_Rule_Extract` → `12_PDF_to_PPT` → `13_PDF_XSS` → `14_PPTX_PDF_to_PPT` → `15_PDF_Sanitizer` → `16_PDF_eCTD_Converter` → `17_PDF_Merge` → `18_PDF_Bookmark_Inherit_Zoom` → `19_PDF_Watermark_Removal`
-- **其他工具（20-27）**：`20_File_Translator` → `21_Py_to_EXE` → `22_C_Drive_Cleanup` → `23_WiFi_Passwords` → `24_Folder_File_Count` → `25_Paper_Batch_Download` → `26_Proxy_Config_Export` → `27_DNS_Leak_Detector`
+- **PDF 相关（10-19）**：`10_PDF_Batch_to_Excel` → `11_PDF_to_Excel_Rule_Extract` → `12_PDF_to_PPT` → `13_PDF_XSS` → `14_PPTX_PDF_to_PPT` → `15_PDF_Title_Renamer` → `16_PDF_eCTD_Converter` → `17_PDF_Merge` → `18_PDF_Bookmark_Inherit_Zoom` → `19_PDF_Watermark_Removal`
+- **其他工具（20-28）**：`20_File_Translator` → `21_Py_to_EXE` → `22_C_Drive_Cleanup` → `23_WiFi_Passwords` → `24_Folder_File_Count` → `25_Paper_Batch_Download` → `26_Proxy_Config_Export` → `27_DNS_Leak_Detector` → `28_SAE_Extractor`
 
 ## 项目结构
 
@@ -134,7 +141,7 @@ Clinical Data Automation/
 │   ├── output/                       # 输出：可编辑 PPTX
 │   └── convert_to_native_ppt.py      # 主程序：表格识别重建
 │
-├── 15_PDF_Sanitizer/         # PDF 文件名极简清洗（剪切模式）
+├── 15_PDF_Title_Renamer/     # PDF 文件名极简清洗（剪切模式）
 │   ├── input/                        # 输入：待重命名 PDF
 │   ├── output/                       # 输出：重命名后 PDF
 │   └── pdf_sanitizer.py              # 主程序：文件名手术 + 剪切
@@ -200,6 +207,13 @@ Clinical Data Automation/
 │   ├── dns_leak_detector.py          # 主程序：出口与上游 DNS 一致性检测
 │   └── README.md                     # 模块说明与命令行用法
 │
+├── 28_SAE_Extractor/          # SAE 结构化抽取（LLM + 多格式解析 → Excel）
+│   ├── input/                        # 输入：临床文本/PDF/DOCX/Excel
+│   ├── output/                       # 输出：SAE 列表 xlsx
+│   ├── cli.py                        # 主入口：self-check / batch / pdf-batch
+│   ├── sae_extractor.py              # API 抽取引擎与单条试跑
+│   └── README.md
+│
 ├── src/                      # 核心库
 │   ├── __init__.py
 │   ├── pdf_reader.py                 # PDF 内容提取
@@ -208,6 +222,11 @@ Clinical Data Automation/
 │
 ├── config.yaml               # 配置文件（可复制 config.example.yaml）
 ├── config.example.yaml       # 配置示例
+├── .pre-commit-config.yaml   # 可选：pre-commit（含敏感信息本地扫描）
+├── scripts/                  # 仓库级辅助脚本
+│   ├── check_secrets.py      # pre-commit 调用的密钥模式扫描
+│   ├── set_env.ps1           # PowerShell：示例环境变量（28_SAE_Extractor）
+│   └── start_tunnel.ps1      # PowerShell：SSH 本地端口转发（API 网关）
 ├── requirements.txt
 ├── LICENSE.md
 └── README.md
@@ -221,7 +240,7 @@ Clinical Data Automation/
 - [PowerPoint（03-05）](#modules-ppt)
 - [Word（06-09）](#modules-word)
 - [PDF（10-19）](#modules-pdf)
-- [其他工具（20-27）](#modules-others)
+- [其他工具（20-28）](#modules-others)
 
 ### 01. Excel 图表生成（`01_Excel_Charts`）<span id="modules-excel"></span>
 用途：生成 ADR 组合图（柱 + 线），并支持临床配色。
@@ -411,11 +430,11 @@ python convert_to_native_ppt.py
 
 ---
 
-### 15. PDF 标题驱动重命名（`15_PDF_Sanitizer`）
+### 15. PDF 标题驱动重命名（`15_PDF_Title_Renamer`）
 用途：多策略提取标题并规范命名，文件从 `input/` 剪切移动到 `output/`。
 
 ```bash
-cd 15_PDF_Sanitizer
+cd 15_PDF_Title_Renamer
 python pdf_sanitizer.py
 ```
 
@@ -541,7 +560,7 @@ python folder_file_count.py --path "D:\data"
 ---
 
 ### 25. 文献批量下载（`25_Paper_Batch_Download`）
-用途：按 DOI/PMID/标题/URL 批量下载 Open Access PDF。
+用途：按 DOI/PMID/标题/URL 批量下载 Open Access PDF，并在默认安全模式下进行限速与退避重试以降低 IP 限制风险。
 
 ```bash
 cd 25_Paper_Batch_Download
@@ -549,6 +568,8 @@ python paper_batch_download.py --queries "10.1038/s41586-020-2649-2" "32788730"
 ```
 
 文件输入模式：`python paper_batch_download.py --file "D:\papers.txt" --mailto "your_email@example.com"`。  
+安全参数（默认开启）：`--safe-mode`、`--min-interval`、`--max-retries`、`--backoff-base`、`--mirror-cooldown`。  
+如需临时关闭限速防护：`python paper_batch_download.py --queries "10.xxx/xxx" --no-safe-mode`。  
 输出目录：`25_Paper_Batch_Download/output/`。
 
 ---
@@ -577,6 +598,27 @@ python dns_leak_detector.py --save-json
 ```
 
 报告文件（可选）：`27_DNS_Leak_Detector/output/dns_diagnostic_<mode>_<timestamp>.json`。
+
+---
+
+### 28. SAE 结构化抽取（`28_SAE_Extractor`）
+用途：从 PDF/TXT/DOCX/Excel 临床材料中提取严重不良事件（SAE）字段，调用 OpenAI 兼容 Chat Completions 接口，汇总导出 Excel。
+
+```bash
+cd 28_SAE_Extractor
+python cli.py self-check
+python cli.py batch
+python cli.py pdf-batch
+```
+
+需配置环境变量 `SAE_API_TOKEN`；可选 `SAE_API_BASE_URL`、`SAE_MODEL_ID`、`TESSERACT_CMD`、`POPPLER_PATH`。默认读写目录：`input/`、`output/`。详见模块内 `README.md`。
+
+辅助脚本（仓库根目录 `scripts/`，Windows PowerShell）：
+
+- `set_env.ps1`：在当前会话设置 `SAE_API_BASE_URL`、`SAE_OUTPUT_DIR`（指向 `28_SAE_Extractor/output`）等；**仍需自行设置 `SAE_API_TOKEN`**。用法：在仓库根执行 `.\scripts\set_env.ps1`（注意点开源执行策略）。
+- `start_tunnel.ps1`：建立 SSH 本地端口转发；须设置 **`SAE_TUNNEL_SSH_HOST`**（及可选 `SAE_TUNNEL_SSH_USER`、`SAE_TUNNEL_LOCAL_PORT`、`SAE_TUNNEL_REMOTE_BIND`）。用法：`powershell -ExecutionPolicy Bypass -File .\scripts\start_tunnel.ps1`
+
+手动全量扫描敏感信息：`pre-commit run detect-sensitive-secrets --all-files`（需已 `pre-commit install` 或直接安装 `pre-commit`）。
 
 ## 配置说明
 
@@ -634,4 +676,4 @@ rules:
 
 ## 许可证
 
-本项目采用 [MIT License](LICENSE.md) 开源协议。
+本项目采用 [MIT License](LICENSE.md) 开源协议。`28_SAE_Extractor` 模块自独立项目 **SAE-Extractor** 迁入，该部分版权信息见 `LICENSE.md` 中的附加声明。

@@ -21,14 +21,21 @@ pip install -r requirements.txt
 > Notes in `requirements.txt` explain optional installs:
 > - You may comment Paddle-related lines if you do not need **14_PPTX_PDF_to_PPT**
 > - You may remove/comment `pywin32` if you do not use Office automation modules
+>
+> **Optional pre-commit**: install hooks to run YAML checks and a local secret scanner (`scripts/check_secrets.py`, mainly for **28_SAE_Extractor**-style API tokens) before each commit:
+>
+> ```bash
+> pip install pre-commit
+> pre-commit install
+> ```
 
 ## Architecture overview
 
-This repository is organized as **numbered, mostly-independent tool modules** (`01_` … `27_`).  
+This repository is organized as **numbered, mostly-independent tool modules** (`01_` … `28_`).  
 Two rules define the structure:
 
 1. **Clear layering**: root-level shared resources (`src/`, `config*.yaml`) are separated from module folders.
-2. **Fixed module order**: module numbering is the single source of truth, always read/maintain in ascending order (`01_` → `27_`).
+2. **Fixed module order**: module numbering is the single source of truth, always read/maintain in ascending order (`01_` → `28_`).
 
 | Layer | Description |
 |------|-------------|
@@ -43,8 +50,8 @@ Two rules define the structure:
 - **Excel (01-02)**: `01_Excel_Charts` → `02_Excel_Chart_Colors`
 - **PowerPoint (03-05)**: `03_PPT_Merge` → `04_PPT_Watermark_Removal` → `05_PPT_to_PDF`
 - **Word (06-09)**: `06_Word_to_PDF` → `07_Word_to_Excel_to_Figure` → `08_Word_Tables_to_Excel` → `09_Word_All_Tables_to_Excel`
-- **PDF (10-19)**: `10_PDF_Batch_to_Excel` → `11_PDF_to_Excel_Rule_Extract` → `12_PDF_to_PPT` → `13_PDF_XSS` → `14_PPTX_PDF_to_PPT` → `15_PDF_Sanitizer` → `16_PDF_eCTD_Converter` → `17_PDF_Merge` → `18_PDF_Bookmark_Inherit_Zoom` → `19_PDF_Watermark_Removal`
-- **Utilities (20-27)**: `20_File_Translator` → `21_Py_to_EXE` → `22_C_Drive_Cleanup` → `23_WiFi_Passwords` → `24_Folder_File_Count` → `25_Paper_Batch_Download` → `26_Proxy_Config_Export` → `27_DNS_Leak_Detector`
+- **PDF (10-19)**: `10_PDF_Batch_to_Excel` → `11_PDF_to_Excel_Rule_Extract` → `12_PDF_to_PPT` → `13_PDF_XSS` → `14_PPTX_PDF_to_PPT` → `15_PDF_Title_Renamer` → `16_PDF_eCTD_Converter` → `17_PDF_Merge` → `18_PDF_Bookmark_Inherit_Zoom` → `19_PDF_Watermark_Removal`
+- **Utilities (20-28)**: `20_File_Translator` → `21_Py_to_EXE` → `22_C_Drive_Cleanup` → `23_WiFi_Passwords` → `24_Folder_File_Count` → `25_Paper_Batch_Download` → `26_Proxy_Config_Export` → `27_DNS_Leak_Detector` → `28_SAE_Extractor`
 
 ## Project structure
 
@@ -71,7 +78,7 @@ Clinical Data Automation/
 ├── 12_PDF_to_PPT/                 # PDF → PPT
 ├── 13_PDF_XSS/                    # PDF XSS/script/link sanitization
 ├── 14_PPTX_PDF_to_PPT/            # PDF/PPTX → native editable PPTX (table reconstruction)
-├── 15_PDF_Sanitizer/              # PDF filename/title-based sanitization & move
+├── 15_PDF_Title_Renamer/          # PDF filename/title-based sanitization & move
 ├── 16_PDF_eCTD_Converter/         # PDF eCTD compliance conversion
 ├── 17_PDF_Merge/                  # Merge PDFs in natural sort order
 ├── 18_PDF_Bookmark_Inherit_Zoom/  # Bookmark inherit-zoom (XYZ zoom=0)
@@ -86,7 +93,13 @@ Clinical Data Automation/
 ├── 25_Paper_Batch_Download/
 ├── 26_Proxy_Config_Export/
 ├── 27_DNS_Leak_Detector/
+├── 28_SAE_Extractor/           # SAE extraction (LLM + multi-format → Excel)
 │
+├── scripts/                    # Repo-wide helpers
+│   ├── check_secrets.py        # Secret-pattern scan (pre-commit)
+│   ├── set_env.ps1             # PowerShell: sample env for 28_SAE_Extractor
+│   └── start_tunnel.ps1        # PowerShell: SSH port forward for API gateway
+├── .pre-commit-config.yaml
 ├── src/
 ├── config.example.yaml
 ├── requirements.txt
@@ -102,7 +115,7 @@ Clinical Data Automation/
 - [PowerPoint (03-05)](#modules-ppt)
 - [Word (06-09)](#modules-word)
 - [PDF (10-19)](#modules-pdf)
-- [Utilities (20-27)](#modules-others)
+- [Utilities (20-28)](#modules-others)
 
 ### 01. Excel chart generation (`01_Excel_Charts`)<span id="modules-excel"></span>
 Purpose: generate ADR combo charts (bar + line), with optional clinical palettes.
@@ -258,11 +271,11 @@ python convert_to_native_ppt.py
 
 ---
 
-### 15. PDF title-driven rename (`15_PDF_Sanitizer`)
+### 15. PDF title-driven rename (`15_PDF_Title_Renamer`)
 Purpose: extract canonical titles and rename/move PDF files to `output/`.
 
 ```bash
-cd 15_PDF_Sanitizer
+cd 15_PDF_Title_Renamer
 python pdf_sanitizer.py
 ```
 
@@ -361,12 +374,16 @@ python folder_file_count.py --path "D:\data"
 ---
 
 ### 25. Paper batch download (`25_Paper_Batch_Download`)
-Purpose: batch download OA papers by DOI/PMID/title/URL.
+Purpose: batch download OA papers by DOI/PMID/title/URL with default safe-mode throttling and retry backoff to reduce IP rate-limit risk.
 
 ```bash
 cd 25_Paper_Batch_Download
 python paper_batch_download.py --queries "10.1038/s41586-020-2649-2" "32788730"
 ```
+
+File-input mode: `python paper_batch_download.py --file "D:\papers.txt" --mailto "your_email@example.com"`.
+
+Safe-mode options (enabled by default): `--safe-mode`, `--min-interval`, `--max-retries`, `--backoff-base`, `--mirror-cooldown`.
 
 ---
 
@@ -389,6 +406,27 @@ python dns_leak_detector.py --mode tun
 python dns_leak_detector.py --mode socks --socks-port 10808
 python dns_leak_detector.py --save-json
 ```
+
+---
+
+### 28. SAE structured extraction (`28_SAE_Extractor`)
+Purpose: extract serious adverse event (SAE) fields from clinical PDFs, text, DOCX, or Excel via an OpenAI-compatible Chat Completions API and export to Excel.
+
+```bash
+cd 28_SAE_Extractor
+python cli.py self-check
+python cli.py batch
+python cli.py pdf-batch
+```
+
+Requires `SAE_API_TOKEN`; optional `SAE_API_BASE_URL`, `SAE_MODEL_ID`, `TESSERACT_CMD`, `POPPLER_PATH`. Default I/O: `input/` and `output/`. See `28_SAE_Extractor/README.md`.
+
+Helper scripts at repo root (`scripts/`, Windows PowerShell):
+
+- `set_env.ps1`: sets `SAE_API_BASE_URL` and `SAE_OUTPUT_DIR` (defaults to `28_SAE_Extractor/output`); **you must still set `SAE_API_TOKEN`**. Run from repo root: `.\scripts\set_env.ps1` (may require execution policy).
+- `start_tunnel.ps1`: SSH local port forward. **Requires `SAE_TUNNEL_SSH_HOST`**; optional `SAE_TUNNEL_SSH_USER`, `SAE_TUNNEL_LOCAL_PORT`, `SAE_TUNNEL_REMOTE_BIND`. Run: `powershell -ExecutionPolicy Bypass -File .\scripts\start_tunnel.ps1`
+
+Manual secret scan: `pre-commit run detect-sensitive-secrets --all-files`.
 
 ## Configuration
 
@@ -433,5 +471,5 @@ python compare_serology_outputs.py --pdf-excel <PDF.xlsx> --word-excel <WORD.xls
 
 ## License
 
-MIT License. See `LICENSE.md`.
+MIT License. See `LICENSE.md` (includes attribution for **SAE-Extractor**-derived portions such as `28_SAE_Extractor/`).
 

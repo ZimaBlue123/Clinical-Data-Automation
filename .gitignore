@@ -67,6 +67,9 @@ id_rsa.*
 # ==========================================
 # 4. Logs, Temp Files & Notebooks (Metabolic Waste)
 # ==========================================
+.pre-commit-cache/
+.pytest_cache/
+.mypy_cache/
 *.log
 *.bak
 *.tmp
@@ -95,6 +98,7 @@ id_rsa.*
 **/input/**/*
 **/output/**/*
 **/Template/**/*
+**/.request_cache.json
 
 !**/input/**/README.md
 !**/output/**/README.md
