@@ -29,6 +29,7 @@ eCTD 合规装甲 & XSS 深度清理器（16_PDF_eCTD_Converter）
 from __future__ import annotations
 
 import argparse
+import logging
 from datetime import datetime
 from pathlib import Path
 
@@ -38,6 +39,7 @@ import pandas as pd
 
 # eCTD 与 XSS 共同封杀的恶意协议与外部前缀（保守策略：外部一律视为风险）
 BAD_PROTOCOLS = ("javascript:", "data:", "vbscript:", "file:", "http://", "https://", "mailto:")
+logger = logging.getLogger(__name__)
 
 
 def _now_str() -> str:
@@ -65,6 +67,7 @@ def _validate_pdf_basic(pdf_path: Path) -> tuple[bool, str, dict]:
     except fitz.FileDataError:
         return False, "错误 (6.1): 文件被破坏或不可读", meta
     except Exception as exc:
+        logger.exception("PDF 基础校验异常: file=%s", pdf_path)
         return False, f"未知异常: {exc}", meta
 
     try:
@@ -159,10 +162,12 @@ class ECTDComplianceCleaner:
         details: list[str] = []
 
         if not pdf_path.exists():
+            logger.error("输入文件不存在: %s", pdf_path)
             self._append_report(pdf_path.name, status, "文件不存在")
             return False
 
         if output_path.exists() and not self.overwrite and not validate_only:
+            logger.warning("跳过已存在输出: input=%s output=%s", pdf_path, output_path)
             self._append_report(pdf_path.name, "SKIPPED", "文件已存在且未开启覆盖")
             return False
 
@@ -232,7 +237,7 @@ class ECTDComplianceCleaner:
                             page.delete_annot(annot)
                             removed_annots += 1
                         except Exception:
-                            pass
+                            logger.debug("删除注释失败: file=%s page=%s", pdf_path.name, page.number + 1, exc_info=True)
                     annot = next_annot
 
                 # 删除违规链接（先收集再删）
@@ -248,7 +253,7 @@ class ECTDComplianceCleaner:
                         page.delete_link(link)
                         removed_links += 1
                     except Exception:
-                        pass
+                        logger.debug("删除链接失败: file=%s page=%s", pdf_path.name, page.number + 1, exc_info=True)
 
             # 6.25: 可搜索文本检查（预警）
             has_searchable_text = any((p.get_text() or "").strip() for p in doc)
@@ -297,6 +302,7 @@ class ECTDComplianceCleaner:
             details.insert(0, "清洗合规通过")
             return True
         except Exception as exc:
+            logger.exception("eCTD 处理失败: file=%s output=%s", pdf_path, output_path)
             details.append(f"处理终止: {exc}")
             return False
         finally:
@@ -319,23 +325,24 @@ class ECTDComplianceCleaner:
 
     def export_report(self) -> None:
         if not self.report_rows:
-            print("[!] 无数据导出。")
+            logger.warning("无审计数据可导出。")
             return
         df = pd.DataFrame(self.report_rows)
         self.report_path.parent.mkdir(parents=True, exist_ok=True)
         df.to_excel(self.report_path, index=False)
-        print(f"[*] eCTD 审计报告已生成：{self.report_path}")
+        logger.info("eCTD 审计报告已生成: %s", self.report_path)
 
 
 def main() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     base_dir = Path(__file__).resolve().parent
     default_input = base_dir / "input"
     default_output = base_dir / "output"
     default_report = base_dir / "ectd_report.xlsx"
 
     parser = argparse.ArgumentParser(description="eCTD 合规装甲 & 批量 PDF XSS 深度清理器")
-    parser.add_argument("--input", default=str(default_input), help="输入 PDF 文件夹或单个 PDF 文件")
-    parser.add_argument("--output", default=str(default_output), help="输出文件夹（默认 output/）")
+    parser.add_argument("--input", "-i", default=str(default_input), help="输入 PDF 文件夹或单个 PDF 文件")
+    parser.add_argument("--output", "-o", default=str(default_output), help="输出文件夹（默认 output/）")
     parser.add_argument("--report", default=str(default_report), help="Excel 审计报告输出路径")
     parser.add_argument("--overwrite", action="store_true", help="覆盖已存在的输出文件")
     parser.add_argument("--keep-name", action="store_true", help="输出文件名与源文件一致（默认追加 _ectd）")
@@ -360,10 +367,10 @@ def main() -> None:
 
     pdf_files = _collect_pdfs(input_path, recursive=args.recursive)
     if not pdf_files:
-        print(f"[-] 未找到 PDF 文件：{input_path}")
-        return
+        logger.error("未找到 PDF: %s", input_path)
+        raise SystemExit(1)
 
-    print(f"[*] 启动重型合规引擎... 发现 {len(pdf_files)} 个文件。")
+    logger.info("启动 eCTD 处理: files=%s", len(pdf_files))
 
     cleaner = ECTDComplianceCleaner(
         input_dir=input_path,
@@ -393,14 +400,15 @@ def main() -> None:
         if cleaner.process_pdf(pdf_path, out_path, validate_only=args.validate_only):
             success += 1
             if args.validate_only:
-                print(f"[+] 校验通过 -> {pdf_path.name}")
+                logger.info("校验通过: %s", pdf_path.name)
             else:
-                print(f"[+] 成功 -> {pdf_path.name} => {out_path.name}")
+                logger.info("处理成功: %s => %s", pdf_path.name, out_path.name)
         else:
-            print(f"[-] 驳回 -> {pdf_path.name}")
+            logger.error("处理失败: %s", pdf_path.name)
 
     cleaner.export_report()
-    print(f"\n✅ 执行完毕：{success}/{total} 个 PDF 已完成处理。")
+    logger.info("执行完毕: success=%s total=%s", success, total)
+    raise SystemExit(0 if success == total else 1)
 
 
 if __name__ == "__main__":

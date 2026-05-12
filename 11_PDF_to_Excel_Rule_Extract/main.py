@@ -156,7 +156,7 @@ def run_rule(
                     logger.warning(f"规则 '{name}': 未找到关键词或表格")
                     print(f"  [跳过] {name}: 未找到关键词或表格")
         except Exception as e:
-            logger.error(f"规则 '{name}': 提取表格失败: {e}")
+            logger.exception("规则提取表格失败: rule=%s pdf=%s", name, pdf_path)
             print(f"  [错误] {name}: {e}")
         return
 
@@ -177,7 +177,7 @@ def run_rule(
                 logger.warning(f"规则 '{name}': 未找到关键词 «{keyword}»")
                 print(f"  [跳过] {name}: 未找到关键词 «{keyword}»")
         except Exception as e:
-            logger.error(f"规则 '{name}': 搜索关键词失败: {e}")
+            logger.exception("规则关键词搜索失败: rule=%s keyword=%s pdf=%s", name, keyword, pdf_path)
             print(f"  [错误] {name}: {e}")
         return
 
@@ -196,7 +196,7 @@ def run_rule(
                 logger.warning(f"规则 '{name}': 第 {page_num} 页无文本")
                 print(f"  [跳过] {name}: 第 {page_num} 页无文本")
         except Exception as e:
-            logger.error(f"规则 '{name}': 提取页面文本失败: {e}")
+            logger.exception("规则页面提取失败: rule=%s page=%s pdf=%s", name, page_num, pdf_path)
             print(f"  [错误] {name}: {e}")
         return
 
@@ -208,6 +208,9 @@ def main():
     """主函数。"""
     parser = argparse.ArgumentParser(description="从 PDF 按规则检索并写入 Excel")
     parser.add_argument("--config", "-c", default="config.yaml", help="配置文件路径")
+    parser.add_argument("--input", "-i", default=None, help="可选：覆盖 config 中的 pdf_path")
+    parser.add_argument("--output", "-o", default=None, help="可选：覆盖 config 中的 excel_path")
+    parser.add_argument("--overwrite", action="store_true", help="覆盖已存在输出 Excel")
     parser.add_argument("--verbose", "-v", action="store_true", help="显示详细日志")
     parser.add_argument("--exclusion-json", default=None, help="可选：水印排除框 boxes.json 路径（用于跳过疑似干扰区域）")
     parser.add_argument(
@@ -241,9 +244,16 @@ def main():
             print("配置文件中缺少 pdf_path")
             sys.exit(1)
         
-        pdf_path = resolve_path(base_dir, pdf_path_str)
-        excel_path = resolve_path(base_dir, config.get("excel_path", "output.xlsx"))
+        pdf_path = resolve_path(base_dir, args.input if args.input else pdf_path_str)
+        excel_path = resolve_path(
+            base_dir,
+            args.output if args.output else config.get("excel_path", "output.xlsx"),
+        )
         rules = config.get("rules", [])
+
+        if excel_path.exists() and not args.overwrite:
+            print(f"输出已存在，请使用 --overwrite: {excel_path}")
+            sys.exit(1)
 
         exclusion_boxes_by_page = None
         if args.exclusion_json:
@@ -345,8 +355,8 @@ def main():
                         anom.get("dropped_boxes_count"),
                         anom.get("severe_area_distortion_pages"),
                     )
-                except Exception as e:
-                    logger.warning("mapping_audit 生成失败（不影响抽取）: %s", e)
+                except Exception:
+                    logger.exception("mapping_audit 生成失败（已忽略）: pdf=%s exclusion=%s", pdf_path, excl_path)
 
         if not isinstance(rules, list):
             logger.error("配置文件中 rules 必须是列表")
@@ -370,7 +380,7 @@ def main():
                 run_rule(rule, pdf_path, wb, base_dir, exclusion_boxes_by_page=exclusion_boxes_by_page)
                 success_count += 1
             except Exception as e:
-                logger.error(f"规则 {i} 执行失败: {e}")
+                logger.exception("规则执行失败: index=%s rule=%s pdf=%s", i, rule.get("name", "未命名规则"), pdf_path)
                 print(f"  [错误] 规则执行失败: {e}")
             print()
         

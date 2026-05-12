@@ -9,6 +9,7 @@ import shutil
 from pathlib import Path
 import io
 import argparse
+import logging
 
 # --- 基础依赖 ---
 import fitz  # pyright: ignore[reportMissingImports]
@@ -63,6 +64,18 @@ DANGLING_TOXINS = {
     "are",
 }
 
+# FDA / ICH 等封面常见泛化大标题：最大字号往往是这一行，需剥离或跳过以便落到具体题目
+GUIDANCE_COVER_PREFIXES: tuple[str, ...] = (
+    "guidance for industry",
+    "guidance for clinical investigators",
+    "guidance for clinical trial sponsors",
+    "guidance for sponsors",
+    "draft guidance for industry",
+    "guidance for industry and clinical investigators",
+)
+
+logger = logging.getLogger(__name__)
+
 # --- 视觉矩阵依赖 (容错加载) ---
 try:
     import pytesseract
@@ -71,7 +84,7 @@ try:
     OCR_AVAILABLE = True
 except ImportError:
     OCR_AVAILABLE = False
-    print("[!] 警告: pytesseract 未安装，视觉矩阵(OCR)已离线。")
+    logger.warning("action=ocr_backend_unavailable backend=pytesseract")
 
 
 class PDFSanitizer:
@@ -94,6 +107,48 @@ class PDFSanitizer:
         # 基础设施初始化
         self.input_dir.mkdir(parents=True, exist_ok=True)
         self.output_dir.mkdir(parents=True, exist_ok=True)
+
+    @staticmethod
+    def _normalize_ws_lower(s: str) -> str:
+        return re.sub(r"\s+", " ", s.lower()).strip()
+
+    @staticmethod
+    def _strip_guidance_cover_prefix(raw: str) -> str:
+        """若整段以泛化封面标题开头，去掉前缀，保留具体题目（同一行或拼接后的后半段）。"""
+        t = raw.strip()
+        if not t:
+            return t
+        norm = PDFSanitizer._normalize_ws_lower(t)
+        for prefix in GUIDANCE_COVER_PREFIXES:
+            if not norm.startswith(prefix):
+                continue
+            m = re.match(r"(?is)^\s*" + re.escape(prefix).replace(r"\ ", r"\s+"), t)
+            if not m:
+                continue
+            rest = t[m.end() :].strip()
+            if len(rest) >= 12:
+                return rest
+            return ""
+        return t
+
+    @staticmethod
+    def _fda_specific_title_from_plain_text(text: str) -> str:
+        """从首屏文本解析：Guidance for Industry 之后到固定套话前的具体标题。"""
+        if not text:
+            return ""
+        m = re.search(
+            r"(?is)Guidance\s+for\s+Industry[^\n]*\n+\s*(.+?)(?:\n\s*\n|This\s+guidance|FDA\s+is\s+issuing|Docket\s+No)",
+            text[:6000],
+        )
+        if not m:
+            return ""
+        line = re.sub(r"\s+", " ", m.group(1).strip())
+        return line if len(line) >= 12 else ""
+
+    @staticmethod
+    def _year_from_fda_docket(text: str) -> str | None:
+        m = re.search(r"(?i)\bFDA-(\d{4})-[A-Z]-\d+\b", text)
+        return m.group(1) if m else None
 
     @staticmethod
     def _smart_title_case(text: str) -> str:
@@ -170,7 +225,7 @@ class PDFSanitizer:
             text = pytesseract.image_to_string(img, lang="chi_sim+eng")
             return text.strip()
         except Exception as e:
-            print(f"\n[!] 视觉皮层短路: {e}")
+            logger.warning("action=ocr_extract_failed reason=%s", e)
             return ""
 
     @staticmethod
@@ -206,12 +261,20 @@ class PDFSanitizer:
                 candidate = " ".join(size_map[s]).strip()
                 compressed_cand = candidate.lower().replace(" ", "")
                 is_toxic = any(noise in compressed_cand for noise in blacklist)
-                
-                # 若无毒且长度合理，直接将其判定为标题
-                if len(candidate) >= 8 and not is_toxic:
-                    return candidate
+
+                if len(candidate) < 8 or is_toxic:
+                    continue
+
+                refined = PDFSanitizer._strip_guidance_cover_prefix(candidate)
+                if refined and len(refined) >= 8:
+                    return refined
+
+                norm_one = PDFSanitizer._normalize_ws_lower(candidate)
+                if any(norm_one == p or norm_one.startswith(p + " ") for p in GUIDANCE_COVER_PREFIXES):
+                    continue
+                return candidate
         except Exception:
-            pass
+            logger.debug("视觉层级提取失败", exc_info=True)
         return ""
 
     def _scan_payload(self, pdf_path: Path) -> tuple[str, str]:
@@ -245,26 +308,36 @@ class PDFSanitizer:
                         if len(line) >= 5: 
                             title = line
                             break
-                            
+
+                text_head = text_payload[:4000]
+                # FDA 封面：泛化层级已命中时，用首屏结构抽取具体题目
+                if title and re.search(r"(?i)guidance\s+for\s+industry", title):
+                    from_plain = self._fda_specific_title_from_plain_text(text_payload)
+                    if from_plain:
+                        title = from_plain
+
                 # --- 阶段 2: 时间线锚定 ---
-                text_head = text_payload[:2000]
                 pattern = r"(?:©|copyright|published|vol\.|date|年|出版|收稿).*?\b(19[5-9]\d|20[0-2]\d)\b"
                 explicit_year = re.search(pattern, text_head, re.IGNORECASE)
                 
                 if explicit_year:
                     year = explicit_year.group(1)
                 else:
-                    creation_date = doc.metadata.get("creationDate", "")
-                    meta_year_match = re.search(r"D:(\d{4})", creation_date)
-                    if meta_year_match:
-                        year = meta_year_match.group(1)
+                    docket_year = self._year_from_fda_docket(text_payload[:8000])
+                    if docket_year:
+                        year = docket_year
                     else:
-                        fallback_year = re.search(r"\b(19[5-9]\d|20[0-2]\d)\b", text_head)
-                        if fallback_year:
-                            year = fallback_year.group(1)
+                        creation_date = doc.metadata.get("creationDate", "")
+                        meta_year_match = re.search(r"D:(\d{4})", creation_date)
+                        if meta_year_match:
+                            year = meta_year_match.group(1)
+                        else:
+                            fallback_year = re.search(r"\b(19[5-9]\d|20[0-2]\d)\b", text_head)
+                            if fallback_year:
+                                year = fallback_year.group(1)
                                 
-        except Exception as exc:
-            print(f"\n[!] 探针受损: {pdf_path.name} | 异常: {exc}")
+        except Exception:
+            logger.exception("标题探测失败: file=%s", pdf_path.name)
             
         return title or pdf_path.stem, year
 
@@ -274,11 +347,10 @@ class PDFSanitizer:
         pdf_targets = [p for p in self.input_dir.glob(pattern) if p.is_file()]
 
         if not pdf_targets:
-            print(f"\n[!] 雷达静默。{self.input_dir.name}/ 区块未扫描到目标。请装填弹药。\n")
+            logger.warning("action=input_not_found input=%s", self.input_dir)
             return
 
-        print(f"\n[+] Protocol V6.6 (Severance) 启动 | 锁定目标: {len(pdf_targets)}")
-        print(f"[+] 视觉矩阵(OCR): {'在线' if OCR_AVAILABLE else '离线'}\n")
+        logger.info("action=rename_start targets=%s ocr=%s", len(pdf_targets), OCR_AVAILABLE)
         
         success_count = 0
         skipped_count = 0
@@ -305,7 +377,7 @@ class PDFSanitizer:
                 try:
                     target_path.unlink()
                 except Exception:
-                    pass
+                    logger.warning("action=overwrite_delete_failed target=%s", target_path, exc_info=True)
 
             final_safe_name = self._dedupe_filename(target_dir, chronological_name)
             target_path = target_dir / f"{final_safe_name}.pdf"
@@ -313,18 +385,16 @@ class PDFSanitizer:
             shutil.move(str(pdf_path), str(target_path))
             success_count += 1
 
-        print("\n" + "=" * 55)
         if skipped_count:
-            print(f"[*] 跳过已存在输出: {skipped_count} 个文件（可用 --overwrite 覆盖）")
-        print(f"[*] 战场清理完毕 | 成功重塑并跃迁: {success_count} 个文件")
-        print(f"[*] 终极归档坐标: {self.output_dir}/")
-        print("=" * 55 + "\n")
+            logger.warning("action=skip_existing count=%s hint=use_overwrite", skipped_count)
+        logger.info("action=rename_complete success=%s output=%s", success_count, self.output_dir)
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     parser = argparse.ArgumentParser(description="PDF 标题驱动重命名（支持递归遍历子文件夹）")
-    parser.add_argument("--input", default="input", help="输入目录（相对 15_PDF_Title_Renamer/）")
-    parser.add_argument("--output", default="output", help="输出目录（相对 15_PDF_Title_Renamer/）")
+    parser.add_argument("--input", "-i", default="input", help="输入目录（相对 15_PDF_Title_Renamer/）")
+    parser.add_argument("--output", "-o", default="output", help="输出目录（相对 15_PDF_Title_Renamer/）")
     parser.add_argument(
         "--recursive",
         action=argparse.BooleanOptionalAction,

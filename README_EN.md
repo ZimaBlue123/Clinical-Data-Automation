@@ -473,3 +473,13 @@ python compare_serology_outputs.py --pdf-excel <PDF.xlsx> --word-excel <WORD.xls
 
 MIT License. See `LICENSE.md` (includes attribution for **SAE-Extractor**-derived portions such as `28_SAE_Extractor/`).
 
+## Maintenance Audit (2026-05)
+
+- A repository-wide Python syntax sweep (`compileall`) was completed; no syntax-level failures were found.
+- Most modules already follow a clean single-folder/single-entry pattern. The highest-value cross-cutting improvements are logging consistency, exception granularity, and CLI argument validation.
+- Recommended priority:
+  - P1: normalize CLI flags and exit behavior (`--input/--output/--overwrite`) for easier pipeline chaining.
+  - P1: reduce broad `except Exception` handling and include actionable error context.
+  - P2: add minimal smoke regression samples (1-2 per critical module).
+  - P3: gradually move duplicated I/O/logging helpers into `src/`.
+

@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import io
 import json
+import logging
 import random
 import re
 import sys
@@ -31,6 +32,7 @@ from tqdm import tqdm
 
 # 屏蔽可能因为关闭 SSL 验证而产生的烦人警告
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+logger = logging.getLogger(__name__)
 
 # --- 视觉矩阵依赖 (容错加载) ---
 try:
@@ -40,6 +42,7 @@ try:
     OCR_AVAILABLE = True
 except ImportError:
     OCR_AVAILABLE = False
+    logger.warning("action=ocr_backend_unavailable backend=pytesseract")
 
 # 标题中默认保持小写的功能词（首词/尾词除外）
 LOWERCASE_TITLE_WORDS = {
@@ -536,8 +539,7 @@ class PaperDownloader:
         query_list = [q.strip() for q in queries if q.strip()]
 
         proxy_status = self.session.proxies.get('http', '未使用 (直接连接)')
-        print(f"\n[+] 网络突围任务开始 | 目标数量: {len(query_list)}")
-        print(f"[+] 隧道状态: {proxy_status}\n")
+        logger.info("action=download_start targets=%s proxy=%s", len(query_list), proxy_status)
 
         for query in tqdm(query_list, desc="Downloading", unit="paper"):
             normalized, note = self._normalize_query(query)
@@ -577,6 +579,7 @@ class PaperDownloader:
                     self._download_pdf(pdf_url, temp_name)
                     results["success"].append((query, "Downloaded"))
                 except Exception as e:
+                    logger.warning("action=download_failed query=%s reason=%s", query, e)
                     results["failed"].append((query, f"Download failed: {e}"))
             else:
                 results["failed"].append((query, "PDF not found in OA or Sci-Hub Matrix"))
@@ -593,7 +596,7 @@ class PaperDownloader:
         try:
             shutil.rmtree(self.temp_dir)
         except Exception:
-            pass
+            logger.debug("action=temp_cleanup_failed dir=%s", self.temp_dir, exc_info=True)
 
         self._save_cache()
         self._print_report(results)
@@ -601,13 +604,14 @@ class PaperDownloader:
 
     @staticmethod
     def _print_report(results: dict[str, list[tuple[str, str]]]) -> None:
-        print("\n" + "=" * 55)
-        print(f"[*] 战报统计 | 成功下载并解析: {len(results['success'])} | 彻底失败: {len(results['failed'])}")
+        logger.info(
+            "action=download_summary success=%s failed=%s",
+            len(results["success"]),
+            len(results["failed"]),
+        )
         if results["failed"]:
-            print("\n[!] 失败明细:")
             for item, reason in results["failed"]:
-                print(f" - {item[:40]}... : {reason}")
-        print("=" * 55 + "\n")
+                logger.warning("action=download_failure_detail query=%s reason=%s", item[:40], reason)
 
 
 # ==========================================
@@ -641,6 +645,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 def main() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     base_dir = Path(__file__).resolve().parent
     output_dir = base_dir / "output"
     args = parse_args()
@@ -654,9 +659,10 @@ def main() -> None:
 
     if not queries:
         if not sys.stdin.isatty():
-            print("非交互环境错误。", file=sys.stderr); sys.exit(1)
+            logger.error("action=input_missing mode=non_interactive")
+            sys.exit(1)
             
-        print("请输入查询 (支持直接批量粘贴，每行一篇文献)。\n[提示] 输入完毕后，直接按回车(空行)即可触发下载装配线：")
+        logger.info("action=await_stdin_queries")
         while True:
             try:
                 line = input().strip()
@@ -665,7 +671,8 @@ def main() -> None:
             except EOFError: break
                 
         if not queries:
-            print("未探测到输入。", file=sys.stderr); sys.exit(1)
+            logger.error("action=input_missing mode=interactive")
+            sys.exit(1)
 
     out_dir = Path(args.output) if args.output else output_dir
     if not out_dir.is_absolute(): out_dir = output_dir / out_dir
@@ -681,7 +688,8 @@ def main() -> None:
         backoff_base=args.backoff_base,
         mirror_cooldown_seconds=args.mirror_cooldown,
     )
-    downloader.download(queries)
+    results = downloader.download(queries)
+    raise SystemExit(0 if not results["failed"] else 1)
 
 if __name__ == "__main__":
     main()

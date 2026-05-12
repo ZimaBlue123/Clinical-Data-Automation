@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import platform
 import re
@@ -42,6 +43,7 @@ DEFAULT_TRANSLATE_COLUMNS = ["Term", "SOC", "Comment", "PT Name", "SOC Name", "E
 # COM 常量，避免魔法数字
 XL_PASTE_FORMATS = -4122
 WD_FORMAT_XML_DOCUMENT = 16
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -732,6 +734,7 @@ def process_one_file(input_path: Path, cfg: TransConfig, translator: SmartTransl
 
 
 def main() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     _load_local_env(BASE / ".env")
     parser = argparse.ArgumentParser(description="21 模块：Excel/CSV/Word/PDF 翻译（免费优先）")
     parser.add_argument("--input", "-i", default=str(INPUT_DIR), help="输入文件或目录")
@@ -764,7 +767,7 @@ def main() -> None:
     if engine == "auto":
         engine = "com" if platform.system().lower() == "windows" and _try_import_win32() is not None else "openpyxl"
     if args.max_workers > 1 and engine == "com":
-        print("[WARN] 并发模式下 COM 引擎线程不安全，自动切换为 openpyxl。")
+        logger.warning("action=engine_switch reason=com_not_thread_safe from=com to=openpyxl")
         engine = "openpyxl"
 
     cfg = TransConfig(
@@ -793,25 +796,30 @@ def main() -> None:
     glossary = _load_glossary(cfg.glossary_path)
     translator = build_translator(cfg, mem, glossary)
 
-    print(
-        f"配置: provider={cfg.provider}, direction={cfg.direction}, pdf_mode={cfg.pdf_mode}, "
-        f"workers={cfg.max_workers}, cache={'on' if not cfg.no_cache else 'off'}, glossary={len(glossary)}"
+    logger.info(
+        "配置: provider=%s direction=%s pdf_mode=%s workers=%s cache=%s glossary=%s",
+        cfg.provider,
+        cfg.direction,
+        cfg.pdf_mode,
+        cfg.max_workers,
+        "on" if not cfg.no_cache else "off",
+        len(glossary),
     )
     if cfg.provider == "deepl":
-        print(f"DeepL key: {_mask_secret(cfg.deepl_key)}")
+        logger.info("action=provider_config provider=deepl key=%s", _mask_secret(cfg.deepl_key))
 
     if args.self_test:
         ok, msg = translator.self_test()
-        print(msg)
+        logger.info("action=self_test result=%s", msg)
         raise SystemExit(0 if ok else 2)
     if not args.skip_preflight:
         ok, msg = translator.self_test()
-        print(msg)
+        logger.info("action=preflight result=%s", msg)
         if not ok:
             raise SystemExit(2)
 
     cfg.output_dir.mkdir(parents=True, exist_ok=True)
-    print(f"写回引擎: {cfg.engine}")
+    logger.info("action=engine_selected engine=%s", cfg.engine)
 
     exts = {".xlsx", ".csv", ".docx", ".doc", ".pdf"}
     if cfg.input_path.is_file():
@@ -821,10 +829,10 @@ def main() -> None:
     else:
         raise FileNotFoundError(f"输入不存在: {cfg.input_path}")
     if not files:
-        print(f"未找到可处理文件: {cfg.input_path}")
-        return
+        logger.error("未找到可处理文件: input=%s", cfg.input_path)
+        raise SystemExit(1)
 
-    print(f"共 {len(files)} 个文件待处理。")
+    logger.info("action=scan_input total_files=%s", len(files))
 
     def _worker(f: Path) -> tuple[Path, str]:
         local_translator = build_translator(cfg, mem, glossary)
@@ -833,12 +841,12 @@ def main() -> None:
 
     if cfg.max_workers <= 1:
         for idx, f in enumerate(files, start=1):
-            print(f"[{idx}/{len(files)}] 处理中: {f.name}")
+            logger.info("action=process_start index=%s total=%s file=%s", idx, len(files), f.name)
             try:
                 _, out = _worker(f)
-                print(f"  -> 输出: {out}")
+                logger.info("action=process_success file=%s output=%s", f.name, out)
             except Exception as e:  # noqa: BLE001
-                print(f"[ERROR] 处理失败 {f.name}: {e}")
+                logger.exception("处理失败: file=%s", f.name)
     else:
         with ThreadPoolExecutor(max_workers=cfg.max_workers) as ex:
             fut_map = {ex.submit(_worker, f): f for f in files}
@@ -848,12 +856,12 @@ def main() -> None:
                 done_count += 1
                 try:
                     _, out = fut.result()
-                    print(f"[{done_count}/{len(files)}] 完成: {f.name} -> {out}")
+                    logger.info("action=process_success index=%s total=%s file=%s output=%s", done_count, len(files), f.name, out)
                 except Exception as e:  # noqa: BLE001
-                    print(f"[ERROR] 处理失败 {f.name}: {e}")
+                    logger.exception("处理失败: file=%s", f.name)
 
     mem.save()
-    print("完成。")
+    logger.info("action=batch_complete total=%s", len(files))
 
 
 if __name__ == "__main__":

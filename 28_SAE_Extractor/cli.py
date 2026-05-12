@@ -22,7 +22,7 @@ def _build_engine():
 
     env = check_environment(settings)
     logging.info(
-        "环境自检摘要 | Tesseract: %s | Poppler: %s | Token已配置: %s",
+        "action=env_check tesseract_ok=%s poppler_ok=%s token_set=%s",
         env["tesseract"]["ok"],
         env["poppler"]["ok"],
         env["api"]["token_set"],
@@ -60,7 +60,7 @@ def main() -> int:
     ensure_dirs(settings)
 
     if args.cmd == "self-check":
-        print(check_environment(settings))
+        logging.info("action=self_check result=%s", check_environment(settings))
         return 0
 
     settings, engine = _build_engine()
@@ -85,4 +85,11 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except KeyboardInterrupt:
+        logging.error("action=interrupted_by_user")
+        raise SystemExit(130)
+    except Exception:
+        logging.exception("action=cli_failed")
+        raise SystemExit(1)

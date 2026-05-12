@@ -232,7 +232,7 @@ def extract_rows_digital_pdf(pdf_path: Path) -> list[dict[str, Any]]:
     try:
         tables_by_page = extract_tables_from_pdf(pdf_path)
     except Exception as e:
-        logger.warning("pdfplumber 读表失败 %s: %s", pdf_path.name, e)
+        logger.warning("pdfplumber 读表失败: file=%s reason=%s", pdf_path.name, e)
         return []
     for page_tables in tables_by_page:
         for table in page_tables:
@@ -587,6 +587,7 @@ def run(
     ocr_dpi: int,
     prefer_last: bool,
     reference_excel: Path | None,
+    overwrite: bool,
 ) -> int:
     pdfs = discover_pdfs(input_dir)
     if not pdfs:
@@ -605,6 +606,7 @@ def run(
             try:
                 no_tables = not extract_tables_from_pdf(pdf)
             except Exception:
+                logger.debug("二次判定表格存在性失败: file=%s", pdf.name, exc_info=True)
                 no_tables = True
             if no_tables:
                 logger.warning(
@@ -612,6 +614,10 @@ def run(
                     pdf.name,
                 )
         pdf_rows.append((pdf, rows))
+
+    if output_path.exists() and not overwrite:
+        logger.error("输出已存在，请使用 --overwrite: %s", output_path)
+        return 1
 
     merged = merge_records(pdf_rows, prefer_last=prefer_last)
     if reference_excel:
@@ -628,7 +634,7 @@ def run(
             )
     write_excel(merged, output_path)
     logger.info("已写入 %s 行 -> %s", len(merged), output_path)
-    print(f"完成: {len(merged)} 个样品ID -> {output_path}")
+    logger.info("完成: samples=%s output=%s", len(merged), output_path)
     return 0
 
 
@@ -648,6 +654,7 @@ def main() -> None:
         default=MODULE_DIR / "output" / "serology_report_merged.xlsx",
         help="输出 Excel 路径",
     )
+    parser.add_argument("--overwrite", action="store_true", help="覆盖已存在输出文件")
     parser.add_argument(
         "--ocr",
         action="store_true",
@@ -680,6 +687,7 @@ def main() -> None:
         ocr_dpi=args.ocr_dpi,
         prefer_last=not args.prefer_first,
         reference_excel=args.reference_excel.resolve() if args.reference_excel else None,
+        overwrite=args.overwrite,
     )
     raise SystemExit(code)
 

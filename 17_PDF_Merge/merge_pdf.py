@@ -23,12 +23,14 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import re
 import sys
 from pathlib import Path
 
 
 _SPLIT_RE = re.compile(r"(\\d+)")
+logger = logging.getLogger(__name__)
 
 
 def natural_key(text: str) -> list[object]:
@@ -73,11 +75,11 @@ def merge_pdfs(
     try:
         from pypdf import PdfReader, PdfWriter  # type: ignore
     except ImportError:
-        print("错误：需要安装 pypdf。请执行: pip install pypdf", file=sys.stderr)
+        logger.error("action=dependency_missing name=pypdf")
         return 2
 
     if output_pdf.exists() and not overwrite:
-        print(f"跳过（已存在）：{output_pdf}")
+        logger.error("action=output_exists output=%s hint=use_overwrite", output_pdf)
         return 1
 
     if base_dir:
@@ -96,7 +98,7 @@ def merge_pdfs(
                 try:
                     reader.decrypt("")  # type: ignore[attr-defined]
                 except Exception:
-                    print(f"跳过（加密无法解密）：{pdf_path}")
+                    logger.warning("action=skip_encrypted file=%s reason=decrypt_failed", pdf_path)
                     continue
 
             pages = list(reader.pages)
@@ -104,31 +106,31 @@ def merge_pdfs(
                 writer.add_page(page)
             added_files += 1
             added_pages += len(pages)
-            print(f"已加入：{pdf_path}（{len(pages)} 页）")
+            logger.info("已加入: file=%s pages=%s", pdf_path, len(pages))
         except Exception as exc:
-            print(f"跳过（读取失败）：{pdf_path}，原因：{exc}")
+            logger.warning("跳过读取失败: file=%s reason=%s", pdf_path, exc)
 
     if added_pages == 0:
-        print("未合并任何页面（可能所有文件读取失败或为空）。")
+        logger.error("action=merge_empty reason=no_pages_added")
         return 1
 
     output_pdf.parent.mkdir(parents=True, exist_ok=True)
     with output_pdf.open("wb") as f:
         writer.write(f)
 
-    print(f"✅ 合并完成：{added_files}/{len(pdf_files)} 个文件，合计 {added_pages} 页")
-    print(f"输出文件：{output_pdf}")
+    logger.info("合并完成: files=%s/%s pages=%s output=%s", added_files, len(pdf_files), added_pages, output_pdf)
     return 0
 
 
 def main() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     base_dir = Path(__file__).resolve().parent
     default_input = base_dir / "input"
     default_output = base_dir / "output"
 
     parser = argparse.ArgumentParser(description="合并多个 PDF 为一个 PDF（自然排序）")
-    parser.add_argument("--input", default=str(default_input), help="输入目录或单个 PDF 文件")
-    parser.add_argument("--output", default=str(default_output), help="输出目录（默认 17_PDF_Merge/output）")
+    parser.add_argument("--input", "-i", default=str(default_input), help="输入目录或单个 PDF 文件")
+    parser.add_argument("--output", "-o", default=str(default_output), help="输出目录（默认 17_PDF_Merge/output）")
     parser.add_argument("--output-name", default="merged.pdf", help="输出文件名（默认 merged.pdf）")
     parser.add_argument("--overwrite", action="store_true", help="覆盖已存在的输出文件")
     args = parser.parse_args()
@@ -139,7 +141,7 @@ def main() -> None:
 
     pdf_files, base_input_dir = collect_pdfs(input_path)
     if not pdf_files:
-        print(f"未找到 PDF 文件：{input_path}")
+        logger.error("action=input_not_found input=%s", input_path)
         raise SystemExit(1)
 
     raise SystemExit(merge_pdfs(pdf_files, base_input_dir, output_pdf, overwrite=args.overwrite))

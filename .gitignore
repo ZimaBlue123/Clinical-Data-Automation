@@ -70,6 +70,13 @@ id_rsa.*
 .pre-commit-cache/
 .pytest_cache/
 .mypy_cache/
+.ruff_cache/
+.cache/
+.coverage
+.coverage.*
+htmlcov/
+pip-wheel-metadata/
+*.coverage
 *.log
 *.bak
 *.tmp

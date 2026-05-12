@@ -66,8 +66,8 @@ def main() -> None:
     )
 
     parser = argparse.ArgumentParser(description="19_PDF_Watermark_Removal: detect interference zones + audit masks + clean extracted text.")
-    parser.add_argument("--input", default="input", help="输入 PDF（文件或目录，默认相对当前模块目录）")
-    parser.add_argument("--output", default="output", help="输出目录（默认相对当前模块目录）")
+    parser.add_argument("--input", "-i", default="input", help="输入 PDF（文件或目录，默认相对当前模块目录）")
+    parser.add_argument("--output", "-o", default="output", help="输出目录（默认相对当前模块目录）")
     parser.add_argument("--recursive", action=argparse.BooleanOptionalAction, default=True, help="递归遍历子文件夹（默认开启）")
     parser.add_argument("--keep-structure", action=argparse.BooleanOptionalAction, default=True, help="保留相对目录结构（默认开启）")
     parser.add_argument("--overwrite", action="store_true", help="覆盖已存在输出")
@@ -94,15 +94,18 @@ def main() -> None:
 
     pdfs = iter_pdfs(input_path, recursive=args.recursive)
     if not pdfs:
-        logger.error("未找到 PDF: %s", input_path)
-        return
+        logger.error("action=input_not_found input=%s", input_path)
+        raise SystemExit(1)
 
     # Configure OCR engine once
     ocr_ok = configure_tesseract()
     if not ocr_ok:
-        logger.warning("Tesseract 未配置成功：OCR 模块可能无法工作。")
+        logger.warning("action=ocr_config_warning backend=tesseract status=unavailable")
 
     base_input_dir = input_path.resolve() if input_path.is_dir() else None
+
+    success_count = 0
+    failed_count = 0
 
     for pdf_path in pdfs:
         out_dir = resolve_io_paths(
@@ -120,11 +123,11 @@ def main() -> None:
 
         if not args.overwrite:
             if boxes_json_path.exists() and audit_pdf_path.exists() and clean_text_json_path.exists():
-                logger.info("跳过已存在输出: %s", stem)
+                logger.info("action=skip_existing stem=%s", stem)
                 continue
 
         keywords = parse_keywords(args.keywords)
-        logger.info("处理 PDF: %s (keywords=%s)", pdf_path.name, ",".join(keywords))
+        logger.info("action=process_start file=%s keywords=%s", pdf_path.name, ",".join(keywords))
 
         mode_used = "unknown"
         boxes_by_page: Dict[str, List[Box]] = {}
@@ -204,9 +207,16 @@ def main() -> None:
             with report_json_path.open("w", encoding="utf-8") as f:
                 json.dump(report, f, indent=2, ensure_ascii=False)
 
-            logger.info("完成: %s -> %s", pdf_path.name, out_dir)
+            logger.info("action=process_success file=%s output_dir=%s", pdf_path.name, out_dir)
+            success_count += 1
+        except Exception as exc:
+            failed_count += 1
+            logger.exception("处理失败: file=%s", pdf_path.name)
         finally:
             doc.close()
+
+    logger.info("批处理完成: success=%s failed=%s total=%s", success_count, failed_count, len(pdfs))
+    raise SystemExit(0 if failed_count == 0 else 1)
 
 
 if __name__ == "__main__":
