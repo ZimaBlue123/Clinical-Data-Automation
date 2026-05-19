@@ -79,7 +79,7 @@ Clinical Data Automation/
 ├── 13_PDF_XSS/                    # PDF XSS/script/link sanitization
 ├── 14_PPTX_PDF_to_PPT/            # PDF/PPTX → native editable PPTX (table reconstruction)
 ├── 15_PDF_Title_Renamer/          # PDF filename/title-based sanitization & move
-├── 16_PDF_eCTD_Converter/         # PDF eCTD compliance conversion
+├── 16_PDF_eCTD_Converter/         # PDF eCTD compliance sanitize + audit report (see module README)
 ├── 17_PDF_Merge/                  # Merge PDFs in natural sort order
 ├── 18_PDF_Bookmark_Inherit_Zoom/  # Bookmark inherit-zoom (XYZ zoom=0)
 ├── 19_PDF_Watermark_Removal/      # Detect watermark/interference zones + audit masks + clean text
@@ -282,12 +282,14 @@ python pdf_sanitizer.py
 ---
 
 ### 16. PDF eCTD converter (`16_PDF_eCTD_Converter`)
-Purpose: convert PDFs to eCTD-friendly outputs with audit report.
+Purpose: validate, sanitize, and rewrite PDFs for common eCTD Annex 6 checks; export an Excel audit report (including a structure-warnings sheet).
 
 ```bash
 cd 16_PDF_eCTD_Converter
-python pdf_ectd_converter.py --report "output/ectd_report.xlsx"
+python pdf_ectd_converter.py --input "./input" --output "./output" --report "./ectd_report.xlsx" --overwrite
 ```
+
+Common flags: `--validate-only`, `--overwrite`, `--add-auto-bookmarks` (default `outline`), `--no-add-auto-bookmarks`. See `16_PDF_eCTD_Converter/README.md`.
 
 ---
 

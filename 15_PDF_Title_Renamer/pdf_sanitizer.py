@@ -74,6 +74,39 @@ GUIDANCE_COVER_PREFIXES: tuple[str, ...] = (
     "guidance for industry and clinical investigators",
 )
 
+# 期刊封面页眉：字号常最大但不是论文题目，视觉层级需跳过
+_JOURNAL_MASTHEAD_COMPRESSED: frozenset[str] = frozenset(
+    {
+        "plosone",
+        "plosone.",
+        "plosbiology",
+        "plosmedicine",
+        "plospathogens",
+        "plosgenetics",
+        "ploscompbiol",
+        "nature",
+        "science",
+        "cell",
+        "lancet",
+        "nejm",
+        "bmj",
+        "jama",
+        "pnas",
+        "elife",
+        "sciadv",
+        "naturecommunications",
+        "naturemedicine",
+    }
+)
+
+# 文章类型行（全大写短行），其后才是正文标题
+_ARTICLE_TYPE_LINE = re.compile(
+    r"^(research article|review article|systematic review|meta-analysis|"
+    r"editorial|correction|methods|resources|brief report|case report|"
+    r"original research|open access|peer-reviewed research)\s*$",
+    re.IGNORECASE,
+)
+
 logger = logging.getLogger(__name__)
 
 # --- 视觉矩阵依赖 (容错加载) ---
@@ -151,6 +184,85 @@ class PDFSanitizer:
         return m.group(1) if m else None
 
     @staticmethod
+    def _compress_for_masthead(s: str) -> str:
+        return re.sub(r"[^\w]+", "", s.lower())
+
+    @staticmethod
+    def _is_journal_masthead_only(candidate: str) -> bool:
+        """是否为仅期刊名/页眉（非正文标题）。"""
+        t = candidate.strip()
+        if not t or len(t) < 4:
+            return True
+        comp = PDFSanitizer._compress_for_masthead(t)
+        if comp in _JOURNAL_MASTHEAD_COMPRESSED:
+            return True
+        # 常见「Journal Name」短行：≤4 词且总长较短
+        words = t.split()
+        if len(words) <= 4 and len(t) <= 36 and not re.search(r"[.?:;]", t):
+            if comp.endswith("journal") or "journalof" in comp:
+                return True
+        return False
+
+    @staticmethod
+    def _is_article_type_line(line: str) -> bool:
+        return bool(_ARTICLE_TYPE_LINE.match(line.strip()))
+
+    @staticmethod
+    def _academic_title_from_plain_text(text: str) -> str:
+        """
+        学术期刊首屏：跳过期刊名与 RESEARCH ARTICLE 等类型行，合并后续多行为标题，
+        遇作者行（多逗号短名）、空段、邮箱/URL、纯数字起头的机构行时停止。
+        """
+        if not text:
+            return ""
+        raw_lines = text[:8000].splitlines()
+        i = 0
+        n = len(raw_lines)
+
+        while i < n:
+            s = raw_lines[i].strip()
+            if not s:
+                i += 1
+                continue
+            if PDFSanitizer._is_journal_masthead_only(s):
+                i += 1
+                continue
+            if PDFSanitizer._is_article_type_line(s):
+                i += 1
+                continue
+            break
+
+        title_parts: list[str] = []
+        while i < n:
+            raw = raw_lines[i]
+            s = raw.strip()
+            if not s:
+                if title_parts:
+                    break
+                i += 1
+                continue
+            if PDFSanitizer._is_journal_masthead_only(s) or PDFSanitizer._is_article_type_line(s):
+                i += 1
+                continue
+            if s.count(",") >= 2 and len(s) < 220 and re.search(r",\s*[A-Z][a-z]", s):
+                break
+            if "@" in s or re.search(r"https?://", s, re.I):
+                break
+            if re.match(r"^\d+\s+", s) and title_parts:
+                break
+            if s.lower().startswith("doi:") or s.lower().startswith("doi "):
+                break
+            if re.match(r"^citation\s*:", s, re.I):
+                break
+            title_parts.append(s)
+            if len(" ".join(title_parts)) > 520:
+                break
+            i += 1
+
+        out = re.sub(r"\s+", " ", " ".join(title_parts)).strip()
+        return out if len(out) >= 20 else ""
+
+    @staticmethod
     def _smart_title_case(text: str) -> str:
         """英文标题格式化：中间功能词保持小写，首尾词强制首字母大写。"""
         raw_words = text.split()
@@ -168,7 +280,7 @@ class PDFSanitizer:
         return " ".join(formatted_words)
 
     @staticmethod
-    def _simplify_filename(name: str, max_words: int = 15, max_chars: int = 40) -> str:
+    def _simplify_filename(name: str, max_words: int = 22, max_chars: int = 40) -> str:
         """核心文本手术刀：副标题截断，双语自适应解析，全角标点粉碎，边缘修剪"""
         # 0. [核心优化] 副标题物理切除：在遇到中英文冒号时进行硬截断
         name = re.split(r"[:：]", name)[0]
@@ -265,6 +377,11 @@ class PDFSanitizer:
                 if len(candidate) < 8 or is_toxic:
                     continue
 
+                if PDFSanitizer._is_journal_masthead_only(candidate):
+                    continue
+                if PDFSanitizer._is_article_type_line(candidate):
+                    continue
+
                 refined = PDFSanitizer._strip_guidance_cover_prefix(candidate)
                 if refined and len(refined) >= 8:
                     return refined
@@ -315,6 +432,21 @@ class PDFSanitizer:
                     from_plain = self._fda_specific_title_from_plain_text(text_payload)
                     if from_plain:
                         title = from_plain
+
+                # 学术期刊（PLOS / Nature 等）：跳过期刊页眉，用首屏纯文本抽取正文标题
+                academic = self._academic_title_from_plain_text(text_payload)
+                if academic:
+                    t_strip = (title or "").strip()
+                    if (
+                        not t_strip
+                        or self._is_journal_masthead_only(t_strip)
+                        or self._is_article_type_line(t_strip)
+                        or (
+                            re.search(r"(?is)\b(research article|review article|systematic review)\b", text_payload[:3500])
+                            and len(academic) > len(t_strip) + 10
+                        )
+                    ):
+                        title = academic
 
                 # --- 阶段 2: 时间线锚定 ---
                 pattern = r"(?:©|copyright|published|vol\.|date|年|出版|收稿).*?\b(19[5-9]\d|20[0-2]\d)\b"

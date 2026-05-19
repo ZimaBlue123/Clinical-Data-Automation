@@ -10,13 +10,17 @@ eCTD 合规装甲 & XSS 深度清理器（16_PDF_eCTD_Converter）
 - 移除除超文本链接外的所有注释（6.18）
 - 清理/拦截外部链接与非法协议（6.3 / 6.10 / 6.11）
 - 强制设置初始视图（6.20）：UseOutlines + OneColumn（PyMuPDF 可稳定设置）
-- 大于 5 页必须有书签（6.23）
-- 启用快速 Web 查看（Fast Web View / Linearization）（6.22）
+- 大于 5 页必须有书签（6.23）；可选用 ``--add-auto-bookmarks`` 自动补写书签
+- 启用快速 Web 查看（Fast Web View / Linearization）（6.22；若当前 MuPDF 不支持线性化则自动降级保存）
 - 导出合规审计 Excel 报告（便于审计与回溯）
 
 用法：
   cd 16_PDF_eCTD_Converter
   python pdf_ectd_converter.py --input "./input" --output "./output" --report "./ectd_report.xlsx" --overwrite
+
+  # 默认已开启 outline 自动书签；若需禁用：--no-add-auto-bookmarks
+
+  # Windows 上若默认 python 不是安装依赖的环境，请用该解释器的完整路径运行（与 pip 安装 pymupdf 的解释器一致）。
 
   # 指定输入目录/单文件
   python pdf_ectd_converter.py --input "D:\\pdfs"
@@ -24,17 +28,45 @@ eCTD 合规装甲 & XSS 深度清理器（16_PDF_eCTD_Converter）
 
   # 仅校验（也会写审计报告）
   python pdf_ectd_converter.py --validate-only --report "output/ectd_report.xlsx"
+
+  # 超过 5 页且无书签时自动补全书签（省略样式时默认为 outline）
+  python pdf_ectd_converter.py --input "./input" --add-auto-bookmarks
+  python pdf_ectd_converter.py --input "./input" --add-auto-bookmarks pages
 """
 
 from __future__ import annotations
 
 import argparse
 import logging
+import os
+import shutil
+import sys
+import tempfile
 from datetime import datetime
 from pathlib import Path
 
-import fitz  # PyMuPDF
-import pandas as pd
+try:
+    import fitz  # PyMuPDF
+except ModuleNotFoundError as exc:  # pragma: no cover
+    raise SystemExit(
+        "未找到 PyMuPDF（import fitz）。请使用与 pip 对应的解释器安装依赖，例如：\n"
+        f"  {sys.executable} -m pip install pymupdf pandas openpyxl\n"
+        "若在 Windows 上存在多个 Python，请用 `where python` 核对当前使用的可执行文件。"
+    ) from exc
+
+try:
+    import pandas as pd
+except ModuleNotFoundError as exc:  # pragma: no cover
+    raise SystemExit(
+        f"未找到 pandas。请运行: {sys.executable} -m pip install pandas openpyxl"
+    ) from exc
+
+try:
+    import openpyxl  # noqa: F401 — pandas Excel 导出引擎
+except ModuleNotFoundError as exc:  # pragma: no cover
+    raise SystemExit(
+        f"未找到 openpyxl（Excel 报告依赖）。请运行: {sys.executable} -m pip install openpyxl"
+    ) from exc
 
 
 # eCTD 与 XSS 共同封杀的恶意协议与外部前缀（保守策略：外部一律视为风险）
@@ -46,7 +78,207 @@ def _now_str() -> str:
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
+def _reset_mupdf_warnings() -> None:
+    fitz.TOOLS.reset_mupdf_warnings()
+
+
+def _drain_mupdf_warnings() -> str:
+    return (fitz.TOOLS.mupdf_warnings() or "").strip()
+
+
+def _summarize_mupdf_warnings(warnings: str, *, max_len: int = 500) -> str:
+    if not warnings:
+        return ""
+    lines = [ln.strip() for ln in warnings.splitlines() if ln.strip()]
+    xref_hits = sum(1 for ln in lines if "xref" in ln.lower())
+    parts = [f"共 {len(lines)} 条"]
+    if xref_hits:
+        parts.append(f"xref 相关 {xref_hits} 条")
+    summary = "；".join(parts)
+    sample = lines[0][:120]
+    if len(lines) > 1:
+        sample += f" …（另 {len(lines) - 1} 条）"
+    text = f"{summary}：{sample}"
+    return text[:max_len]
+
+
+def _open_pdf(pdf_path: Path) -> tuple[fitz.Document, str]:
+    """打开 PDF 并收集 MuPDF 结构警告；必要时尝试 repair()。"""
+    _reset_mupdf_warnings()
+    doc = fitz.open(pdf_path)
+    warnings = _drain_mupdf_warnings()
+    if getattr(doc, "is_repaired", False) or ("xref" in warnings.lower()):
+        try:
+            doc.repair()
+            warnings = _drain_mupdf_warnings() or warnings
+        except Exception:
+            logger.debug("PDF repair() 失败: file=%s", pdf_path.name, exc_info=True)
+    return doc, warnings
+
+
+def _inspect_open_pdf(doc: fitz.Document, warnings: str) -> tuple[bool, str, dict]:
+    """对已打开的 PDF 做基础校验并返回 meta。"""
+    meta: dict = {}
+    if doc.needs_pass:
+        return False, "错误 (6.21): 存在密码保护，无法打开", meta
+    if doc.page_count <= 0:
+        return False, "错误 (6.1): 页数为0或内容无效", meta
+    toc = doc.get_toc()
+    meta["page_count"] = int(doc.page_count)
+    meta["has_toc"] = bool(toc)
+    if warnings:
+        meta["mupdf_warnings"] = warnings
+    if getattr(doc, "is_repaired", False):
+        meta["mupdf_repaired"] = True
+    return True, "OK", meta
+
+
+def _save_pdf_document(doc: fitz.Document, tmp_path: Path) -> tuple[bool, str]:
+    """保存 PDF；返回 (是否线性化, 附加提示)。"""
+    save_opts = dict(
+        incremental=False,
+        garbage=4,
+        deflate=True,
+        clean=True,
+        encryption=fitz.PDF_ENCRYPT_NONE,
+    )
+    _reset_mupdf_warnings()
+    note = ""
+    try:
+        doc.save(str(tmp_path), linear=True, **save_opts)
+        return True, note
+    except TypeError:
+        doc.save(str(tmp_path), **save_opts)
+        return False, "提示: 当前 PyMuPDF 不支持 linear 参数，已按非线性方式保存"
+    except Exception as exc:
+        if "linear" in str(exc).lower():
+            doc.save(str(tmp_path), **save_opts)
+            return False, "提示: 当前运行库不支持 PDF 线性化，已按非线性方式保存（6.22 不可用）"
+        # clean=True 在个别损坏 PDF 上可能失败，降级重试一次
+        try:
+            save_opts["clean"] = False
+            doc.save(str(tmp_path), **save_opts)
+            return False, "提示: 标准清洗保存失败，已降级为无 clean 模式保存"
+        except Exception:
+            raise exc
+
+
+def _check_disk_space(target_dir: Path, needed_bytes: int) -> tuple[bool, str]:
+    """检查目标目录所在磁盘是否有足够可用空间（needed_bytes 为预估写入量）。"""
+    try:
+        usage = shutil.disk_usage(target_dir)
+    except OSError as exc:
+        return False, f"无法检查磁盘空间: {exc}"
+    if usage.free < needed_bytes:
+        free_mb = usage.free / (1024 * 1024)
+        need_mb = needed_bytes / (1024 * 1024)
+        return False, f"磁盘空间不足（需要约 {need_mb:.0f} MB，可用 {free_mb:.0f} MB）"
+    return True, ""
+
+
+def _verify_output_pdf(
+    output_path: Path,
+    *,
+    expected_pages: int,
+    require_toc: bool,
+) -> tuple[bool, str]:
+    if not output_path.is_file() or output_path.stat().st_size < 128:
+        return False, "输出文件不存在或过小"
+    try:
+        doc = fitz.open(output_path)
+    except Exception as exc:
+        return False, f"输出 PDF 无法打开: {exc}"
+    try:
+        if doc.needs_pass:
+            return False, "输出 PDF 仍受密码保护"
+        if doc.page_count != expected_pages:
+            return False, f"输出页数不一致（期望 {expected_pages}，实际 {doc.page_count}）"
+        if require_toc and doc.page_count > 5 and not doc.get_toc():
+            return False, "输出 PDF 仍缺少书签（规则 6.23）"
+        return True, "输出校验通过"
+    finally:
+        doc.close()
+
+
+def _bookmark_title_sanitize(text: str, max_len: int = 180) -> str:
+    t = " ".join((text or "").split())
+    if not t:
+        return "文档"
+    return t[:max_len]
+
+
+def _bookmark_root_title(doc: fitz.Document, pdf_path: Path) -> str:
+    m = doc.metadata or {}
+    raw = (m.get("title") or "").strip()
+    if raw:
+        return _bookmark_title_sanitize(raw)
+    stem = (pdf_path.stem or "").strip()
+    if stem:
+        return _bookmark_title_sanitize(stem)
+    return "文档"
+
+
+def _toc_from_outline_heuristic(
+    doc: fitz.Document,
+    *,
+    max_scan_pages: int = 24,
+    min_font: float = 12.5,
+) -> list[list]:
+    """
+    从正文前几页中，按「较大字号的一行文字」猜测章节标题，生成一级书签。
+    仅为启发式，复杂排版可能不准。
+    """
+    entries: list[list] = []
+    last = ""
+    scan = min(max_scan_pages, doc.page_count)
+    for pno in range(scan):
+        page = doc[pno]
+        textdict = page.get_text("dict") or {}
+        for block in textdict.get("blocks") or []:
+            if block.get("type") != 0:
+                continue
+            for line in block.get("lines") or []:
+                spans = line.get("spans") or []
+                if not spans:
+                    continue
+                text = "".join((s.get("text") or "") for s in spans).strip()
+                if len(text) < 2 or len(text) > 150:
+                    continue
+                compact = text.replace(" ", "")
+                if compact.isdigit() or set(compact) <= set("0123456789./-"):
+                    continue
+                sizes = [float(s.get("size") or 0) for s in spans]
+                max_sz = max(sizes) if sizes else 0.0
+                if max_sz < min_font:
+                    continue
+                title = _bookmark_title_sanitize(text)
+                if title == last:
+                    continue
+                last = title
+                entries.append([1, title, pno + 1])
+    return entries
+
+
+def _build_auto_toc(doc: fitz.Document, pdf_path: Path, style: str) -> list[list]:
+    """在「无现有书签且页数 > 5」前提下生成待写入的 TOC（PyMuPDF: [level, title, page]，页码从 1 起）。"""
+    if doc.page_count <= 5 or doc.get_toc():
+        return []
+    if style == "minimal":
+        return [[1, _bookmark_root_title(doc, pdf_path), 1]]
+    if style == "pages":
+        return [[1, f"第 {i} 页", i] for i in range(1, doc.page_count + 1)]
+    if style == "outline":
+        guessed = _toc_from_outline_heuristic(doc)
+        if len(guessed) >= 3:
+            return guessed
+        return [[1, f"第 {i} 页", i] for i in range(1, doc.page_count + 1)]
+    raise ValueError(f"未知的自动书签样式: {style}")
+
+
 def _collect_pdfs(input_path: Path, recursive: bool = True) -> list[Path]:
+    input_path = input_path.expanduser()
+    if not input_path.exists():
+        return []
     if input_path.is_file() and input_path.suffix.lower() == ".pdf":
         return [input_path.resolve()]
     if input_path.is_dir():
@@ -56,14 +288,10 @@ def _collect_pdfs(input_path: Path, recursive: bool = True) -> list[Path]:
 
 
 def _validate_pdf_basic(pdf_path: Path) -> tuple[bool, str, dict]:
-    """
-    核心入门校验：
-    - 6.21: 不允许需要密码才能打开
-    - 6.1: 可打开且页数>0（未损坏/可读）
-    """
+    """独立校验入口（validate-only 模式使用）。"""
     meta: dict = {}
     try:
-        doc = fitz.open(pdf_path)
+        doc, warnings = _open_pdf(pdf_path)
     except fitz.FileDataError:
         return False, "错误 (6.1): 文件被破坏或不可读", meta
     except Exception as exc:
@@ -71,25 +299,26 @@ def _validate_pdf_basic(pdf_path: Path) -> tuple[bool, str, dict]:
         return False, f"未知异常: {exc}", meta
 
     try:
-        if doc.needs_pass:
-            return False, "错误 (6.21): 存在密码保护，无法打开", meta
-        if doc.page_count <= 0:
-            return False, "错误 (6.1): 页数为0或内容无效", meta
-
-        toc = doc.get_toc()
-        meta["page_count"] = int(doc.page_count)
-        meta["has_toc"] = bool(toc)
-        return True, "OK", meta
+        return _inspect_open_pdf(doc, warnings)
     finally:
         doc.close()
 
 
 class ECTDComplianceCleaner:
-    def __init__(self, input_dir: Path, output_dir: Path, report_path: Path, overwrite: bool):
+    def __init__(
+        self,
+        input_dir: Path,
+        output_dir: Path,
+        report_path: Path,
+        overwrite: bool,
+        *,
+        auto_bookmarks: str | None = None,
+    ):
         self.input_dir = input_dir
         self.output_dir = output_dir
         self.report_path = report_path
         self.overwrite = overwrite
+        self.auto_bookmarks = auto_bookmarks
         self.report_rows: list[dict] = []
 
     def _is_illegal_link(self, link: dict) -> tuple[bool, str]:
@@ -138,6 +367,8 @@ class ECTDComplianceCleaner:
         pagemode_set: bool | None = None,
         pagelayout_set: bool | None = None,
         linearized: bool | None = None,
+        mupdf_warnings: str | None = None,
+        output_verified: bool | None = None,
     ) -> None:
         self.report_rows.append(
             {
@@ -153,6 +384,8 @@ class ECTDComplianceCleaner:
                 "初始视图UseOutlines": pagemode_set,
                 "页面布局OneColumn": pagelayout_set,
                 "FastWebView(Linear)": linearized,
+                "源PDF结构警告": mupdf_warnings or None,
+                "输出校验通过": output_verified,
                 "详细信息": detail,
             }
         )
@@ -160,45 +393,9 @@ class ECTDComplianceCleaner:
     def process_pdf(self, pdf_path: Path, output_path: Path, *, validate_only: bool) -> bool:
         status = "FAILED"
         details: list[str] = []
-
-        if not pdf_path.exists():
-            logger.error("输入文件不存在: %s", pdf_path)
-            self._append_report(pdf_path.name, status, "文件不存在")
-            return False
-
-        if output_path.exists() and not self.overwrite and not validate_only:
-            logger.warning("跳过已存在输出: input=%s output=%s", pdf_path, output_path)
-            self._append_report(pdf_path.name, "SKIPPED", "文件已存在且未开启覆盖")
-            return False
-
-        ok, msg, meta = _validate_pdf_basic(pdf_path)
-        page_count = meta.get("page_count")
-        has_toc = meta.get("has_toc")
-        if not ok:
-            self._append_report(pdf_path.name, "FAILED", msg)
-            return False
-
-        # 6.23: 大于5页必须有书签（严格）
-        if isinstance(page_count, int) and page_count > 5 and not has_toc:
-            self._append_report(
-                pdf_path.name,
-                "FAILED",
-                "错误: 大于5页的文件缺少书签（规则 6.23）",
-                page_count=page_count,
-                has_toc=has_toc,
-            )
-            return False
-
-        if validate_only:
-            self._append_report(
-                pdf_path.name,
-                "SUCCESS",
-                "校验通过（validate-only）",
-                page_count=page_count,
-                has_toc=has_toc,
-            )
-            return True
-
+        msg = ""
+        page_count: int | None = None
+        report_has_toc = False
         removed_embedded = 0
         removed_annots = 0
         removed_links = 0
@@ -206,12 +403,97 @@ class ECTDComplianceCleaner:
         pagemode_set = False
         pagelayout_set = False
         linearized = False
+        output_verified: bool | None = None
+        all_warnings = ""
+
+        if not pdf_path.exists():
+            logger.error("输入文件不存在: %s", pdf_path)
+            self._append_report(pdf_path.name, status, "文件不存在")
+            return False
+
+        if not pdf_path.is_file() or pdf_path.stat().st_size < 64:
+            logger.error("输入文件无效或过小: %s", pdf_path)
+            self._append_report(pdf_path.name, status, "输入文件无效或过小")
+            return False
+
+        if output_path.exists() and not self.overwrite and not validate_only:
+            logger.warning("跳过已存在输出: input=%s output=%s", pdf_path, output_path)
+            self._append_report(pdf_path.name, "SKIPPED", "文件已存在且未开启覆盖")
+            return False
 
         doc = None
+        reported = False
         try:
-            doc = fitz.open(pdf_path)
-            if doc.needs_pass:
-                raise ValueError("文件存在密码保护，无法解析（规则 6.21）")
+            try:
+                doc, open_warnings = _open_pdf(pdf_path)
+            except fitz.FileDataError:
+                status = "FAILED"
+                details.append("错误 (6.1): 文件被破坏或不可读")
+                return False
+            except Exception as exc:
+                status = "FAILED"
+                details.append(f"无法打开 PDF: {exc}")
+                logger.exception("打开 PDF 失败: file=%s", pdf_path)
+                return False
+
+            ok, msg, meta = _inspect_open_pdf(doc, open_warnings)
+            page_count = meta.get("page_count")
+            has_toc = meta.get("has_toc")
+            mupdf_warnings = meta.get("mupdf_warnings", "")
+            all_warnings = mupdf_warnings
+            if meta.get("mupdf_repaired"):
+                logger.warning("源 PDF 存在结构问题，MuPDF 已尝试修复: %s", pdf_path.name)
+            if mupdf_warnings:
+                logger.warning(
+                    "源 PDF 结构警告: %s => %s",
+                    pdf_path.name,
+                    _summarize_mupdf_warnings(mupdf_warnings),
+                )
+            if not ok:
+                status = "FAILED"
+                details.append(msg)
+                return False
+
+            allow_autofill = self.auto_bookmarks is not None
+            if isinstance(page_count, int) and page_count > 5 and not has_toc and not allow_autofill:
+                status = "FAILED"
+                details.append("错误: 大于5页的文件缺少书签（规则 6.23）")
+                return False
+
+            if validate_only:
+                status = "SUCCESS"
+                detail = "校验通过（validate-only）"
+                if mupdf_warnings:
+                    detail += f"；源 PDF 结构警告: {_summarize_mupdf_warnings(mupdf_warnings)}"
+                if allow_autofill and isinstance(page_count, int) and page_count > 5 and not has_toc:
+                    detail += f"；已启用 --add-auto-bookmarks={self.auto_bookmarks}，转换时将写入书签"
+                details.append(detail)
+                reported = True
+                self._append_report(
+                    pdf_path.name,
+                    status,
+                    detail,
+                    page_count=page_count,
+                    has_toc=has_toc,
+                    mupdf_warnings=_summarize_mupdf_warnings(mupdf_warnings) or None,
+                )
+                return True
+
+            report_has_toc = bool(has_toc)
+
+            if self.auto_bookmarks and doc.page_count > 5 and not doc.get_toc():
+                try:
+                    new_toc = _build_auto_toc(doc, pdf_path, self.auto_bookmarks)
+                    if new_toc:
+                        doc.set_toc(new_toc)
+                        report_has_toc = True
+                        details.append(
+                            f"已自动补全书签（模式 {self.auto_bookmarks}，共 {len(new_toc)} 条，规则 6.23）"
+                        )
+                except Exception:
+                    logger.exception("自动补全书签失败: file=%s", pdf_path)
+                if not doc.get_toc():
+                    raise RuntimeError("已启用自动书签但仍无书签，不满足规则 6.23")
 
             # 6.17: 删除嵌入文件（附件）
             emb_count = int(doc.embfile_count())
@@ -275,29 +557,56 @@ class ECTDComplianceCleaner:
 
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # 6.22: Fast Web View（linearization）
-            try:
-                doc.save(
-                    output_path,
-                    incremental=False,
-                    garbage=4,
-                    deflate=True,
-                    clean=True,
-                    linear=True,
-                    encryption=fitz.PDF_ENCRYPT_NONE,
-                )
-                linearized = True
-            except TypeError:
-                doc.save(
-                    output_path,
-                    incremental=False,
-                    garbage=4,
-                    deflate=True,
-                    clean=True,
-                    encryption=fitz.PDF_ENCRYPT_NONE,
-                )
-                details.append("提示: 当前 PyMuPDF 不支持 linear 参数，已按非线性方式保存")
+            # 预估输出约为源文件 1.2 倍（压缩后通常更小，留余量防磁盘满）
+            src_bytes = pdf_path.stat().st_size
+            ok_space, space_msg = _check_disk_space(output_path.parent, int(src_bytes * 1.2) + 50 * 1024 * 1024)
+            if not ok_space:
+                raise RuntimeError(space_msg)
 
+            # 原子写入：先写入同目录临时文件再替换，避免保存中断留下半截 PDF
+            fd, tmp_name = tempfile.mkstemp(
+                suffix=".pdf",
+                dir=str(output_path.parent),
+                prefix=".ectd_tmp_",
+            )
+            os.close(fd)
+            tmp_path = Path(tmp_name)
+            saved_ok = False
+            try:
+                linearized, save_note = _save_pdf_document(doc, tmp_path)
+                if save_note:
+                    details.append(save_note)
+                save_warnings = _drain_mupdf_warnings()
+                if save_warnings:
+                    all_warnings = f"{all_warnings}\n{save_warnings}".strip() if all_warnings else save_warnings
+                os.replace(tmp_path, output_path)
+                saved_ok = True
+            except OSError as ose:
+                raise RuntimeError(f"无法写入输出文件（磁盘空间/权限/路径问题）: {ose}") from ose
+            finally:
+                if not saved_ok and tmp_path.exists():
+                    try:
+                        tmp_path.unlink()
+                    except OSError:
+                        pass
+
+            expected_pages = int(doc.page_count)
+            verified, verify_msg = _verify_output_pdf(
+                output_path,
+                expected_pages=expected_pages,
+                require_toc=expected_pages > 5,
+            )
+            output_verified = verified
+            if not verified:
+                try:
+                    output_path.unlink(missing_ok=True)
+                except OSError:
+                    pass
+                raise RuntimeError(verify_msg)
+            if all_warnings:
+                details.append(
+                    f"警告: 源/保存阶段 PDF 结构告警（已重写输出）: {_summarize_mupdf_warnings(all_warnings)}"
+                )
             status = "SUCCESS"
             details.insert(0, "清洗合规通过")
             return True
@@ -308,20 +617,23 @@ class ECTDComplianceCleaner:
         finally:
             if doc is not None:
                 doc.close()
-            self._append_report(
-                pdf_path.name,
-                status,
-                " | ".join(details) if details else msg,
-                page_count=page_count if isinstance(page_count, int) else None,
-                has_toc=has_toc if isinstance(has_toc, bool) else None,
-                removed_embedded=removed_embedded,
-                removed_annots=removed_annots,
-                removed_links=removed_links,
-                has_searchable_text=has_searchable_text,
-                pagemode_set=pagemode_set,
-                pagelayout_set=pagelayout_set,
-                linearized=linearized,
-            )
+            if not reported:
+                self._append_report(
+                    pdf_path.name,
+                    status,
+                    " | ".join(details) if details else msg,
+                    page_count=page_count if isinstance(page_count, int) else None,
+                    has_toc=report_has_toc if isinstance(report_has_toc, bool) else None,
+                    removed_embedded=removed_embedded,
+                    removed_annots=removed_annots,
+                    removed_links=removed_links,
+                    has_searchable_text=has_searchable_text,
+                    pagemode_set=pagemode_set,
+                    pagelayout_set=pagelayout_set,
+                    linearized=linearized,
+                    mupdf_warnings=_summarize_mupdf_warnings(all_warnings) or None,
+                    output_verified=output_verified,
+                )
 
     def export_report(self) -> None:
         if not self.report_rows:
@@ -329,12 +641,34 @@ class ECTDComplianceCleaner:
             return
         df = pd.DataFrame(self.report_rows)
         self.report_path.parent.mkdir(parents=True, exist_ok=True)
-        df.to_excel(self.report_path, index=False)
+        warn_df = df[df["源PDF结构警告"].notna()][["文件名", "状态", "源PDF结构警告", "输出校验通过"]]
+        try:
+            with pd.ExcelWriter(self.report_path, engine="openpyxl") as writer:
+                df.to_excel(writer, sheet_name="全部", index=False)
+                if not warn_df.empty:
+                    warn_df.to_excel(writer, sheet_name="结构警告", index=False)
+        except (PermissionError, OSError):
+            alt = self.report_path.with_name(f"{self.report_path.stem}_{_now_str().replace(':', '-')}{self.report_path.suffix}")
+            logger.warning("报告目标无法写入，改用备用路径: %s", alt)
+            with pd.ExcelWriter(alt, engine="openpyxl") as writer:
+                df.to_excel(writer, sheet_name="全部", index=False)
+                if not warn_df.empty:
+                    warn_df.to_excel(writer, sheet_name="结构警告", index=False)
+            self.report_path = alt
         logger.info("eCTD 审计报告已生成: %s", self.report_path)
 
 
 def main() -> None:
+    if sys.platform == "win32":
+        for stream in (sys.stdout, sys.stderr):
+            try:
+                stream.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+            except (AttributeError, OSError, ValueError):
+                pass
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+    # 结构警告改由 mupdf_warnings() 采集并写入 Excel，避免 C 层 stderr 刷屏
+    fitz.TOOLS.mupdf_display_errors(False)
+    fitz.TOOLS.mupdf_display_warnings(False)
     base_dir = Path(__file__).resolve().parent
     default_input = base_dir / "input"
     default_output = base_dir / "output"
@@ -359,15 +693,41 @@ def main() -> None:
         default=True,
         help="当输入为目录时，是否在输出目录中保留相对目录结构（默认开启）",
     )
+    parser.add_argument(
+        "--add-auto-bookmarks",
+        nargs="?",
+        const="outline",
+        default="outline",
+        choices=["minimal", "pages", "outline"],
+        metavar="STYLE",
+        help="超过 5 页且无书签时自动写入书签（默认 outline）：minimal=单条根书签；pages=每页一条；"
+        "outline=尝试按大号字体提取标题（不足 3 条则退化为每页一条）",
+    )
+    parser.add_argument(
+        "--no-add-auto-bookmarks",
+        action="store_const",
+        const=None,
+        dest="add_auto_bookmarks",
+        help="禁用自动补全书签（严格按 6.23 拒收无书签文件）",
+    )
     args = parser.parse_args()
 
-    input_path = Path(args.input).expanduser()
+    input_path = Path(args.input).expanduser().resolve()
     output_dir = Path(args.output).expanduser()
+    if not output_dir.is_absolute():
+        output_dir = (base_dir / output_dir).resolve()
+    else:
+        output_dir = output_dir.resolve()
     report_path = Path(args.report).expanduser()
+    if not report_path.is_absolute():
+        report_path = (base_dir / report_path).resolve()
+    else:
+        report_path = report_path.resolve()
 
     pdf_files = _collect_pdfs(input_path, recursive=args.recursive)
     if not pdf_files:
-        logger.error("未找到 PDF: %s", input_path)
+        hint = "路径不存在" if not input_path.exists() else "目录下无 .pdf 文件"
+        logger.error("未找到 PDF: %s（%s）", input_path, hint)
         raise SystemExit(1)
 
     logger.info("启动 eCTD 处理: files=%s", len(pdf_files))
@@ -377,16 +737,31 @@ def main() -> None:
         output_dir=output_dir,
         report_path=report_path,
         overwrite=args.overwrite,
+        auto_bookmarks=args.add_auto_bookmarks,
     )
 
     total = 0
     success = 0
     base_input_dir = input_path.resolve() if input_path.is_dir() else None
+    file_total = len(pdf_files)
 
     for pdf_path in pdf_files:
         total += 1
+        size_mb = pdf_path.stat().st_size / (1024 * 1024)
+        if size_mb >= 50:
+            logger.info("[%d/%d] 大文件: %s (%.1f MB)", total, file_total, pdf_path.name, size_mb)
+        else:
+            logger.info("[%d/%d] 处理: %s", total, file_total, pdf_path.name)
         if base_input_dir and args.keep_structure:
-            rel = pdf_path.relative_to(base_input_dir)
+            try:
+                rel = pdf_path.relative_to(base_input_dir)
+            except ValueError:
+                logger.warning(
+                    "无法将文件路径相对于输入根目录解析，将扁平输出: file=%s root=%s",
+                    pdf_path,
+                    base_input_dir,
+                )
+                rel = Path(pdf_path.name)
             if args.keep_name:
                 out_path = output_dir / rel
             else:
@@ -407,7 +782,13 @@ def main() -> None:
             logger.error("处理失败: %s", pdf_path.name)
 
     cleaner.export_report()
-    logger.info("执行完毕: success=%s total=%s", success, total)
+    warn_count = sum(1 for r in cleaner.report_rows if r.get("源PDF结构警告"))
+    logger.info(
+        "执行完毕: success=%s total=%s structure_warnings=%s",
+        success,
+        total,
+        warn_count,
+    )
     raise SystemExit(0 if success == total else 1)
 
 

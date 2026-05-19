@@ -78,6 +78,9 @@ htmlcov/
 pip-wheel-metadata/
 *.coverage
 *.log
+**/run_log.txt
+**/ectd_report*.xlsx
+**/ectd_smoke*.xlsx
 *.bak
 *.tmp
 ~$* # Excel/PPT 运行时隐形锁文件
