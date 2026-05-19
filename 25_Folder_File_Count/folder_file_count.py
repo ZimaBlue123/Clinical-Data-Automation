@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-文件夹文件总数统计（14 模块）
+文件夹文件总数统计（25 模块）
 
 功能：递归统计指定目录下所有文件数量，并输出 TXT 与 Excel。
 
 默认目录：
-- 输出：24_Folder_File_Count/output/
+- 输出：25_Folder_File_Count/output/
 
 用法：
   python folder_file_count.py --path "D:\\data"

@@ -22,7 +22,7 @@ pip install -r requirements.txt
 > - You may comment Paddle-related lines if you do not need **14_PPTX_PDF_to_PPT**
 > - You may remove/comment `pywin32` if you do not use Office automation modules
 >
-> **Optional pre-commit**: install hooks to run YAML checks and a local secret scanner (`scripts/check_secrets.py`, mainly for **28_SAE_Extractor**-style API tokens) before each commit:
+> **Optional pre-commit**: install hooks to run YAML checks and a local secret scanner (`scripts/check_secrets.py`, mainly for **29_SAE_Extractor**-style API tokens) before each commit:
 >
 > ```bash
 > pip install pre-commit
@@ -31,11 +31,11 @@ pip install -r requirements.txt
 
 ## Architecture overview
 
-This repository is organized as **numbered, mostly-independent tool modules** (`01_` … `28_`).  
+This repository is organized as **numbered, mostly-independent tool modules** (`01_` … `29_`).  
 Two rules define the structure:
 
 1. **Clear layering**: root-level shared resources (`src/`, `config*.yaml`) are separated from module folders.
-2. **Fixed module order**: module numbering is the single source of truth, always read/maintain in ascending order (`01_` → `28_`).
+2. **Fixed module order**: module numbering is the single source of truth, always read/maintain in ascending order (`01_` → `29_`).
 
 | Layer | Description |
 |------|-------------|
@@ -51,7 +51,7 @@ Two rules define the structure:
 - **PowerPoint (03-05)**: `03_PPT_Merge` → `04_PPT_Watermark_Removal` → `05_PPT_to_PDF`
 - **Word (06-09)**: `06_Word_to_PDF` → `07_Word_to_Excel_to_Figure` → `08_Word_Tables_to_Excel` → `09_Word_All_Tables_to_Excel`
 - **PDF (10-19)**: `10_PDF_Batch_to_Excel` → `11_PDF_to_Excel_Rule_Extract` → `12_PDF_to_PPT` → `13_PDF_XSS` → `14_PPTX_PDF_to_PPT` → `15_PDF_Title_Renamer` → `16_PDF_eCTD_Converter` → `17_PDF_Merge` → `18_PDF_Bookmark_Inherit_Zoom` → `19_PDF_Watermark_Removal`
-- **Utilities (20-28)**: `20_File_Translator` → `21_Py_to_EXE` → `22_C_Drive_Cleanup` → `23_WiFi_Passwords` → `24_Folder_File_Count` → `25_Paper_Batch_Download` → `26_Proxy_Config_Export` → `27_DNS_Leak_Detector` → `28_SAE_Extractor`
+- **Utilities (20-29)**: `20_PDF_Duplicate_Analyzer` → `21_File_Translator` → `22_Py_to_EXE` → `23_C_Drive_Cleanup` → `24_WiFi_Passwords` → `25_Folder_File_Count` → `26_Paper_Batch_Download` → `27_Proxy_Config_Export` → `28_DNS_Leak_Detector` → `29_SAE_Extractor`
 
 ## Project structure
 
@@ -85,19 +85,20 @@ Clinical Data Automation/
 ├── 19_PDF_Watermark_Removal/      # Detect watermark/interference zones + audit masks + clean text
 │
 ├── # —— Multi-format / Utilities ——
-├── 20_File_Translator/
-├── 21_Py_to_EXE/
-├── 22_C_Drive_Cleanup/
-├── 23_WiFi_Passwords/
-├── 24_Folder_File_Count/
-├── 25_Paper_Batch_Download/
-├── 26_Proxy_Config_Export/
-├── 27_DNS_Leak_Detector/
-├── 28_SAE_Extractor/           # SAE extraction (LLM + multi-format → Excel)
+├── 20_PDF_Duplicate_Analyzer/   # PDF duplicate scan across subfolders (no input/)
+├── 21_File_Translator/
+├── 22_Py_to_EXE/
+├── 23_C_Drive_Cleanup/
+├── 24_WiFi_Passwords/
+├── 25_Folder_File_Count/
+├── 26_Paper_Batch_Download/
+├── 27_Proxy_Config_Export/
+├── 28_DNS_Leak_Detector/
+├── 29_SAE_Extractor/           # SAE extraction (LLM + multi-format → Excel)
 │
 ├── scripts/                    # Repo-wide helpers
 │   ├── check_secrets.py        # Secret-pattern scan (pre-commit)
-│   ├── set_env.ps1             # PowerShell: sample env for 28_SAE_Extractor
+│   ├── set_env.ps1             # PowerShell: sample env for 29_SAE_Extractor
 │   └── start_tunnel.ps1        # PowerShell: SSH port forward for API gateway
 ├── .pre-commit-config.yaml
 ├── src/
@@ -115,7 +116,7 @@ Clinical Data Automation/
 - [PowerPoint (03-05)](#modules-ppt)
 - [Word (06-09)](#modules-word)
 - [PDF (10-19)](#modules-pdf)
-- [Utilities (20-28)](#modules-others)
+- [Utilities (20-29)](#modules-others)
 
 ### 01. Excel chart generation (`01_Excel_Charts`)<span id="modules-excel"></span>
 Purpose: generate ADR combo charts (bar + line), with optional clinical palettes.
@@ -323,63 +324,76 @@ python main.py --input "input" --output "output"
 
 ---
 
-### 20. Bidirectional file translation (`20_File_Translator`)<span id="modules-others"></span>
+### 20. PDF duplicate analysis (`20_PDF_Duplicate_Analyzer`)<span id="modules-others"></span>
+Purpose: detect duplicate PDFs across subfolders under one root path (same filename or same first-page text). No `input/` — specify external paths via CLI or JSON config.
+
+```bash
+cd 20_PDF_Duplicate_Analyzer
+python pdf_duplicate_analyzer.py --root "D:\References" --folders "FolderA,FolderB" --label "batch1"
+python pdf_duplicate_analyzer.py --config jobs.json
+```
+
+Output: `20_PDF_Duplicate_Analyzer/output/duplicate_report_*.txt`.
+
+---
+
+### 21. Bidirectional file translation (`21_File_Translator`)
 Purpose: translate Excel/CSV/Word/PDF with fallback providers.
 
 ```bash
-cd 20_File_Translator
+cd 21_File_Translator
 python file_translator.py --self-test
 python file_translator.py
 ```
 
 ---
 
-### 21. Python script to EXE (`21_Py_to_EXE`)
+### 22. Python script to EXE (`22_Py_to_EXE`)
 Purpose: package `.py` files into Windows executables via PyInstaller.
 
 ```bash
-cd 21_Py_to_EXE
+cd 22_Py_to_EXE
 python py_to_exe.py
 ```
 
 ---
 
-### 22. C drive cleanup (`22_C_Drive_Cleanup`)
+### 23. C drive cleanup (`23_C_Drive_Cleanup`)
 Purpose: scan/clean common temporary and cache files on C drive.
 
 ```bash
-cd 22_C_Drive_Cleanup
+cd 23_C_Drive_Cleanup
 python c_drive_cleanup.py
 python c_drive_cleanup.py --delete --days 7
 ```
 
 ---
 
-### 23. WiFi passwords export (`23_WiFi_Passwords`)
+### 24. WiFi passwords export (`24_WiFi_Passwords`)
 Purpose: export saved Windows WiFi credentials to CSV.
 
 ```bash
-cd 23_WiFi_Passwords
+cd 24_WiFi_Passwords
 python wifi_passwords.py
 ```
 
 ---
 
-### 24. Folder file count (`24_Folder_File_Count`)
+### 25. Folder file count (`25_Folder_File_Count`)
 Purpose: recursively count files and export TXT/Excel reports.
 
 ```bash
-cd 24_Folder_File_Count
+cd 25_Folder_File_Count
 python folder_file_count.py --path "D:\data"
 ```
 
 ---
 
-### 25. Paper batch download (`25_Paper_Batch_Download`)
+### 26. Paper batch download (`26_Paper_Batch_Download`)
 Purpose: batch download OA papers by DOI/PMID/title/URL with default safe-mode throttling and retry backoff to reduce IP rate-limit risk.
 
 ```bash
-cd 25_Paper_Batch_Download
+cd 26_Paper_Batch_Download
 python paper_batch_download.py --queries "10.1038/s41586-020-2649-2" "32788730"
 ```
 
@@ -389,21 +403,21 @@ Safe-mode options (enabled by default): `--safe-mode`, `--min-interval`, `--max-
 
 ---
 
-### 26. Proxy config export (`26_Proxy_Config_Export`)
+### 27. Proxy config export (`27_Proxy_Config_Export`)
 Purpose: export current Windows proxy settings (registry + env vars).
 
 ```bash
-cd 26_Proxy_Config_Export
+cd 27_Proxy_Config_Export
 python proxy_config_export.py
 ```
 
 ---
 
-### 27. DNS leak diagnostics (`27_DNS_Leak_Detector`)
+### 28. DNS leak diagnostics (`28_DNS_Leak_Detector`)
 Purpose: compare egress IP and DNS upstream location for leak/split-routing checks.
 
 ```bash
-cd 27_DNS_Leak_Detector
+cd 28_DNS_Leak_Detector
 python dns_leak_detector.py --mode tun
 python dns_leak_detector.py --mode socks --socks-port 10808
 python dns_leak_detector.py --save-json
@@ -411,21 +425,21 @@ python dns_leak_detector.py --save-json
 
 ---
 
-### 28. SAE structured extraction (`28_SAE_Extractor`)
+### 29. SAE structured extraction (`29_SAE_Extractor`)
 Purpose: extract serious adverse event (SAE) fields from clinical PDFs, text, DOCX, or Excel via an OpenAI-compatible Chat Completions API and export to Excel.
 
 ```bash
-cd 28_SAE_Extractor
+cd 29_SAE_Extractor
 python cli.py self-check
 python cli.py batch
 python cli.py pdf-batch
 ```
 
-Requires `SAE_API_TOKEN`; optional `SAE_API_BASE_URL`, `SAE_MODEL_ID`, `TESSERACT_CMD`, `POPPLER_PATH`. Default I/O: `input/` and `output/`. See `28_SAE_Extractor/README.md`.
+Requires `SAE_API_TOKEN`; optional `SAE_API_BASE_URL`, `SAE_MODEL_ID`, `TESSERACT_CMD`, `POPPLER_PATH`. Default I/O: `input/` and `output/`. See `29_SAE_Extractor/README.md`.
 
 Helper scripts at repo root (`scripts/`, Windows PowerShell):
 
-- `set_env.ps1`: sets `SAE_API_BASE_URL` and `SAE_OUTPUT_DIR` (defaults to `28_SAE_Extractor/output`); **you must still set `SAE_API_TOKEN`**. Run from repo root: `.\scripts\set_env.ps1` (may require execution policy).
+- `set_env.ps1`: sets `SAE_API_BASE_URL` and `SAE_OUTPUT_DIR` (defaults to `29_SAE_Extractor/output`); **you must still set `SAE_API_TOKEN`**. Run from repo root: `.\scripts\set_env.ps1` (may require execution policy).
 - `start_tunnel.ps1`: SSH local port forward. **Requires `SAE_TUNNEL_SSH_HOST`**; optional `SAE_TUNNEL_SSH_USER`, `SAE_TUNNEL_LOCAL_PORT`, `SAE_TUNNEL_REMOTE_BIND`. Run: `powershell -ExecutionPolicy Bypass -File .\scripts\start_tunnel.ps1`
 
 Manual secret scan: `pre-commit run detect-sensitive-secrets --all-files`.
@@ -473,7 +487,7 @@ python compare_serology_outputs.py --pdf-excel <PDF.xlsx> --word-excel <WORD.xls
 
 ## License
 
-MIT License. See `LICENSE.md` (includes attribution for **SAE-Extractor**-derived portions such as `28_SAE_Extractor/`).
+MIT License. See `LICENSE.md` (includes attribution for **SAE-Extractor**-derived portions such as `29_SAE_Extractor/`).
 
 ## Maintenance Audit (2026-05)
 

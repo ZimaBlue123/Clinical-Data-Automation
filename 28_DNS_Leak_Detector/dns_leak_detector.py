@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-27_DNS_Leak_Detector
+28_DNS_Leak_Detector
 
 检测出口 IP 与上游 DNS 解析地是否存在异常偏移，辅助排查 DNS 泄漏风险。
 """

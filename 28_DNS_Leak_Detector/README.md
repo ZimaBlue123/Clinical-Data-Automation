@@ -1,4 +1,4 @@
-# 27_DNS_Leak_Detector
+# 28_DNS_Leak_Detector
 
 DNS 泄漏诊断模块（支持 `tun` / `socks` 两种模式）。
 
@@ -11,7 +11,7 @@ DNS 泄漏诊断模块（支持 `tun` / `socks` 两种模式）。
 ## 快速开始
 
 ```bash
-cd 27_DNS_Leak_Detector
+cd 28_DNS_Leak_Detector
 python dns_leak_detector.py --mode tun
 ```
 

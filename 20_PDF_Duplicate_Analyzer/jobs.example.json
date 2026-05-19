@@ -1,0 +1,9 @@
+{
+  "jobs": [
+    {
+      "root": "H:\\path\\to\\References",
+      "folders": ["FolderA", "FolderB", "FolderC"],
+      "label": "示例批次"
+    }
+  ]
+}

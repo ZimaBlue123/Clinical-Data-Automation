@@ -53,24 +53,25 @@ tqdm>=4.66.0
 pytesseract>=0.3.10
 
 # ---------------------------------------------------------------------------
-# 网络与翻译（25_Paper_Batch_Download 含安全模式限速/退避重试 / 20_File_Translator / 27_DNS_Leak_Detector）
+# 网络与翻译（26_Paper_Batch_Download 含安全模式限速/退避重试 / 21_File_Translator / 28_DNS_Leak_Detector）
 # ---------------------------------------------------------------------------
 requests>=2.31.0
 translators>=5.9.2
 python-docx>=1.1.0
 
 # ---------------------------------------------------------------------------
-# 打包（21_Py_to_EXE）
+# 打包（22_Py_to_EXE）
 # ---------------------------------------------------------------------------
 pyinstaller>=5.13.0
 
 # ---------------------------------------------------------------------------
-# 以下模块仅标准库，无额外 pip 包：22_C_Drive_Cleanup、23_WiFi_Passwords、
-# 24_Folder_File_Count（复用 pandas/openpyxl）、26_Proxy_Config_Export
+# PDF 重复分析（20_PDF_Duplicate_Analyzer：复用 pymupdf，见上方 PDF 相关依赖）
+# 以下模块仅标准库，无额外 pip 包：23_C_Drive_Cleanup、24_WiFi_Passwords、
+# 25_Folder_File_Count（复用 pandas/openpyxl）、27_Proxy_Config_Export
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
-# SAE 抽取（28_SAE_Extractor：pdf2image 用于 PDF 页渲染 OCR；urllib3 由 requests 引入，显式下限与上游一致）
+# SAE 抽取（29_SAE_Extractor：pdf2image 用于 PDF 页渲染 OCR；urllib3 由 requests 引入，显式下限与上游一致）
 # ---------------------------------------------------------------------------
 pdf2image>=1.16.0
 urllib3>=2.0.0

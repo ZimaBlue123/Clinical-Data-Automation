@@ -1,4 +1,4 @@
-# 28_SAE_Extractor
+# 29_SAE_Extractor
 
 从临床文档（PDF / TXT / DOCX / Excel）中抽取严重不良事件（SAE）结构化字段，经 OpenAI 兼容 API 解析后导出 Excel。
 
@@ -26,10 +26,10 @@ $env:POPPLER_PATH="D:\poppler\Library\bin"
 
 ## 用法
 
-默认目录：`28_SAE_Extractor/input/` → `28_SAE_Extractor/output/`。
+默认目录：`29_SAE_Extractor/input/` → `29_SAE_Extractor/output/`。
 
 ```bash
-cd 28_SAE_Extractor
+cd 29_SAE_Extractor
 python cli.py self-check
 python cli.py batch
 python cli.py batch --fast-docx

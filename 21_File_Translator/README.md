@@ -1,4 +1,4 @@
-# 20_File_Translator
+# 21_File_Translator
 
 多格式双向翻译模块（translators 首选，DeepL + LibreTranslate 兜底）。
 
@@ -15,12 +15,12 @@
 - 并发下自动规避 COM 线程风险（自动降级 `openpyxl`）
 - 支持 API 连通自检
 
-> 模块目录已统一为 `20_File_Translator`，主脚本为 `file_translator.py`。
+> 模块目录已统一为 `21_File_Translator`，主脚本为 `file_translator.py`。
 
 ## 快速开始
 
 ```bash
-cd 20_File_Translator
+cd 21_File_Translator
 python file_translator.py --self-test
 python file_translator.py
 ```

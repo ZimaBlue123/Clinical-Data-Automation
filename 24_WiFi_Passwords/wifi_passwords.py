@@ -7,7 +7,7 @@ WiFi 密码查看工具（13 模块）
 - 需具备读取 WiFi 配置权限（部分设备需管理员权限）
 
 默认目录：
-- 输出：23_WiFi_Passwords/output/wifi_passwords.csv
+- 输出：24_WiFi_Passwords/output/wifi_passwords.csv
 
 用法：
   python wifi_passwords.py
