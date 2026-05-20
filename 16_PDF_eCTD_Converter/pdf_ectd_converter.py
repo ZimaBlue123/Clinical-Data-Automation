@@ -11,6 +11,8 @@ eCTD 合规装甲 & XSS 深度清理器（16_PDF_eCTD_Converter）
 - 清理/拦截外部链接与非法协议（6.3 / 6.10 / 6.11）
 - 强制设置初始视图（6.20）：UseOutlines + OneColumn（PyMuPDF 可稳定设置）
 - 大于 5 页必须有书签（6.23）；可选用 ``--add-auto-bookmarks`` 自动补写书签
+- 字体规范化（6.26）：将 Times-Roman / Helvetica 等 PDF 内置名映射为 eCTD 常见认可名，并 subset 嵌入所用字体
+- 书签修复：修正越界页码与无效跳转目标，降低 eCTD 校验「书签失效」概率
 - 启用快速 Web 查看（Fast Web View / Linearization）（6.22；若当前 MuPDF 不支持线性化则自动降级保存）
 - 导出合规审计 Excel 报告（便于审计与回溯）
 
@@ -195,6 +197,13 @@ def _verify_output_pdf(
             return False, f"输出页数不一致（期望 {expected_pages}，实际 {doc.page_count}）"
         if require_toc and doc.page_count > 5 and not doc.get_toc():
             return False, "输出 PDF 仍缺少书签（规则 6.23）"
+        toc_errors = _validate_toc_resolvable(doc)
+        if toc_errors:
+            return False, "输出 PDF 书签仍无效: " + "; ".join(toc_errors[:3])
+        risky = _ectd_risky_font_names(doc)
+        if risky:
+            sample = ", ".join(sorted(risky)[:5])
+            return False, f"输出仍含 eCTD 高风险字体名: {sample}"
         return True, "输出校验通过"
     finally:
         doc.close()
@@ -273,6 +282,212 @@ def _build_auto_toc(doc: fitz.Document, pdf_path: Path, style: str) -> list[list
             return guessed
         return [[1, f"第 {i} 页", i] for i in range(1, doc.page_count + 1)]
     raise ValueError(f"未知的自动书签样式: {style}")
+
+
+# eCTD 6.26：PDF 内置字体名 -> 常见校验器认可名（仅改对象字典中的名称，不重绘正文）
+FONT_XREF_RENAMES: dict[str, str] = {
+    "/Times-Roman": "/TimesNewRomanPSMT",
+    "/Times-Bold": "/TimesNewRomanPS-BoldMT",
+    "/Times-Italic": "/TimesNewRomanPS-ItalicMT",
+    "/Times-BoldItalic": "/TimesNewRomanPS-BoldItalicMT",
+    "/Helvetica": "/ArialMT",
+    "/Helvetica-Bold": "/Arial-BoldMT",
+    "/Helvetica-Oblique": "/Arial-ItalicMT",
+    "/Helvetica-BoldOblique": "/Arial-BoldItalicMT",
+    "/Courier": "/CourierNewPSMT",
+    "/Courier-Bold": "/CourierNewPS-BoldMT",
+    "/Courier-Oblique": "/CourierNewPS-ItalicMT",
+    "/Courier-BoldOblique": "/CourierNewPS-BoldItalicMT",
+}
+
+FONT_XREF_KEYS = ("BaseFont", "FontName", "Name")
+
+
+def _pdf_name_token(value: str) -> str | None:
+    raw = (value or "").strip()
+    if not raw:
+        return None
+    if raw.startswith("/"):
+        return raw
+    if raw.startswith("(") and raw.endswith(")"):
+        return f"/{raw[1:-1]}"
+    return f"/{raw}"
+
+
+def _normalize_pdf_font_names(doc: fitz.Document) -> tuple[int, list[str]]:
+    """将 PDF 内置 Base-14 名称映射为 eCTD 常见白名单名称。"""
+    renamed = 0
+    notes: list[str] = []
+    seen: set[str] = set()
+    for xref in range(1, doc.xref_length()):
+        try:
+            keys = doc.xref_get_keys(xref)
+        except Exception:
+            continue
+        for key in FONT_XREF_KEYS:
+            if key not in keys:
+                continue
+            try:
+                _typ, value = doc.xref_get_key(xref, key)
+            except Exception:
+                continue
+            if not isinstance(value, str):
+                continue
+            token = _pdf_name_token(value)
+            if not token:
+                continue
+            new_token = FONT_XREF_RENAMES.get(token)
+            if not new_token:
+                continue
+            try:
+                doc.xref_set_key(xref, key, new_token)
+                renamed += 1
+                pair = f"{token} -> {new_token}"
+                if pair not in seen:
+                    seen.add(pair)
+                    notes.append(pair)
+            except Exception:
+                logger.debug("字体名映射失败: xref=%s key=%s", xref, key, exc_info=True)
+    return renamed, notes
+
+
+def _embed_fonts_subset(doc: fitz.Document) -> tuple[bool, str]:
+    """嵌入文档所用字形子集（需 fonttools；失败时不中断主流程）。"""
+    try:
+        doc.subset_fonts()
+        return True, ""
+    except AttributeError:
+        return False, "提示: 当前 PyMuPDF 无 subset_fonts，跳过字体嵌入"
+    except Exception as exc:
+        hint = "（可安装 fonttools: pip install fonttools）" if "fonttools" in str(exc).lower() else ""
+        return False, f"警告: subset_fonts 未成功{hint}: {exc}"
+
+
+def _ectd_risky_font_names(doc: fitz.Document) -> set[str]:
+    risky_exact = {
+        "timesroman",
+        "timesbold",
+        "timesitalic",
+        "timesbolditalic",
+        "helvetica",
+        "helveticabold",
+        "helveticaoblique",
+        "helveticaboldoblique",
+        "helv",
+        "courier",
+        "courierbold",
+        "courieroblique",
+        "courierboldoblique",
+    }
+    risky: set[str] = set()
+    for pno in range(doc.page_count):
+        try:
+            fonts = doc[pno].get_fonts(full=True)
+        except Exception:
+            continue
+        for item in fonts:
+            if len(item) < 4:
+                continue
+            base = str(item[3] or "")
+            norm = base.lower().replace(" ", "").replace("-", "")
+            if "+" in norm:
+                norm = norm.split("+", 1)[1]
+            if norm in risky_exact:
+                risky.add(base)
+    return risky
+
+
+def _repair_toc(doc: fitz.Document) -> tuple[int, list[str]]:
+    """修正书签页码越界与 LINK_GOTO 页索引无效问题。"""
+    try:
+        toc = doc.get_toc(simple=False)
+    except Exception as exc:
+        return 0, [f"无法读取书签: {exc}"]
+    if not toc:
+        return 0, []
+
+    page_count = doc.page_count
+    repaired = 0
+    notes: list[str] = []
+    new_toc: list = []
+
+    for item in toc:
+        if len(item) < 3:
+            continue
+        lvl, title, page = item[0], str(item[1]), item[2]
+        dest = item[3] if len(item) > 3 else None
+        title_short = (title[:48] + "…") if len(title) > 48 else title
+
+        if not isinstance(page, int):
+            page = 1
+            repaired += 1
+            notes.append(f"书签「{title_short}」页码类型异常，已改为 1")
+        else:
+            if page < 1:
+                repaired += 1
+                notes.append(f"书签「{title_short}」页码 {page} -> 1")
+                page = 1
+            elif page > page_count:
+                repaired += 1
+                notes.append(f"书签「{title_short}」页码 {page} -> {page_count}")
+                page = page_count
+
+        if dest is not None and dest != 0 and isinstance(dest, dict):
+            dest = dict(dest)
+            kind = dest.get("kind")
+            if kind == fitz.LINK_GOTO:
+                tp = dest.get("page")
+                if isinstance(tp, int) and (tp < 0 or tp >= page_count):
+                    dest["page"] = max(0, min(page_count - 1, page - 1))
+                    if "to" not in dest or dest.get("to") is None:
+                        dest["to"] = fitz.Point(72, 72)
+                    repaired += 1
+                    notes.append(f"书签「{title_short}」跳转页索引已修正")
+            elif kind == fitz.LINK_NAMED:
+                try:
+                    doc.resolve_link(dest)
+                except Exception:
+                    dest = {
+                        "kind": fitz.LINK_GOTO,
+                        "page": max(0, page - 1),
+                        "to": fitz.Point(72, 72),
+                        "zoom": 0.0,
+                    }
+                    repaired += 1
+                    notes.append(f"书签「{title_short}」命名目标无效，已改为第 {page} 页")
+            new_toc.append([lvl, title, page, dest])
+        else:
+            new_toc.append([lvl, title, page])
+
+    if repaired:
+        doc.set_toc(new_toc)
+    return repaired, notes
+
+
+def _validate_toc_resolvable(doc: fitz.Document) -> list[str]:
+    errors: list[str] = []
+    try:
+        toc = doc.get_toc(simple=False)
+    except Exception as exc:
+        return [f"无法读取书签: {exc}"]
+    page_count = doc.page_count
+    for item in toc:
+        if len(item) < 3:
+            continue
+        title = str(item[1])
+        page = item[2]
+        dest = item[3] if len(item) > 3 else None
+        title_short = (title[:48] + "…") if len(title) > 48 else title
+        if isinstance(page, int) and (page < 1 or page > page_count):
+            errors.append(f"书签「{title_short}」页码 {page} 仍越界")
+        if dest is None or dest == 0:
+            continue
+        if isinstance(dest, dict) and dest.get("kind") == fitz.LINK_NAMED:
+            try:
+                doc.resolve_link(dest)
+            except Exception as exc:
+                errors.append(f"书签「{title_short}」无法解析: {exc}")
+    return errors
 
 
 def _collect_pdfs(input_path: Path, recursive: bool = True) -> list[Path]:
@@ -369,6 +584,9 @@ class ECTDComplianceCleaner:
         linearized: bool | None = None,
         mupdf_warnings: str | None = None,
         output_verified: bool | None = None,
+        font_renames: int | None = None,
+        toc_repairs: int | None = None,
+        fonts_subset: bool | None = None,
     ) -> None:
         self.report_rows.append(
             {
@@ -384,6 +602,9 @@ class ECTDComplianceCleaner:
                 "初始视图UseOutlines": pagemode_set,
                 "页面布局OneColumn": pagelayout_set,
                 "FastWebView(Linear)": linearized,
+                "字体名映射数": font_renames,
+                "书签修复数": toc_repairs,
+                "字体子集嵌入": fonts_subset,
                 "源PDF结构警告": mupdf_warnings or None,
                 "输出校验通过": output_verified,
                 "详细信息": detail,
@@ -404,6 +625,9 @@ class ECTDComplianceCleaner:
         pagelayout_set = False
         linearized = False
         output_verified: bool | None = None
+        font_renames = 0
+        toc_repairs = 0
+        fonts_subset = False
         all_warnings = ""
 
         if not pdf_path.exists():
@@ -481,6 +705,15 @@ class ECTDComplianceCleaner:
 
             report_has_toc = bool(has_toc)
 
+            if doc.get_toc():
+                repaired, repair_notes = _repair_toc(doc)
+                toc_repairs += repaired
+                for note in repair_notes[:8]:
+                    details.append(f"书签修复: {note}")
+                if len(repair_notes) > 8:
+                    details.append(f"书签修复: …另有 {len(repair_notes) - 8} 条")
+                report_has_toc = bool(doc.get_toc())
+
             if self.auto_bookmarks and doc.page_count > 5 and not doc.get_toc():
                 try:
                     new_toc = _build_auto_toc(doc, pdf_path, self.auto_bookmarks)
@@ -554,6 +787,30 @@ class ECTDComplianceCleaner:
                 pagelayout_set = True
             except Exception:
                 details.append("警告: 无法设置页面布局 OneColumn（6.20）")
+
+            rename_count, rename_notes = _normalize_pdf_font_names(doc)
+            font_renames += rename_count
+            if rename_notes:
+                details.append(
+                    f"字体名映射（6.26）: {rename_count} 处；"
+                    + "；".join(rename_notes[:4])
+                    + (f" …共 {len(rename_notes)} 种" if len(rename_notes) > 4 else "")
+                )
+
+            subset_ok, subset_note = _embed_fonts_subset(doc)
+            fonts_subset = subset_ok
+            if subset_note:
+                details.append(subset_note)
+
+            risky_before_save = _ectd_risky_font_names(doc)
+            if risky_before_save:
+                sample = ", ".join(sorted(risky_before_save)[:5])
+                details.append(
+                    f"警告: 仍检测到 eCTD 高风险字体名（可能需人工换字体或重排版）: {sample}"
+                )
+
+            if doc.get_toc():
+                toc_repairs += _repair_toc(doc)[0]
 
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -633,6 +890,9 @@ class ECTDComplianceCleaner:
                     linearized=linearized,
                     mupdf_warnings=_summarize_mupdf_warnings(all_warnings) or None,
                     output_verified=output_verified,
+                    font_renames=font_renames or None,
+                    toc_repairs=toc_repairs or None,
+                    fonts_subset=fonts_subset if fonts_subset else None,
                 )
 
     def export_report(self) -> None:

@@ -79,7 +79,7 @@ Clinical Data Automation/
 ├── 13_PDF_XSS/                    # PDF XSS/script/link sanitization
 ├── 14_PPTX_PDF_to_PPT/            # PDF/PPTX → native editable PPTX (table reconstruction)
 ├── 15_PDF_Title_Renamer/          # PDF filename/title-based sanitization & move
-├── 16_PDF_eCTD_Converter/         # PDF eCTD compliance sanitize + audit report (see module README)
+├── 16_PDF_eCTD_Converter/         # eCTD sanitize: 6.26 fonts, bookmark repair, audit Excel (see module README)
 ├── 17_PDF_Merge/                  # Merge PDFs in natural sort order
 ├── 18_PDF_Bookmark_Inherit_Zoom/  # Bookmark inherit-zoom (XYZ zoom=0)
 ├── 19_PDF_Watermark_Removal/      # Detect watermark/interference zones + audit masks + clean text
@@ -283,14 +283,15 @@ python pdf_sanitizer.py
 ---
 
 ### 16. PDF eCTD converter (`16_PDF_eCTD_Converter`)
-Purpose: validate, sanitize, and rewrite PDFs for common eCTD Annex 6 checks; export an Excel audit report (including a structure-warnings sheet).
+Purpose: validate, sanitize, and rewrite PDFs for common eCTD Annex 6 checks; includes **rule 6.26** font name mapping (`Times-Roman` → Times New Roman family, `Helvetica` → Arial) plus `subset_fonts` embedding, and **bookmark repair** for invalid TOC targets. Exports an Excel audit report (including a structure-warnings sheet).
 
 ```bash
 cd 16_PDF_eCTD_Converter
 python pdf_ectd_converter.py --input "./input" --output "./output" --report "./ectd_report.xlsx" --overwrite
 ```
 
-Common flags: `--validate-only`, `--overwrite`, `--add-auto-bookmarks` (default `outline`), `--no-add-auto-bookmarks`. See `16_PDF_eCTD_Converter/README.md`.
+Common flags: `--validate-only`, `--overwrite`, `--add-auto-bookmarks` (default `outline`), `--no-add-auto-bookmarks`.  
+Dependencies: `pymupdf`, `pandas`, `openpyxl`, `fonttools` (font embedding). See `16_PDF_eCTD_Converter/README.md`.
 
 ---
 

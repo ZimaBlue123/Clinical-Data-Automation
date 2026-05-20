@@ -104,6 +104,7 @@ def directed_pair_key(source: dict, other: dict, reason: str) -> tuple:
 
 
 def find_cross_folder_dupes(records: list[dict]) -> list[dict]:
+    """All duplicate relationships (filename or page1), excluding same-file."""
     name_dup, content_dup = build_duplicate_groups(records)
     seen_pairs: set[tuple] = set()
     results: list[dict] = []

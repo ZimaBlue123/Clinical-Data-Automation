@@ -149,7 +149,7 @@ Clinical Data Automation/
 ├── 16_PDF_eCTD_Converter/    # PDF eCTD 合规装甲（校验+清理+重写+审计报告）
 │   ├── input/                        # 输入：待转换 PDF
 │   ├── output/                       # 输出：*_ectd.pdf
-│   ├── pdf_ectd_converter.py         # 主程序：eCTD 校验、XSS/链接清理、自动书签
+│   ├── pdf_ectd_converter.py         # 主程序：6.26 字体映射/嵌入、书签修复、XSS/链接清理
 │   └── README.md                     # 模块说明与参数
 │
 ├── 17_PDF_Merge/             # PDF 合并模块（自然排序）
@@ -451,7 +451,7 @@ python pdf_sanitizer.py
 ---
 
 ### 16. PDF eCTD 转换（`16_PDF_eCTD_Converter`）
-用途：按 eCTD 附件 6 常见条款批量校验、清洗并重写 PDF；输出 Excel 审计报告（含「结构警告」工作表）。
+用途：按 eCTD 附件 6 常见条款批量校验、清洗并重写 PDF；含 **6.26 字体名映射与子集嵌入**、**书签修复**；输出 Excel 审计报告（含「结构警告」工作表）。
 
 ```bash
 cd 16_PDF_eCTD_Converter
@@ -459,7 +459,7 @@ python pdf_ectd_converter.py --input "./input" --output "./output" --report "./e
 ```
 
 常用参数：`--validate-only`、`--overwrite`、`--keep-name`、`--no-recursive`、`--no-keep-structure`、`--add-auto-bookmarks`（默认 `outline`）、`--no-add-auto-bookmarks`。  
-依赖：`pymupdf`、`pandas`、`openpyxl`。详见 `16_PDF_eCTD_Converter/README.md`。
+依赖：`pymupdf`、`pandas`、`openpyxl`、`fonttools`（字体嵌入）。详见 `16_PDF_eCTD_Converter/README.md`。
 
 ---
 

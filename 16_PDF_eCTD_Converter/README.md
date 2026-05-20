@@ -13,8 +13,9 @@ eCTD 合规装甲与 PDF 深度清理：按《eCTD 验证标准 V1.1》附件 6 
 | 6.19 / 6.21 | 需密码打开的 PDF 拒收；输出未加密 |
 | 6.20 | 初始视图 UseOutlines + OneColumn |
 | 6.22 | 尝试线性化（不支持时自动降级） |
-| 6.23 | 超过 5 页须有书签（默认自动补全） |
+| 6.23 | 超过 5 页须有书签（默认自动补全）；修复越界/无效跳转书签 |
 | 6.25 | 无可搜索文本时报告预警 |
+| 6.26 | 将 Times-Roman / Helvetica 等映射为认可字体名；`subset_fonts` 嵌入所用字体 |
 
 ## 快速开始
 
@@ -47,7 +48,7 @@ python pdf_ectd_converter.py --input "./input" --output "./output" --report "./e
 
 ## 依赖
 
-根目录 `requirements.txt`：`pymupdf`、`pandas`、`openpyxl`。
+根目录 `requirements.txt`：`pymupdf`、`pandas`、`openpyxl`；字体子集嵌入建议安装 `fonttools`（`pip install fonttools`）。
 
 ## 说明
 
