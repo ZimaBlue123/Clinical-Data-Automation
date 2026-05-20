@@ -451,7 +451,7 @@ python pdf_sanitizer.py
 ---
 
 ### 16. PDF eCTD 转换（`16_PDF_eCTD_Converter`）
-用途：按 eCTD 附件 6 常见条款批量校验、清洗并重写 PDF；含 **6.26 字体名映射与子集嵌入**、**书签修复**；输出 Excel 审计报告（含「结构警告」工作表）。
+用途：按 eCTD 附件 6 常见条款批量校验、清洗并重写 PDF；含 **6.26 字体**、**6.5/6.6/6.8 书签**（无动作补全、承前缩放）；输出 Excel 审计报告。
 
 ```bash
 cd 16_PDF_eCTD_Converter

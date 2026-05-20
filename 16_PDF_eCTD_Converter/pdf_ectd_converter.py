@@ -12,7 +12,7 @@ eCTD 合规装甲 & XSS 深度清理器（16_PDF_eCTD_Converter）
 - 强制设置初始视图（6.20）：UseOutlines + OneColumn（PyMuPDF 可稳定设置）
 - 大于 5 页必须有书签（6.23）；可选用 ``--add-auto-bookmarks`` 自动补写书签
 - 字体规范化（6.26）：将 Times-Roman / Helvetica 等 PDF 内置名映射为 eCTD 常见认可名，并 subset 嵌入所用字体
-- 书签修复：修正越界页码与无效跳转目标，降低 eCTD 校验「书签失效」概率
+- 书签修复（6.5 / 6.6 / 6.8）：为无动作书签补全 GoTo、修正越界目标、统一承前缩放（zoom=0）
 - 启用快速 Web 查看（Fast Web View / Linearization）（6.22；若当前 MuPDF 不支持线性化则自动降级保存）
 - 导出合规审计 Excel 报告（便于审计与回溯）
 
@@ -397,8 +397,131 @@ def _ectd_risky_font_names(doc: fitz.Document) -> set[str]:
     return risky
 
 
+def _make_goto_dest(page_1based: int, page_count: int) -> dict:
+    """eCTD 6.5 / 6.8：显式 GoTo + 承前缩放（zoom=0）。"""
+    p0 = max(0, min(page_count - 1, page_1based - 1))
+    return {
+        "kind": fitz.LINK_GOTO,
+        "page": p0,
+        "to": fitz.Point(72, 72),
+        "zoom": 0.0,
+    }
+
+
+def _dest_has_valid_action(dest: object, page_count: int) -> bool:
+    """eCTD 6.5：书签须具备 GoTo / GoToR / Launch 类动作（不接受无 dest 的容器项）。"""
+    if dest is None or dest == 0:
+        return False
+    if not isinstance(dest, dict):
+        return False
+    if dest.get("collapse"):
+        return False
+    kind = dest.get("kind")
+    if kind == fitz.LINK_GOTO:
+        tp = dest.get("page")
+        return isinstance(tp, int) and 0 <= tp < page_count
+    if kind in (fitz.LINK_GOTOR, fitz.LINK_LAUNCH):
+        return True
+    return False
+
+
+def _effective_toc_pages(toc: list, page_count: int) -> list[int]:
+    """为 page=0 或越界的目录项推断可用页码（用于父级书签补动作）。"""
+    pages: list[int] = []
+    for item in toc:
+        if len(item) < 3 or not isinstance(item[2], int):
+            pages.append(0)
+        else:
+            pages.append(item[2])
+
+    last_good = 1
+    for i, p in enumerate(pages):
+        if p < 1:
+            pages[i] = last_good
+        else:
+            pages[i] = min(p, page_count)
+            last_good = pages[i]
+
+    next_good = last_good
+    for i in range(len(pages) - 1, -1, -1):
+        if pages[i] < 1:
+            pages[i] = next_good
+        else:
+            next_good = pages[i]
+
+    return [max(1, min(page_count, p)) for p in pages]
+
+
+def _normalize_toc_dest(
+    dest: object,
+    page_1based: int,
+    page_count: int,
+) -> dict:
+    """统一为带承前缩放的 GoTo；禁止 URI/Named 等 eCTD 6.4 不允许的类型。"""
+    if _dest_has_valid_action(dest, page_count) and isinstance(dest, dict):
+        kind = dest.get("kind")
+        if kind == fitz.LINK_GOTO:
+            d = dict(dest)
+            d.pop("collapse", None)
+            d.pop("xref", None)
+            d["zoom"] = 0.0
+            tp = d.get("page")
+            if not isinstance(tp, int) or tp < 0 or tp >= page_count:
+                d["page"] = max(0, min(page_count - 1, page_1based - 1))
+            if d.get("to") is None:
+                d["to"] = fitz.Point(72, 72)
+            return d
+        if kind in (fitz.LINK_GOTOR, fitz.LINK_LAUNCH):
+            d = dict(dest)
+            d.pop("collapse", None)
+            d.pop("xref", None)
+            d["zoom"] = 0.0
+            return d
+    return _make_goto_dest(page_1based, page_count)
+
+
+def _toc_needs_flatten(toc: list, page_count: int) -> bool:
+    """多级目录在 PyMuPDF 保存时易生成带 collapse 的无动作父书签（触发 6.5）。"""
+    max_level = 1
+    for item in toc:
+        if len(item) < 1:
+            continue
+        max_level = max(max_level, int(item[0]))
+        dest = item[3] if len(item) > 3 else None
+        if isinstance(dest, dict) and dest.get("collapse"):
+            return True
+        if not _dest_has_valid_action(dest, page_count):
+            return True
+    return max_level > 1
+
+
+def _flatten_toc_for_ectd(
+    toc: list,
+    effective_pages: list[int],
+    page_count: int,
+) -> list[list]:
+    """扁平为一级书签，标题缩进保留层级感；每条均带 GoTo + 承前缩放。"""
+    flat: list[list] = []
+    for i, item in enumerate(toc):
+        if len(item) < 3:
+            continue
+        lvl = int(item[0])
+        title = str(item[1])
+        page = effective_pages[i]
+        indent = "  " * max(0, lvl - 1)
+        flat.append(
+            [
+                1,
+                indent + title,
+                page,
+                _make_goto_dest(page, page_count),
+            ]
+        )
+    return flat
+
+
 def _repair_toc(doc: fitz.Document) -> tuple[int, list[str]]:
-    """修正书签页码越界与 LINK_GOTO 页索引无效问题。"""
+    """重写目录：补全无动作书签(6.5)、修正越界(6.6)、承前缩放(6.8)。"""
     try:
         toc = doc.get_toc(simple=False)
     except Exception as exc:
@@ -407,60 +530,46 @@ def _repair_toc(doc: fitz.Document) -> tuple[int, list[str]]:
         return 0, []
 
     page_count = doc.page_count
+    effective_pages = _effective_toc_pages(toc, page_count)
     repaired = 0
     notes: list[str] = []
     new_toc: list = []
 
-    for item in toc:
-        if len(item) < 3:
-            continue
-        lvl, title, page = item[0], str(item[1]), item[2]
-        dest = item[3] if len(item) > 3 else None
-        title_short = (title[:48] + "…") if len(title) > 48 else title
+    if _toc_needs_flatten(toc, page_count):
+        new_toc = _flatten_toc_for_ectd(toc, effective_pages, page_count)
+        repaired = len(new_toc)
+        notes.append(
+            f"目录已扁平化为一级书签（共 {len(new_toc)} 条），避免无动作父节点（6.5）"
+        )
+    else:
+        for i, item in enumerate(toc):
+            if len(item) < 3:
+                continue
+            lvl, title = item[0], str(item[1])
+            page = effective_pages[i]
+            dest = item[3] if len(item) > 3 else None
+            title_short = (title[:48] + "…") if len(title) > 48 else title
+            new_dest = _normalize_toc_dest(dest, page, page_count)
 
-        if not isinstance(page, int):
-            page = 1
-            repaired += 1
-            notes.append(f"书签「{title_short}」页码类型异常，已改为 1")
-        else:
-            if page < 1:
+            if not _dest_has_valid_action(dest, page_count):
                 repaired += 1
-                notes.append(f"书签「{title_short}」页码 {page} -> 1")
-                page = 1
-            elif page > page_count:
-                repaired += 1
-                notes.append(f"书签「{title_short}」页码 {page} -> {page_count}")
-                page = page_count
-
-        if dest is not None and dest != 0 and isinstance(dest, dict):
-            dest = dict(dest)
-            kind = dest.get("kind")
-            if kind == fitz.LINK_GOTO:
-                tp = dest.get("page")
-                if isinstance(tp, int) and (tp < 0 or tp >= page_count):
-                    dest["page"] = max(0, min(page_count - 1, page - 1))
-                    if "to" not in dest or dest.get("to") is None:
-                        dest["to"] = fitz.Point(72, 72)
+                notes.append(f"书签「{title_short}」无有效动作，已补全 GoTo（第 {page} 页）")
+            elif isinstance(dest, dict):
+                if dest.get("zoom") not in (0, 0.0):
                     repaired += 1
-                    notes.append(f"书签「{title_short}」跳转页索引已修正")
-            elif kind == fitz.LINK_NAMED:
-                try:
-                    doc.resolve_link(dest)
-                except Exception:
-                    dest = {
-                        "kind": fitz.LINK_GOTO,
-                        "page": max(0, page - 1),
-                        "to": fitz.Point(72, 72),
-                        "zoom": 0.0,
-                    }
+                    notes.append(f"书签「{title_short}」缩放已设为承前缩放")
+                elif item[2] != page:
                     repaired += 1
-                    notes.append(f"书签「{title_short}」命名目标无效，已改为第 {page} 页")
-            new_toc.append([lvl, title, page, dest])
-        else:
-            new_toc.append([lvl, title, page])
+                    notes.append(f"书签「{title_short}」页码 {item[2]} -> {page}")
 
-    if repaired:
-        doc.set_toc(new_toc)
+            new_toc.append([lvl, title, page, new_dest])
+
+    doc.set_toc(new_toc)
+
+    remaining = _validate_toc_resolvable(doc)
+    if remaining:
+        notes.append("警告: 书签修复后仍有未通过项: " + "; ".join(remaining[:3]))
+
     return repaired, notes
 
 
@@ -480,13 +589,16 @@ def _validate_toc_resolvable(doc: fitz.Document) -> list[str]:
         title_short = (title[:48] + "…") if len(title) > 48 else title
         if isinstance(page, int) and (page < 1 or page > page_count):
             errors.append(f"书签「{title_short}」页码 {page} 仍越界")
-        if dest is None or dest == 0:
+        if not _dest_has_valid_action(dest, page_count):
+            errors.append(f"书签「{title_short}」仍无有效动作（6.5）")
             continue
         if isinstance(dest, dict) and dest.get("kind") == fitz.LINK_NAMED:
             try:
                 doc.resolve_link(dest)
             except Exception as exc:
                 errors.append(f"书签「{title_short}」无法解析: {exc}")
+        if isinstance(dest, dict) and dest.get("zoom") not in (0, 0.0):
+            errors.append(f"书签「{title_short}」未使用承前缩放（6.8）")
     return errors
 
 

@@ -283,7 +283,7 @@ python pdf_sanitizer.py
 ---
 
 ### 16. PDF eCTD converter (`16_PDF_eCTD_Converter`)
-Purpose: validate, sanitize, and rewrite PDFs for common eCTD Annex 6 checks; includes **rule 6.26** font name mapping (`Times-Roman` → Times New Roman family, `Helvetica` → Arial) plus `subset_fonts` embedding, and **bookmark repair** for invalid TOC targets. Exports an Excel audit report (including a structure-warnings sheet).
+Purpose: validate, sanitize, and rewrite PDFs for common eCTD Annex 6 checks; includes **6.26** font mapping/embedding, and **6.5/6.6/6.8** bookmark fixes (assign GoTo to inactive entries, flatten multi-level TOC to avoid collapse parents, inherit zoom). Exports an Excel audit report (including a structure-warnings sheet).
 
 ```bash
 cd 16_PDF_eCTD_Converter
