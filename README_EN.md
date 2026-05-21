@@ -78,7 +78,9 @@ Clinical Data Automation/
 ├── 12_PDF_to_PPT/                 # PDF → PPT
 ├── 13_PDF_XSS/                    # PDF XSS/script/link sanitization
 ├── 14_PPTX_PDF_to_PPT/            # PDF/PPTX → native editable PPTX (table reconstruction)
-├── 15_PDF_Title_Renamer/          # PDF filename/title-based sanitization & move
+├── 15_PDF_Title_Renamer/          # PDF title-driven rename (Sanitizer v6.9, move not copy)
+│   ├── pdf_sanitizer.py           # Visual hierarchy + academic first-page + optional OCR
+│   └── README.md                  # Module docs, noise filters, CLI
 ├── 16_PDF_eCTD_Converter/         # eCTD sanitize: 6.26 fonts, bookmark repair, audit Excel (see module README)
 ├── 17_PDF_Merge/                  # Merge PDFs in natural sort order
 ├── 18_PDF_Bookmark_Inherit_Zoom/  # Bookmark inherit-zoom (XYZ zoom=0)
@@ -273,12 +275,19 @@ python convert_to_native_ppt.py
 ---
 
 ### 15. PDF title-driven rename (`15_PDF_Title_Renamer`)
-Purpose: extract canonical titles and rename/move PDF files to `output/`.
+Purpose: extract the **article title** and **year** from the first page, write `Title-Words-YYYY.pdf`, and **move** (not copy) PDFs from `input/` to `output/` (engine v6.9).
+
+**Pipeline**: font-size visual hierarchy → academic first-page line merge → metadata/first lines → optional OCR (`pytesseract` + Tesseract).
+
+**Noise filters**: journal mastheads, article-type banners, Elsevier “Article in Press” lines, “Please cite this article…” prompts, volume/issue headers, author-only lines; FDA “Guidance for Industry” covers strip generic prefixes. Filenames keep scientific tokens (e.g. CpG, mRNA) with smart English title case.
 
 ```bash
 cd 15_PDF_Title_Renamer
 python pdf_sanitizer.py
 ```
+
+Common flags: `--input`, `--output`, `--no-recursive`, `--no-keep-structure`, `--overwrite`.  
+**Warning**: source PDFs are removed from `input/` after a successful run—back up first. See `15_PDF_Title_Renamer/README.md`.
 
 ---
 

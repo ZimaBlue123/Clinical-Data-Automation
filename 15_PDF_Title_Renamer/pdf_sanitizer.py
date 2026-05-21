@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-本地文献重塑协议 (PDF Sanitizer v6.6 - 副标题截断版)
+本地文献重塑协议 (PDF Sanitizer v6.9 - 题目前缀剥离与缩写保留)
 Vibe: Academic Cyberpunk
 Engine: PyMuPDF | Chrono-Tracker | Visual Hierarchy | Subtitle Severance | OCR
 """
@@ -96,6 +96,13 @@ _JOURNAL_MASTHEAD_COMPRESSED: frozenset[str] = frozenset(
         "sciadv",
         "naturecommunications",
         "naturemedicine",
+        "vaccine",
+        "immunity",
+        "lancet",
+        "bmjopen",
+        "plosone",
+        "elsevier",
+        "sciencedirect",
     }
 )
 
@@ -103,8 +110,72 @@ _JOURNAL_MASTHEAD_COMPRESSED: frozenset[str] = frozenset(
 _ARTICLE_TYPE_LINE = re.compile(
     r"^(research article|review article|systematic review|meta-analysis|"
     r"editorial|correction|methods|resources|brief report|case report|"
-    r"original research|open access|peer-reviewed research)\s*$",
+    r"original research|original article|open access|peer-reviewed research|"
+    r"short communication|letter|commentary|perspective|"
+    r"review|research)\s*$",
     re.IGNORECASE,
+)
+
+# Elsevier / Springer 等「校样 / 待刊」页眉横幅（字号常最大，但不是论文题目）
+_PUBLISHER_STATUS_RE = re.compile(
+    r"^(article\s+in\s+press|accepted\s+manuscript|uncorrected\s+proof|"
+    r"author'?s?\s+(accepted\s+)?manuscript|e[\-\s]?proof|"
+    r"preprint|in\s+press|draft\s+manuscript|"
+    r"available\s+online|just\s+accepted|forthcoming|"
+    r"manuscript\s+in\s+press)\s*$",
+    re.IGNORECASE,
+)
+
+_PUBLISHER_STATUS_COMPRESSED: frozenset[str] = frozenset(
+    {
+        "articleinpress",
+        "acceptedmanuscript",
+        "uncorrectedproof",
+        "authorsacceptedmanuscript",
+        "authorsmanuscript",
+        "eproof",
+        "preprint",
+        "inpress",
+        "justaccepted",
+        "availableonline",
+        "forthcoming",
+    }
+)
+
+# 期刊卷期页眉行，如 Vaccine xxx (2014) xxx–xxx
+_JOURNAL_VOL_HEADER = re.compile(
+    r"^[A-Za-z][\w\s&.\-]{1,50}\s+[\dxX]{1,6}\s*\((19|20)\d{2}\)\s+[\dxX–\-—]+",
+    re.IGNORECASE,
+)
+
+# 出版商页脚/页眉套话（非标题）
+_BOILERPLATE_LINE = re.compile(
+    r"(?i)^(contents lists available|journal homepage|www\.elsevier\.com|"
+    r"sciencedirect|g model|received in revised form|"
+    r"available online|copyright\s*©|all rights reserved|"
+    r"please\s+cite\s+this\s+article|cite\s+this\s+article\s+in\s+press|"
+    r"crossmark\.crossref\.org)",
+)
+
+# Elsevier「Please cite this article in press as:」引用提示（整行或视觉拼接前缀）
+_CITATION_INSTRUCTION_RE = re.compile(
+    r"(?i)^please\s+cite\s+this\s+article",
+)
+_CITATION_INSTRUCTION_IN_TEXT = re.compile(
+    r"(?i)please\s+cite\s+this\s+article|cite\s+this\s+article\s+in\s+press",
+)
+
+# 视觉/拼接标题中，正文题目常见起始词（用于剥离 cite 套话与作者前缀）
+_TITLE_BODY_START = re.compile(
+    r"(?is)\b(?:clinical\s+evaluation|clinical\s+trial|randomized\s+trial|"
+    r"systematic\s+review|meta[\-\s]?analysis|original\s+article|"
+    r"efficacy\s+and\s+safety|phase\s+[iIvV\d]+|open[\-\s]?label|"
+    r"a\s+novel|the\s+role\s+of|immunogenicity\s+of|safety\s+and\s+immunogenicity)\b",
+)
+
+# 纯作者姓行（无逗号）：Scheiermann Klinman
+_AUTHOR_SURNAMES_ONLY = re.compile(
+    r"^[A-Z][a-z'\-]{2,24}(?:\s+[A-Z][a-z'\-]{2,24}){1,4}$",
 )
 
 logger = logging.getLogger(__name__)
@@ -208,6 +279,179 @@ class PDFSanitizer:
         return bool(_ARTICLE_TYPE_LINE.match(line.strip()))
 
     @staticmethod
+    def _is_publisher_status_line(line: str) -> bool:
+        """Elsevier 等「ARTICLE IN PRESS」横幅，非正文标题。"""
+        s = line.strip()
+        if not s:
+            return False
+        if _PUBLISHER_STATUS_RE.match(s):
+            return True
+        comp = PDFSanitizer._compress_for_masthead(s)
+        if comp in _PUBLISHER_STATUS_COMPRESSED:
+            return True
+        # 视觉层级有时把多词横幅拼成一行
+        if "articleinpress" in comp and len(comp) <= 24:
+            return True
+        return False
+
+    @staticmethod
+    def _is_citation_instruction_line(line: str) -> bool:
+        s = line.strip()
+        if not s:
+            return False
+        if _CITATION_INSTRUCTION_RE.match(s):
+            return True
+        if _CITATION_INSTRUCTION_IN_TEXT.search(s) and len(s) < 200:
+            return True
+        return False
+
+    @staticmethod
+    def _is_toxic_title_candidate(text: str) -> bool:
+        """视觉层级或拼接串含出版商套话 / 引用提示，不可直接作文件名。"""
+        s = (text or "").strip()
+        if not s:
+            return False
+        norm = PDFSanitizer._normalize_ws_lower(s)
+        if _CITATION_INSTRUCTION_IN_TEXT.search(norm):
+            return True
+        if PDFSanitizer._is_publisher_status_line(s):
+            return True
+        if PDFSanitizer._is_citation_instruction_line(s):
+            return True
+        comp = PDFSanitizer._compress_for_masthead(s)
+        if "pleasecitethisarticle" in comp or "citethisarticleinpress" in comp:
+            return True
+        return False
+
+    @staticmethod
+    def _looks_like_author_surnames_only(line: str) -> bool:
+        """仅作者姓（2–5 个首字母大写词），无 of/for 等题目结构。"""
+        s = line.strip()
+        if not s or len(s) > 80 or " of " in s.lower():
+            return False
+        if not _AUTHOR_SURNAMES_ONLY.match(s):
+            return False
+        titleish = {
+            "clinical",
+            "evaluation",
+            "vaccine",
+            "cancer",
+            "study",
+            "trial",
+            "review",
+            "analysis",
+            "disease",
+            "infectious",
+        }
+        return not any(w.lower() in titleish for w in s.split())
+
+    @staticmethod
+    def _looks_like_scientific_title(text: str) -> bool:
+        """是否已是正文题目（含 of/for 等），不可再按作者列表剥离前缀。"""
+        s = (text or "").strip()
+        if len(s) < 24:
+            return False
+        if re.search(r"\s+of\s+", s, re.I) or re.search(r"\s+for\s+", s, re.I):
+            return True
+        if re.search(
+            r"(?i)\b(?:clinical|evaluation|efficacy|randomized|vaccine|trial|study|"
+            r"oligonucleotide|adjuvant|infectious|cancer|immunogenicity)\b",
+            s,
+        ):
+            return True
+        return len(s.split()) >= 6
+
+    @staticmethod
+    def _strip_noise_prefix_from_title(raw: str) -> str:
+        """去掉 Please cite… 等拼在题目前的 Elsevier 噪声（不剥离正文题目词）。"""
+        t = re.sub(r"\s+", " ", (raw or "").strip())
+        if not t:
+            return t
+        m = _TITLE_BODY_START.search(t)
+        if m and m.start() > 0:
+            head = t[: m.start()]
+            if _CITATION_INSTRUCTION_IN_TEXT.search(head) or re.search(
+                r"(?i)\bpress\b", head
+            ) or re.search(
+                r"(?i)\b(?:scheiermann|klinman|[A-Z][a-z]+,\s*[A-Z]\.)\b", head
+            ):
+                t = t[m.start() :].strip()
+        t = re.sub(
+            r"(?is)^(?:please\s+cite\s+this\s+article[^a-z]{0,40})+",
+            "",
+            t,
+        ).strip()
+        # 仅剥 cite 后、正文题目前的短作者块（禁止对含 of/CpG 的整段题目动刀）
+        if not PDFSanitizer._looks_like_scientific_title(t):
+            t = re.sub(
+                r"^(?:(?:[A-Z][a-z'\-]{2,20})(?:\s*,\s*[A-Z]\.?){0,3}\s+){1,4}"
+                r"(?=[A-Z][a-z]{5,}\s)",
+                "",
+                t,
+            ).strip()
+        return t
+
+    @staticmethod
+    def _should_prefer_academic(hierarchy: str, academic: str, text_payload: str) -> bool:
+        """Elsevier 待刊：学术行解析优先于（更长的）视觉拼接。"""
+        if not academic or len(academic) < 20:
+            return False
+        h = (hierarchy or "").strip()
+        if not h:
+            return True
+        if PDFSanitizer._is_toxic_title_candidate(h):
+            return True
+        head = text_payload[:4000]
+        if _CITATION_INSTRUCTION_IN_TEXT.search(head) and re.search(
+            r"(?is)\barticle\s+in\s+press\b", head
+        ):
+            return True
+        if len(h) > len(academic) + 8 and _CITATION_INSTRUCTION_IN_TEXT.search(h):
+            return True
+        return False
+
+    @staticmethod
+    def _looks_like_author_line(line: str) -> bool:
+        """作者行：含通讯作者 *，或「名 姓, 名」模式。"""
+        s = line.strip()
+        if not s or len(s) > 240:
+            return False
+        if re.search(r"\*\s*$", s):
+            return True
+        if s.count(",") >= 1 and re.match(
+            r"^[A-Z][\w\-\.']+(?:\s*,\s*[A-Z][\w\-\.']*)+",
+            s,
+        ) and len(s) < 120:
+            return True
+        if PDFSanitizer._looks_like_author_surnames_only(s):
+            return True
+        return False
+
+    @staticmethod
+    def _is_boilerplate_line(line: str) -> bool:
+        s = line.strip()
+        if not s:
+            return True
+        if _BOILERPLATE_LINE.search(s):
+            return True
+        if _JOURNAL_VOL_HEADER.match(s):
+            return True
+        if re.match(r"^G\s+Model\b", s, re.I):
+            return True
+        if re.match(r"^[A-Z]{2,6}\s+\d{4,6}\s+\d", s):
+            return True
+        return False
+
+    @staticmethod
+    def _year_from_journal_header(text: str) -> str | None:
+        """Elsevier 页眉：Vaccine xxx (2014) xxx–xxx"""
+        m = re.search(
+            r"(?i)\b[A-Za-z][\w\s&.\-]{2,48}\s+[\dxX]{0,6}\s*\((19[5-9]\d|20[0-2]\d)\)",
+            text[:2500],
+        )
+        return m.group(1) if m else None
+
+    @staticmethod
     def _academic_title_from_plain_text(text: str) -> str:
         """
         学术期刊首屏：跳过期刊名与 RESEARCH ARTICLE 等类型行，合并后续多行为标题，
@@ -224,10 +468,15 @@ class PDFSanitizer:
             if not s:
                 i += 1
                 continue
-            if PDFSanitizer._is_journal_masthead_only(s):
-                i += 1
-                continue
-            if PDFSanitizer._is_article_type_line(s):
+            if (
+                PDFSanitizer._is_journal_masthead_only(s)
+                or PDFSanitizer._is_article_type_line(s)
+                or PDFSanitizer._is_publisher_status_line(s)
+                or PDFSanitizer._is_citation_instruction_line(s)
+                or PDFSanitizer._is_boilerplate_line(s)
+                or PDFSanitizer._looks_like_author_line(s)
+                or PDFSanitizer._looks_like_author_surnames_only(s)
+            ):
                 i += 1
                 continue
             break
@@ -241,9 +490,18 @@ class PDFSanitizer:
                     break
                 i += 1
                 continue
-            if PDFSanitizer._is_journal_masthead_only(s) or PDFSanitizer._is_article_type_line(s):
+            if (
+                PDFSanitizer._is_journal_masthead_only(s)
+                or PDFSanitizer._is_article_type_line(s)
+                or PDFSanitizer._is_publisher_status_line(s)
+                or PDFSanitizer._is_citation_instruction_line(s)
+                or PDFSanitizer._is_boilerplate_line(s)
+                or (not title_parts and PDFSanitizer._looks_like_author_surnames_only(s))
+            ):
                 i += 1
                 continue
+            if title_parts and PDFSanitizer._looks_like_author_line(s):
+                break
             if s.count(",") >= 2 and len(s) < 220 and re.search(r",\s*[A-Z][a-z]", s):
                 break
             if "@" in s or re.search(r"https?://", s, re.I):
@@ -254,6 +512,11 @@ class PDFSanitizer:
                 break
             if re.match(r"^citation\s*:", s, re.I):
                 break
+            if re.match(r"^Q\d+\b", s, re.I):
+                s = re.sub(r"^Q\d+\s*", "", s, flags=re.I).strip()
+                if not s:
+                    i += 1
+                    continue
             title_parts.append(s)
             if len(" ".join(title_parts)) > 520:
                 break
@@ -261,6 +524,18 @@ class PDFSanitizer:
 
         out = re.sub(r"\s+", " ", " ".join(title_parts)).strip()
         return out if len(out) >= 20 else ""
+
+    @staticmethod
+    def _preserve_scientific_token(word: str) -> str:
+        """保留 CpG、mRNA、IL-6 等科学缩写原有大小写。"""
+        w = word.strip()
+        if not w:
+            return w
+        if re.match(r"^[A-Z][a-z]*[A-Z][\w\-]*$", w):
+            return w
+        if re.search(r"\d", w) and re.search(r"[A-Za-z]", w):
+            return w
+        return ""
 
     @staticmethod
     def _smart_title_case(text: str) -> str:
@@ -272,6 +547,10 @@ class PDFSanitizer:
         formatted_words = []
         last_idx = len(raw_words) - 1
         for idx, word in enumerate(raw_words):
+            sci = PDFSanitizer._preserve_scientific_token(word)
+            if sci:
+                formatted_words.append(sci)
+                continue
             lower_word = word.lower()
             if idx not in (0, last_idx) and lower_word in LOWERCASE_TITLE_WORDS:
                 formatted_words.append(lower_word)
@@ -305,10 +584,10 @@ class PDFSanitizer:
             # 纯英文边缘修剪
             cleaned_en = PDFSanitizer._smart_title_case(cleaned)
             words = cleaned_en.split()[:max_words]
-            # 切除坏死边缘
-            while words and words[-1].lower() in DANGLING_TOXINS:
+            # 仅修剪首尾悬挂介词；保留题目内部的 of/for（如 evaluation of CpG）
+            while len(words) > 2 and words[-1].lower() in DANGLING_TOXINS:
                 words.pop()
-            while words and words[0].lower() in DANGLING_TOXINS:
+            while len(words) > 2 and words[0].lower() in DANGLING_TOXINS:
                 words.pop(0)
 
             if not words:
@@ -366,8 +645,20 @@ class PDFSanitizer:
                 
             sorted_sizes = sorted(size_map.keys(), reverse=True)
             
-            # 黑名单：免疫期刊页眉噪点
-            blacklist = {"majorarticle", "researcharticle", "reviewarticle", "clinicalinfectiousdiseases"}
+            # 黑名单：免疫期刊页眉噪点 + 出版商待刊横幅
+            blacklist = {
+                "majorarticle",
+                "researcharticle",
+                "reviewarticle",
+                "clinicalinfectiousdiseases",
+                "articleinpress",
+                "acceptedmanuscript",
+                "uncorrectedproof",
+                "sciencedirect",
+                "elsevier",
+                "pleasecitethisarticle",
+                "citethisarticleinpress",
+            }
             
             for s in sorted_sizes:
                 candidate = " ".join(size_map[s]).strip()
@@ -381,21 +672,32 @@ class PDFSanitizer:
                     continue
                 if PDFSanitizer._is_article_type_line(candidate):
                     continue
+                if PDFSanitizer._is_publisher_status_line(candidate):
+                    continue
+                if PDFSanitizer._is_citation_instruction_line(candidate):
+                    continue
+                if PDFSanitizer._is_toxic_title_candidate(candidate):
+                    continue
+                if PDFSanitizer._is_boilerplate_line(candidate):
+                    continue
 
                 refined = PDFSanitizer._strip_guidance_cover_prefix(candidate)
-                if refined and len(refined) >= 8:
+                refined = PDFSanitizer._strip_noise_prefix_from_title(refined)
+                if refined and len(refined) >= 8 and not PDFSanitizer._is_toxic_title_candidate(refined):
                     return refined
 
                 norm_one = PDFSanitizer._normalize_ws_lower(candidate)
                 if any(norm_one == p or norm_one.startswith(p + " ") for p in GUIDANCE_COVER_PREFIXES):
                     continue
-                return candidate
+                cleaned = PDFSanitizer._strip_noise_prefix_from_title(candidate)
+                if cleaned and len(cleaned) >= 8 and not PDFSanitizer._is_toxic_title_candidate(cleaned):
+                    return cleaned
         except Exception:
             logger.debug("视觉层级提取失败", exc_info=True)
         return ""
 
     def _scan_payload(self, pdf_path: Path) -> tuple[str, str]:
-        """神经元探针 V6.6：融合元数据、拓扑探测与 OCR 后备能源"""
+        """神经元探针 V6.9：融合元数据、拓扑探测与 OCR 后备能源"""
         title = ""
         year = "XXXX"
         text_payload = ""
@@ -433,26 +735,52 @@ class PDFSanitizer:
                     if from_plain:
                         title = from_plain
 
-                # 学术期刊（PLOS / Nature 等）：跳过期刊页眉，用首屏纯文本抽取正文标题
+                # 出版商待刊 / 引用提示误命中时，清空以便后续学术解析接管
+                if title and (
+                    self._is_publisher_status_line(title)
+                    or self._is_toxic_title_candidate(title)
+                ):
+                    title = ""
+
+                # 学术期刊（PLOS / Nature / Elsevier 等）：跳过期刊页眉，用首屏纯文本抽取正文标题
                 academic = self._academic_title_from_plain_text(text_payload)
                 if academic:
                     t_strip = (title or "").strip()
-                    if (
+                    prefer_academic = self._should_prefer_academic(
+                        t_strip, academic, text_payload
+                    )
+                    if prefer_academic or (
                         not t_strip
                         or self._is_journal_masthead_only(t_strip)
                         or self._is_article_type_line(t_strip)
+                        or self._is_publisher_status_line(t_strip)
+                        or self._is_boilerplate_line(t_strip)
+                        or self._is_toxic_title_candidate(t_strip)
                         or (
-                            re.search(r"(?is)\b(research article|review article|systematic review)\b", text_payload[:3500])
+                            re.search(
+                                r"(?is)\b(research article|review article|systematic review|"
+                                r"article in press|please cite|review)\b",
+                                text_payload[:3500],
+                            )
                             and len(academic) > len(t_strip) + 10
                         )
+                        or len(academic) > len(t_strip) + 15
                     ):
                         title = academic
 
+                if title:
+                    title = self._strip_noise_prefix_from_title(title)
+                    if self._is_toxic_title_candidate(title) and academic:
+                        title = academic
+
                 # --- 阶段 2: 时间线锚定 ---
+                header_year = self._year_from_journal_header(text_head)
                 pattern = r"(?:©|copyright|published|vol\.|date|年|出版|收稿).*?\b(19[5-9]\d|20[0-2]\d)\b"
                 explicit_year = re.search(pattern, text_head, re.IGNORECASE)
                 
-                if explicit_year:
+                if header_year:
+                    year = header_year
+                elif explicit_year:
                     year = explicit_year.group(1)
                 else:
                     docket_year = self._year_from_fda_docket(text_payload[:8000])

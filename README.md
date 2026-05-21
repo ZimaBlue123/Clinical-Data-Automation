@@ -141,10 +141,11 @@ Clinical Data Automation/
 │   ├── output/                       # 输出：可编辑 PPTX
 │   └── convert_to_native_ppt.py      # 主程序：表格识别重建
 │
-├── 15_PDF_Title_Renamer/     # PDF 文件名极简清洗（剪切模式）
+├── 15_PDF_Title_Renamer/     # PDF 标题驱动重命名（Sanitizer v6.9，剪切模式）
 │   ├── input/                        # 输入：待重命名 PDF
-│   ├── output/                       # 输出：重命名后 PDF
-│   └── pdf_sanitizer.py              # 主程序：文件名手术 + 剪切
+│   ├── output/                       # 输出：重命名后 PDF（Title-年份.pdf）
+│   ├── pdf_sanitizer.py              # 主程序：视觉层级 + 学术首屏 + OCR 后备
+│   └── README.md                     # 模块说明、噪声过滤与 CLI 参数
 │
 ├── 16_PDF_eCTD_Converter/    # PDF eCTD 合规装甲（校验+清理+重写+审计报告）
 │   ├── input/                        # 输入：待转换 PDF
@@ -438,7 +439,11 @@ python convert_to_native_ppt.py
 ---
 
 ### 15. PDF 标题驱动重命名（`15_PDF_Title_Renamer`）
-用途：多策略提取标题并规范命名，文件从 `input/` 剪切移动到 `output/`。
+用途：从 PDF 首页提取**正文标题**与**年份**，生成 `标题-年份.pdf` 并从 `input/` **剪切**到 `output/`（引擎 v6.9）。
+
+**提取链路**：视觉字号层级 → 学术首屏多行合并 → 元数据/首行 → OCR 后备（`pytesseract` + Tesseract，可选）。
+
+**噪声过滤**：期刊页眉（PLOS / Elsevier 等）、`RESEARCH ARTICLE` 类型行、`ARTICLE IN PRESS` 待刊横幅、`Please cite this article…` 引用提示、卷期页眉、纯作者姓行；FDA `Guidance for Industry` 封面会剥离泛化前缀。文件名保留科学缩写（如 CpG、mRNA），英文 Smart Title Case，中文压缩至约 40 字。
 
 ```bash
 cd 15_PDF_Title_Renamer
@@ -446,7 +451,7 @@ python pdf_sanitizer.py
 ```
 
 常用参数：`--input`、`--output`、`--no-recursive`、`--no-keep-structure`、`--overwrite`。  
-注意：执行后 `input/` 中 PDF 会被迁移走。
+注意：执行后 `input/` 中 PDF 会被移走，请先备份。详见 `15_PDF_Title_Renamer/README.md`。
 
 ---
 
