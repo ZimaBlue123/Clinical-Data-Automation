@@ -83,7 +83,9 @@ pip-wheel-metadata/
 **/ectd_smoke*.xlsx
 **/duplicate_report*.txt
 **/run_summary_*.txt
-20_PDF_Duplicate_Analyzer/jobs.json
+_doc_*.txt
+**/*styles_pruned_report*.txt
+21_PDF_Duplicate_Analyzer/jobs.json
 *.bak
 *.tmp
 ~$* # Excel/PPT 运行时隐形锁文件

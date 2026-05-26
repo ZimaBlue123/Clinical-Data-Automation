@@ -2,7 +2,7 @@ $ErrorActionPreference = "Stop"
 
 # 用法（在仓库根目录）：
 #   . .\scripts\set_env.ps1
-# 然后进入 29_SAE_Extractor 运行 cli.py 等。
+# 然后进入 30_SAE_Extractor 运行 cli.py 等。
 
 $RepoRoot = Split-Path $PSScriptRoot -Parent
 
@@ -16,9 +16,9 @@ if ([string]::IsNullOrWhiteSpace($env:SAE_API_BASE_URL)) {
   $env:SAE_API_BASE_URL = "http://127.0.0.1:10984"
 }
 
-# 默认输出目录：第 29 模块 output（可通过 SAE_OUTPUT_DIR 覆盖）
+# 默认输出目录：第 30 模块 output（可通过 SAE_OUTPUT_DIR 覆盖）
 if ([string]::IsNullOrWhiteSpace($env:SAE_OUTPUT_DIR)) {
-  $env:SAE_OUTPUT_DIR = Join-Path $RepoRoot "29_SAE_Extractor\output"
+  $env:SAE_OUTPUT_DIR = Join-Path $RepoRoot "30_SAE_Extractor\output"
 }
 
 Write-Host "已设置：SAE_API_BASE_URL=$env:SAE_API_BASE_URL" -ForegroundColor Green

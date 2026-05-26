@@ -3,7 +3,7 @@
 Copyright (c) 2026 ZimaBlue123  
 Copyright (c) 2026 SAE-Extractor Contributors
 
-Portions of this repository — including `29_SAE_Extractor/` and the local secret-scan hook invoked from `.pre-commit-config.yaml` (`scripts/check_secrets.py`) — are derived from the **SAE-Extractor** project and are used under this same license.
+Portions of this repository — including `30_SAE_Extractor/` and the local secret-scan hook invoked from `.pre-commit-config.yaml` (`scripts/check_secrets.py`) — are derived from the **SAE-Extractor** project and are used under this same license.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
