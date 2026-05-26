@@ -220,14 +220,14 @@ python word_all_tables_to_excel.py
 ---
 
 ### 10. Word style cleanup & normalization (`10_Word_Style_Cleaner`)
-Purpose: batch-remove **unused custom styles** (keep built-in styles unchanged) and normalize remaining style names (Chinese tags for headings/body/tables/captions).
+Purpose: batch-remove **unused custom styles** (keep built-in styles unchanged) and normalize remaining style names (Chinese tags for headings/body/tables/captions). Preserves original `styles.xml` namespace declarations, expands style dependency closure (`basedOn`/`link`/`next`), and strips orphan style references to reduce Word repair prompts.
 
 ```bash
 cd 10_Word_Style_Cleaner
 python word_style_cleaner.py --input "input" --output "output" --overwrite
 ```
 
-Output: `10_Word_Style_Cleaner/output/` (includes `*_styles_cleaned.docx` + report).
+Output: `10_Word_Style_Cleaner/output/` (includes `*_styles_cleaned.docx` + report). See `10_Word_Style_Cleaner/README.md`.
 
 ---
 

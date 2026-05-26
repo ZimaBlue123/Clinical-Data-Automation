@@ -1,6 +1,8 @@
 import argparse
 import os
 import re
+import sys
+import tempfile
 import zipfile
 from dataclasses import dataclass
 from xml.etree import ElementTree as ET
@@ -35,6 +37,43 @@ def _iter_word_xml_parts(z: zipfile.ZipFile):
         if name == STYLE_XML:
             continue
         yield name
+
+
+def collect_style_dependency_map(styles_root: ET.Element) -> dict[str, set[str]]:
+    """
+    styleId -> other styleIds it depends on (basedOn / link / next).
+    Keeping these parents avoids broken style inheritance after pruning.
+    """
+
+    deps: dict[str, set[str]] = {}
+    ref_tags = (q("basedOn"), q("link"), q("next"))
+    for style in styles_root.findall(f".//{q('style')}"):
+        sid = style.get(q("styleId"))
+        if not sid:
+            continue
+        refs: set[str] = set()
+        for tag in ref_tags:
+            el = style.find(tag)
+            if el is None:
+                continue
+            val = el.get(q("val"))
+            if val:
+                refs.add(val)
+        if refs:
+            deps[sid] = refs
+    return deps
+
+
+def expand_used_style_ids(used_ids: set[str], deps: dict[str, set[str]]) -> set[str]:
+    expanded = set(used_ids)
+    queue = list(used_ids)
+    while queue:
+        sid = queue.pop()
+        for parent in deps.get(sid, ()):
+            if parent not in expanded:
+                expanded.add(parent)
+                queue.append(parent)
+    return expanded
 
 
 def detect_used_style_ids(z: zipfile.ZipFile) -> set[str]:
@@ -131,7 +170,7 @@ def extract_xmlns_decls(xml_bytes: bytes) -> dict[str, str]:
     if not tag:
         return {}
     decls: dict[str, str] = {}
-    for pfx, uri in re.findall(r'xmlns:([A-Za-z_][\\w\\-\\.]*)=[\\\"\\\']([^\\\"\\\']+)[\\\"\\\']', tag):
+    for pfx, uri in re.findall(r'xmlns:([\w.-]+)=["\']([^"\']+)["\']', tag):
         decls[pfx] = uri
     return decls
 
@@ -150,7 +189,7 @@ def replace_root_start_tag(serialized_xml: bytes, original_start_tag: str) -> by
         i = s.find("<styles")
     if i < 0:
         # e.g. <ns0:styles ...>
-        m = re.search(r"<[A-Za-z_][\\w\\-\\.]*:styles\\b", s)
+        m = re.search(r"<[A-Za-z_][\w\-\.]*:styles\b", s)
         if m:
             i = m.start()
     if i < 0:
@@ -188,7 +227,36 @@ def remove_unused_custom_styles(styles_root: ET.Element, styles: list[StyleInfo]
     return kept_custom_ids, removed_details
 
 
-_RE_DIGIT = re.compile(r"(\\d+)")
+def strip_orphan_style_references(zin: zipfile.ZipFile, valid_style_ids: set[str]) -> dict[str, bytes]:
+    """
+    Remove w:pStyle/w:rStyle/... that point to deleted styleIds.
+    Safety net when pruning leaves dangling references in document parts.
+    """
+
+    prop_tags = {q("pStyle"), q("rStyle"), q("tblStyle"), q("tcStyle"), q("trStyle")}
+    patched: dict[str, bytes] = {}
+
+    for xml_name in _iter_word_xml_parts(zin):
+        data = zin.read(xml_name)
+        try:
+            root = ET.fromstring(data)
+        except ET.ParseError:
+            continue
+
+        changed = False
+        for parent in root.iter():
+            for child in list(parent):
+                if child.tag not in prop_tags:
+                    continue
+                val = child.get(q("val"))
+                if val and val not in valid_style_ids:
+                    parent.remove(child)
+                    changed = True
+
+        if changed:
+            patched[xml_name] = ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+    return patched
 
 
 def _safe_set_style_name(styles_root: ET.Element, style_id: str, new_name: str) -> bool:
@@ -352,60 +420,14 @@ def normalize_style_names(
     return renames
 
 
-def process_one_docx(
+def _write_success_report(
+    report_path: str,
     in_docx: str,
     out_docx: str,
-    report_path: str,
-    rename_styles: bool,
-):
-    try:
-        with zipfile.ZipFile(in_docx, "r") as zin:
-            if STYLE_XML not in zin.namelist():
-                raise RuntimeError(f"docx 中未找到 {STYLE_XML}")
-
-            styles_xml = zin.read(STYLE_XML)
-            original_root_tag = extract_root_start_tag(styles_xml)
-            xmlns_decls = extract_xmlns_decls(styles_xml)
-            # Register all existing namespaces so tags/attrs keep stable prefixes when possible.
-            for pfx, uri in xmlns_decls.items():
-                try:
-                    ET.register_namespace(pfx, uri)
-                except Exception:
-                    pass
-            used_ids = detect_used_style_ids(zin)
-            styles_root, styles = parse_styles(styles_xml)
-
-            kept_custom_ids, removed_details = remove_unused_custom_styles(styles_root, styles, used_ids)
-
-            renames: list[tuple[str, str | None, str]] = []
-            if rename_styles:
-                # Need to re-parse styles after deletion for accurate kept set
-                new_styles_xml_bytes = ET.tostring(styles_root, encoding="utf-8", xml_declaration=True)
-                styles_root2, styles2 = parse_styles(new_styles_xml_bytes)
-                renames = normalize_style_names(styles_root2, styles2, kept_custom_ids)
-                styles_root = styles_root2
-
-            final_styles_xml_bytes = ET.tostring(styles_root, encoding="utf-8", xml_declaration=True)
-            if original_root_tag:
-                final_styles_xml_bytes = replace_root_start_tag(final_styles_xml_bytes, original_root_tag)
-
-            with zipfile.ZipFile(out_docx, "w", zipfile.ZIP_DEFLATED) as zout:
-                for item in zin.infolist():
-                    if item.filename == STYLE_XML:
-                        zout.writestr(item, final_styles_xml_bytes)
-                    else:
-                        zout.writestr(item, zin.read(item.filename))
-    except Exception as e:
-        # Still emit a report so batch processing can continue.
-        with open(report_path, "w", encoding="utf-8") as f:
-            f.write("Word 自定义样式清理报告（失败）\n")
-            f.write("========================\n")
-            f.write(f"输入: {in_docx}\n")
-            f.write(f"输出: {out_docx}\n")
-            f.write("\n")
-            f.write(f"错误: {type(e).__name__}: {e}\n")
-        return
-
+    removed_details: list[tuple[str, str | None]],
+    renames: list[tuple[str, str | None, str]],
+    orphan_patches: int,
+) -> None:
     removed_details_sorted = sorted(removed_details, key=lambda x: ((x[1] or ""), x[0]))
     renames_sorted = sorted(renames, key=lambda x: (x[2], x[0]))
 
@@ -417,6 +439,7 @@ def process_one_docx(
         f.write("\n")
         f.write(f"删除未使用自定义样式数: {len(removed_details_sorted)}\n")
         f.write(f"重命名自定义样式数: {len(renames_sorted)}\n")
+        f.write(f"修复孤儿样式引用（XML 部件数）: {orphan_patches}\n")
         f.write("\n")
 
         f.write("移除的自定义样式（styleId -> name）\n")
@@ -426,6 +449,87 @@ def process_one_docx(
         f.write("\n重命名的自定义样式（styleId: old -> new）\n")
         for sid, old, new in renames_sorted:
             f.write(f"- {sid}: {old} -> {new}\n")
+
+
+def process_one_docx(
+    in_docx: str,
+    out_docx: str,
+    report_path: str,
+    rename_styles: bool,
+) -> bool:
+    try:
+        with zipfile.ZipFile(in_docx, "r") as zin:
+            if STYLE_XML not in zin.namelist():
+                raise RuntimeError(f"docx 中未找到 {STYLE_XML}")
+
+            styles_xml = zin.read(STYLE_XML)
+            original_root_tag = extract_root_start_tag(styles_xml)
+            xmlns_decls = extract_xmlns_decls(styles_xml)
+            for pfx, uri in xmlns_decls.items():
+                try:
+                    ET.register_namespace(pfx, uri)
+                except ValueError:
+                    pass
+
+            styles_root, styles = parse_styles(styles_xml)
+            used_ids = detect_used_style_ids(zin)
+            used_ids = expand_used_style_ids(used_ids, collect_style_dependency_map(styles_root))
+
+            kept_custom_ids, removed_details = remove_unused_custom_styles(styles_root, styles, used_ids)
+
+            renames: list[tuple[str, str | None, str]] = []
+            if rename_styles:
+                new_styles_xml_bytes = ET.tostring(styles_root, encoding="utf-8", xml_declaration=True)
+                styles_root2, styles2 = parse_styles(new_styles_xml_bytes)
+                renames = normalize_style_names(styles_root2, styles2, kept_custom_ids)
+                styles_root = styles_root2
+
+            final_styles_xml_bytes = ET.tostring(styles_root, encoding="utf-8", xml_declaration=True)
+            if original_root_tag:
+                final_styles_xml_bytes = replace_root_start_tag(final_styles_xml_bytes, original_root_tag)
+
+            valid_style_ids = {s.style_id for s in parse_styles(final_styles_xml_bytes)[1] if s.style_id}
+            orphan_patches = strip_orphan_style_references(zin, valid_style_ids)
+
+            out_dir = os.path.dirname(os.path.abspath(out_docx)) or "."
+            os.makedirs(out_dir, exist_ok=True)
+            fd, tmp_path = tempfile.mkstemp(suffix=".docx", dir=out_dir)
+            os.close(fd)
+            try:
+                with zipfile.ZipFile(tmp_path, "w") as zout:
+                    for item in zin.infolist():
+                        if item.filename == STYLE_XML:
+                            zout.writestr(item, final_styles_xml_bytes)
+                        elif item.filename in orphan_patches:
+                            zout.writestr(item, orphan_patches[item.filename])
+                        else:
+                            zout.writestr(item, zin.read(item.filename))
+                os.replace(tmp_path, out_docx)
+            finally:
+                if os.path.exists(tmp_path):
+                    try:
+                        os.remove(tmp_path)
+                    except OSError:
+                        pass
+
+        _write_success_report(
+            report_path,
+            in_docx,
+            out_docx,
+            removed_details,
+            renames,
+            len(orphan_patches),
+        )
+        return True
+    except (OSError, zipfile.BadZipFile, ET.ParseError, RuntimeError, KeyError) as e:
+        with open(report_path, "w", encoding="utf-8") as f:
+            f.write("Word 自定义样式清理报告（失败）\n")
+            f.write("========================\n")
+            f.write(f"输入: {in_docx}\n")
+            f.write(f"输出: {out_docx}\n")
+            f.write("\n")
+            f.write(f"错误: {type(e).__name__}: {e}\n")
+        return False
 
 
 def iter_docx_files(input_dir: str, recursive: bool) -> list[str]:
@@ -466,23 +570,38 @@ def main() -> None:
     if not docx_files:
         raise SystemExit(f"未找到 docx：{input_dir}")
 
+    ok = 0
+    failed = 0
+    skipped = 0
+
     for in_docx in docx_files:
         base = os.path.splitext(os.path.basename(in_docx))[0]
         out_docx = os.path.join(output_dir, f"{base}{args.suffix}.docx")
         report_path = os.path.join(report_dir, f"{base}{args.suffix}_report.txt")
 
         if (not args.overwrite) and (os.path.exists(out_docx) or os.path.exists(report_path)):
+            skipped += 1
+            print(f"[跳过] {os.path.basename(in_docx)}")
             continue
 
-        process_one_docx(
+        print(f"[处理] {os.path.basename(in_docx)}")
+        if process_one_docx(
             in_docx=in_docx,
             out_docx=out_docx,
             report_path=report_path,
             rename_styles=not args.no_rename_styles,
-        )
+        ):
+            ok += 1
+            print(f"  -> {os.path.basename(out_docx)}")
+        else:
+            failed += 1
+            print(f"  -> 失败，见报告: {os.path.basename(report_path)}", file=sys.stderr)
 
     print("完成。")
+    print(f"成功 {ok}，失败 {failed}，跳过 {skipped}")
     print("输出目录:", output_dir)
+    if failed:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

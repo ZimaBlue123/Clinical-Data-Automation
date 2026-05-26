@@ -377,14 +377,14 @@ python word_all_tables_to_excel.py
 ---
 
 ### 10. Word 样式清理与命名规范化（`10_Word_Style_Cleaner`）
-用途：批量删除 **未使用的自定义样式**（内置样式保留不动），并对保留样式做中文命名规范化（标题/正文/表格/题注等）。
+用途：批量删除 **未使用的自定义样式**（内置样式保留不动），并对保留样式做中文命名规范化（标题/正文/表格/题注等）。写入时保留 `styles.xml` 原始命名空间声明，并处理样式继承依赖与孤儿引用，降低 Word 打开时的修复弹窗风险。
 
 ```bash
 cd 10_Word_Style_Cleaner
 python word_style_cleaner.py --input "input" --output "output" --overwrite
 ```
 
-输出目录：`10_Word_Style_Cleaner/output/`（含 `*_styles_cleaned.docx` 与报告）。
+输出目录：`10_Word_Style_Cleaner/output/`（含 `*_styles_cleaned.docx` 与报告）。详见 `10_Word_Style_Cleaner/README.md`。
 
 ---
 
