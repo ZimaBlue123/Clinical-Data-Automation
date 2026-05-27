@@ -28,7 +28,7 @@ from typing import Any, Optional
 import openpyxl
 from openpyxl.worksheet.worksheet import Worksheet
 
-from table_mapping_logic import (
+from lib.table_mapping_logic import (
     CellRange,
     ChartSeriesRefs,
     WordTableRef,

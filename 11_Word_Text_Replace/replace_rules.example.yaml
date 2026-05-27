@@ -1,0 +1,8 @@
+# 自定义替换规则示例（预留；当前版本规则在 lib/ooxml_replace.py 中维护）
+#
+# 未来可支持从此文件加载 literal 规则：
+# literals:
+#   - old: "待替换文本"
+#     new: "替换后文本"
+
+literals: []

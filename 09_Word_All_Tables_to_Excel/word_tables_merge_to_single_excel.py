@@ -470,7 +470,7 @@ def main() -> None:
     parser.add_argument(
         "--reference-excel",
         default=None,
-        help="可选：参考 Excel（如 10_PDF_Batch_to_Excel/output/serology_report_merged.xlsx），用于回填 Word 侧空缺指标",
+        help="可选：参考 Excel（如 12_PDF_Batch_to_Excel/output/serology_report_merged.xlsx），用于回填 Word 侧空缺指标",
     )
     args = parser.parse_args()
 

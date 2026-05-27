@@ -16,9 +16,9 @@
 pip install -r requirements.txt
 ```
 
-> `requirements.txt` 文件头已注明：非 Windows 或仅使用非 Office 自动化模块时，可移除或注释 `pywin32` 行后再安装；不需要 **15_PPTX_PDF_to_PPT** 时也可注释 Paddle 相关行以减轻安装体积。
+> `requirements.txt` 文件头已注明：非 Windows 或仅使用非 Office 自动化模块时，可移除或注释 `pywin32` 行后再安装；不需要 **16_PPTX_PDF_to_PPT** 时也可注释 Paddle 相关行以减轻安装体积。
 >
-> **提交前检查（可选）**：安装预提交钩子可在 commit 前运行 YAML 检查与本仓库敏感信息扫描（`scripts/check_secrets.py`，主要为 **30_SAE_Extractor** 等场景的 API Token 防误提交）：
+> **提交前检查（可选）**：安装预提交钩子可在 commit 前运行 YAML 检查与本仓库敏感信息扫描（`scripts/check_secrets.py`，主要为 **31_SAE_Extractor** 等场景的 API Token 防误提交）：
 >
 > ```bash
 > pip install pre-commit
@@ -27,16 +27,17 @@ pip install -r requirements.txt
 
 ## 整体架构
 
-本仓库为 **按编号目录划分的独立工具集**（`01_` … `30_`）。整体遵循两条规则：
+本仓库为 **按编号目录划分的独立工具集**（`01_` … `31_`）。整体遵循三条规则：
 
 1. **结构分层清晰**：根级公共资源（`src/`、`config*.yaml`）与各独立模块目录分离。
-2. **模块顺序固定**：以目录编号作为唯一顺序基准，按 **`01_` → `30_`** 递增组织与阅读。
+2. **模块顺序固定**：以目录编号作为唯一顺序基准，按 **`01_` → `31_`** 递增组织与阅读。
+3. **脚本主次**：各模块内 **主程序** / **`lib/` 核心库** / **`util_*` 辅助工具** 见 [`docs/script_roles.md`](docs/script_roles.md)。
 
 | 层次 | 说明 |
 |------|------|
-| **入口** | 各 `NN_*/` 目录内的 `*.py` 脚本或子目录 `README.md` 中的命令行说明。 |
+| **入口** | 各 `NN_*/` 目录内的主程序 `*.py`（辅助工具为 `util_*.py`，核心库在 `lib/`）；详见 [`docs/script_roles.md`](docs/script_roles.md)。 |
 | **共享库** | `src/`：`pdf_reader`、`excel_writer`、`color_theme` 等，供图表/PDF 等模块引用。 |
-| **配置** | 根目录 `config.yaml` / `config.example.yaml`，主要服务 **12_PDF_to_Excel_Rule_Extract** 的规则驱动提取。 |
+| **配置** | 根目录 `config.yaml` / `config.example.yaml`，主要服务 **13_PDF_to_Excel_Rule_Extract** 的规则驱动提取。 |
 | **数据约定** | 默认 **`input/` → 脚本 → `output/`**；部分模块支持命令行覆盖路径。 |
 | **运行时** | **纯 Python + 文件库**（openpyxl、pandas、PyMuPDF 等）与 **Windows + Microsoft Office COM**（`pywin32`，用于 Word/Excel/PowerPoint 自动化）两类；后者仅在使用对应模块时需要。 |
 
@@ -44,9 +45,9 @@ pip install -r requirements.txt
 
 - **Excel 相关（01-02）**：`01_Excel_Charts` → `02_Excel_Chart_Colors`
 - **PowerPoint 相关（03-05）**：`03_PPT_Merge` → `04_PPT_Watermark_Removal` → `05_PPT_to_PDF`
-- **Word 相关（06-10）**：`06_Word_to_PDF` → `07_Word_to_Excel_to_Figure` → `08_Word_Tables_to_Excel` → `09_Word_All_Tables_to_Excel` → `10_Word_Style_Cleaner`
-- **PDF 相关（11-20）**：`11_PDF_Batch_to_Excel` → `12_PDF_to_Excel_Rule_Extract` → `13_PDF_to_PPT` → `14_PDF_XSS` → `15_PPTX_PDF_to_PPT` → `16_PDF_Title_Renamer` → `17_PDF_eCTD_Converter` → `18_PDF_Merge` → `19_PDF_Bookmark_Inherit_Zoom` → `20_PDF_Watermark_Removal`
-- **其他工具（21-30）**：`21_PDF_Duplicate_Analyzer` → `22_File_Translator` → `23_Py_to_EXE` → `24_C_Drive_Cleanup` → `25_WiFi_Passwords` → `26_Folder_File_Count` → `27_Paper_Batch_Download` → `28_Proxy_Config_Export` → `29_DNS_Leak_Detector` → `30_SAE_Extractor`
+- **Word 相关（06-11）**：`06_Word_to_PDF` → … → `10_Word_Style_Cleaner` → `11_Word_Text_Replace`
+- **PDF 相关（12-21）**：`12_PDF_Batch_to_Excel` → `13_PDF_to_Excel_Rule_Extract` → `14_PDF_to_PPT` → `15_PDF_XSS` → `16_PPTX_PDF_to_PPT` → `17_PDF_Title_Renamer` → `18_PDF_eCTD_Converter` → `19_PDF_Merge` → `20_PDF_Bookmark_Inherit_Zoom` → `21_PDF_Watermark_Removal`
+- **其他工具（22-31）**：`22_PDF_Duplicate_Analyzer` → `23_File_Translator` → `24_Py_to_EXE` → `25_C_Drive_Cleanup` → `26_WiFi_Passwords` → `27_Folder_File_Count` → `28_Paper_Batch_Download` → `29_Proxy_Config_Export` → `30_DNS_Leak_Detector` → `31_SAE_Extractor`
 
 ## 项目结构
 
@@ -72,7 +73,7 @@ Clinical Data Automation/
 │   ├── merge_ppt.py                  # 物理合并（TF-IDF 去重）
 │   ├── ppt_engine.py                 # 叙事编辑（SLIDE_BLUEPRINT 严格筛选）
 │   ├── csr_ppt_integrator.py         # CSR 规范整合（叙事+去重+视觉统一）
-│   └── test_and_validate.py          # 测试验证工具
+│   └── util_test_and_validate.py     # 辅助：依赖与合并流程自检
 │
 ├── 04_PPT_Watermark_Removal/ # PPT 边角水印去除模块
 │   ├── input/                        # 输入：带水印的 PPTX
@@ -95,9 +96,8 @@ Clinical Data Automation/
 │   ├── Template/                     # 骨架 Excel（图表/透视等结构）
 │   ├── output/                       # 输出：复刻 Excel、table_mapping_plan_*.json
 │   ├── word_to_excel_to_figure.py    # 主程序：发现图表区间、抽取并 Excel COM 写回
-│   ├── table_mapping_logic.py        # 子表↔Word 表映射与 plan 生成（唯一实现，主程序引用）
-│   ├── repair_output_by_patch.py     # 将旧 output 的图表区间 patch 回模板副本（修结构/弹窗）
-│   ├── fixed_word_to_excel.py        # [Legacy] 硬编码示例脚本
+│   ├── lib/table_mapping_logic.py    # 核心库：子表↔Word 表映射与 plan（唯一实现）
+│   ├── util_repair_output_by_patch.py # 辅助：图表区间 patch 回模板副本
 │   └── README.md                     # 模块说明与命令行
 │
 ├── 08_Word_Tables_to_Excel/      # Word 指定表格抽取为 Excel（精准表头 + 兼容样式）
@@ -118,110 +118,118 @@ Clinical Data Automation/
 │   ├── word_style_cleaner.py         # 主程序：删除未用自定义样式 + 中文命名规范化
 │   └── README.md
 │
+├── 11_Word_Text_Replace/           # Word docx 批量文本替换（OOXML，日期/编号/固定短语）
+│   ├── input/                        # 输入：Word（.docx）
+│   ├── output/                       # 输出：*_updated.docx
+│   ├── replace_docx.py               # 主程序
+│   ├── lib/ooxml_replace.py          # 核心库：OOXML 替换与规则
+│   ├── util_check_docx.py            # 辅助：输出校验
+│   └── README.md
+│
 ├── # —— 输入以 PDF 为主（含 PDF/PPTX 转可编辑 PPT）——
-├── 11_PDF_Batch_to_Excel/          # PDF 批量转 Excel（血清报告、ADR 等专用工具）
+├── 12_PDF_Batch_to_Excel/          # PDF 批量转 Excel（血清报告、ADR 等专用工具）
 │   ├── input/                        # 输入：PDF 源文件（若有）
 │   ├── output/                       # 输出：生成的 Excel
 │   ├── serology_report_pdf_to_excel.py  # 中检院血清报告 PDF 批量汇总
 │   ├── fill_adr_from_pdf.py          # ADR 分级表专用提取
-│   └── audit_and_fix_consistency.py  # 一致性检查与自动修正
+│   └── util_audit_and_fix_consistency.py  # 辅助：ADR 表与 PDF 一致性检查与修正
 │
-├── 12_PDF_to_Excel_Rule_Extract/    # 通用规则驱动 PDF→Excel 提取（config.yaml）
+├── 13_PDF_to_Excel_Rule_Extract/    # 通用规则驱动 PDF→Excel 提取（config.yaml）
 │   ├── input/                        # 输入：PDF（可选；也可在 config.yaml 中写绝对路径）
 │   ├── output/                       # 输出：Excel（可选）
 │   ├── main.py                       # 入口：按规则检索并写入 Excel
 │   └── README.md                     # 用法与与去水印联动说明
 │
-├── 13_PDF_to_PPT/            # PDF 转 PPT 模块
+├── 14_PDF_to_PPT/            # PDF 转 PPT 模块
 │   ├── input/                        # 输入：PDF 源文件
 │   ├── output/                       # 输出：转换后的 PPT 文件
 │   └── pdf_to_ppt.py                 # PDF 转换主程序
 │
-├── 14_PDF_XSS/               # PDF XSS/脚本清理模块
+├── 15_PDF_XSS/               # PDF XSS/脚本清理模块
 │   ├── input/                        # 输入：待清理 PDF
 │   ├── output/                       # 输出：清理后的 PDF
 │   └── pdf_xss_clean.py              # 主程序：移除 JS/恶意链接与嵌入文件
 │
-├── 15_PPTX_PDF_to_PPT/       # PPTX/PDF 转原生 PPT 模块
+├── 16_PPTX_PDF_to_PPT/       # PPTX/PDF 转原生 PPT 模块
 │   ├── input/                        # 输入：PDF 或 PPTX
 │   ├── output/                       # 输出：可编辑 PPTX
 │   └── convert_to_native_ppt.py      # 主程序：表格识别重建
 │
-├── 16_PDF_Title_Renamer/     # PDF 标题驱动重命名（Sanitizer v6.9，剪切模式）
+├── 17_PDF_Title_Renamer/     # PDF 标题驱动重命名（Sanitizer v6.9，剪切模式）
 │   ├── input/                        # 输入：待重命名 PDF
 │   ├── output/                       # 输出：重命名后 PDF（Title-年份.pdf）
 │   ├── pdf_sanitizer.py              # 主程序：视觉层级 + 学术首屏 + OCR 后备
 │   └── README.md                     # 模块说明、噪声过滤与 CLI 参数
 │
-├── 17_PDF_eCTD_Converter/    # PDF eCTD 合规装甲（校验+清理+重写+审计报告）
+├── 18_PDF_eCTD_Converter/    # PDF eCTD 合规装甲（校验+清理+重写+审计报告）
 │   ├── input/                        # 输入：待转换 PDF
 │   ├── output/                       # 输出：*_ectd.pdf
 │   ├── pdf_ectd_converter.py         # 主程序：6.26 字体映射/嵌入、书签修复、XSS/链接清理
 │   └── README.md                     # 模块说明与参数
 │
-├── 18_PDF_Merge/             # PDF 合并模块（自然排序）
+├── 19_PDF_Merge/             # PDF 合并模块（自然排序）
 │   ├── input/                        # 输入：待合并 PDF（支持子文件夹）
 │   ├── output/                       # 输出：合并后的 PDF
 │   └── merge_pdf.py                  # 主程序：按自然排序合并
 │
-├── 19_PDF_Bookmark_Inherit_Zoom/ # PDF 书签「承前缩放」批处理（PyMuPDF）
+├── 20_PDF_Bookmark_Inherit_Zoom/ # PDF 书签「承前缩放」批处理（PyMuPDF）
 │   ├── input/                        # 输入：待处理 PDF
 │   ├── output/                       # 输出：重写书签后的 PDF
 │   ├── pdf_bookmark_inherit_zoom.py  # 主程序：TOC 注入 XYZ / zoom=0，并发批处理
 │   └── README.md                     # 模块说明与快速开始
 │
-├── 20_PDF_Watermark_Removal/   # PDF 干扰区定位与审计（排除框 + 审计 PDF + 清洗文本）
+├── 21_PDF_Watermark_Removal/   # PDF 干扰区定位与审计（排除框 + 审计 PDF + 清洗文本）
 │   ├── input/                        # 输入：待分析 PDF
 │   ├── output/                       # 输出：boxes.json / audit_masked.pdf / clean_text / 报告
 │   ├── steps/                        # 管线子步骤（triage、vector、ocr、merge、audit、extract）
 │   ├── main.py                       # 主程序
-│   └── README.md                     # 模块说明、v2 JSON、与 12_PDF_to_Excel_Rule_Extract 联动与 mapping_audit
+│   └── README.md                     # 模块说明、v2 JSON、与 13_PDF_to_Excel_Rule_Extract 联动与 mapping_audit
 │
 ├── # —— 多格式 / 其他 ——
-├── 21_PDF_Duplicate_Analyzer/ # PDF 跨文件夹重复分析（文件名 / 首页文本）
+├── 22_PDF_Duplicate_Analyzer/ # PDF 跨文件夹重复分析（文件名 / 首页文本）
 │   ├── output/                       # 输出：duplicate_report_*.txt（无 input/）
 │   ├── pdf_duplicate_analyzer.py     # 主程序：--root 指定外部 References 路径
 │   ├── jobs.example.json             # 多批次配置示例
 │   └── README.md                     # 模块说明与命令行用法
 │
-├── 22_File_Translator/        # 多格式文档翻译模块（双向，免费优先）
+├── 23_File_Translator/        # 多格式文档翻译模块（双向，免费优先）
 │   ├── input/                        # 输入：待翻译 Excel/CSV/Word/PDF
 │   ├── output/                       # 输出：翻译副本（*_en2zh.* / *_zh2en.*）
 │   ├── file_translator.py            # 主程序：Excel/CSV/Word/PDF 双向翻译
 │   └── README.md                     # 模块说明与命令行用法
 │
-├── 23_Py_to_EXE/             # Python 脚本转 EXE 模块
+├── 24_Py_to_EXE/             # Python 脚本转 EXE 模块
 │   ├── input/                        # 输入：.py 脚本
 │   ├── output/                       # 输出：.exe 文件
 │   └── py_to_exe.py                  # 主程序：PyInstaller 打包
 │
-├── 24_C_Drive_Cleanup/       # C 盘垃圾/空文件清理模块
+├── 25_C_Drive_Cleanup/       # C 盘垃圾/空文件清理模块
 │   ├── input/                        # 输入：targets.txt（可选）
 │   ├── output/                       # 输出：清理报告
 │   └── c_drive_cleanup.py            # 主程序：扫描/清理
 │
-├── 25_WiFi_Passwords/        # WiFi 密码查看模块
+├── 26_WiFi_Passwords/        # WiFi 密码查看模块
 │   ├── output/                       # 输出：wifi_passwords.csv
 │   └── wifi_passwords.py             # 主程序：读取 WiFi 配置
 │
-├── 26_Folder_File_Count/     # 目录文件数量统计模块
+├── 27_Folder_File_Count/     # 目录文件数量统计模块
 │   ├── output/                       # 输出：统计结果
 │   └── folder_file_count.py          # 主程序：统计目录文件数
 │
-├── 27_Paper_Batch_Download/  # 文献批量下载模块（OA）
+├── 28_Paper_Batch_Download/  # 文献批量下载模块（OA）
 │   ├── output/                       # 输出：下载的 PDF
 │   └── paper_batch_download.py       # 主程序：批量下载
 │
-├── 28_Proxy_Config_Export/   # 代理配置导出模块（注册表+环境变量）
+├── 29_Proxy_Config_Export/   # 代理配置导出模块（注册表+环境变量）
 │   ├── output/                       # 输出：代理配置文本
 │   └── proxy_config_export.py        # 主程序：导出代理配置
 │
-├── 29_DNS_Leak_Detector/      # DNS 泄漏诊断模块（TUN/SOCKS）
+├── 30_DNS_Leak_Detector/      # DNS 泄漏诊断模块（TUN/SOCKS）
 │   ├── output/                       # 输出：诊断 JSON 报告（可选）
 │   ├── dns_leak_detector.py          # 主程序：出口与上游 DNS 一致性检测
 │   └── README.md                     # 模块说明与命令行用法
 │
-├── 30_SAE_Extractor/          # SAE 结构化抽取（LLM + 多格式解析 → Excel）
+├── 31_SAE_Extractor/          # SAE 结构化抽取（LLM + 多格式解析 → Excel）
 │   ├── input/                        # 输入：临床文本/PDF/DOCX/Excel
 │   ├── output/                       # 输出：SAE 列表 xlsx
 │   ├── cli.py                        # 主入口：self-check / batch / pdf-batch
@@ -239,7 +247,7 @@ Clinical Data Automation/
 ├── .pre-commit-config.yaml   # 可选：pre-commit（含敏感信息本地扫描）
 ├── scripts/                  # 仓库级辅助脚本
 │   ├── check_secrets.py      # pre-commit 调用的密钥模式扫描
-│   ├── set_env.ps1           # PowerShell：示例环境变量（30_SAE_Extractor）
+│   ├── set_env.ps1           # PowerShell：示例环境变量（31_SAE_Extractor）
 │   └── start_tunnel.ps1      # PowerShell：SSH 本地端口转发（API 网关）
 ├── requirements.txt
 ├── LICENSE.md
@@ -345,7 +353,7 @@ python word_to_excel_to_figure.py --input-dir "input" --plan-only
 python word_to_excel_to_figure.py --input-dir "input" --table-map-json "output/table_mapping_plan_<模板名>.json"
 ```
 
-关键文件：`table_mapping_logic.py`（映射单一数据源）、`repair_output_by_patch.py`（图表区间补丁修复）。  
+关键文件：`lib/table_mapping_logic.py`（映射单一数据源）、`util_repair_output_by_patch.py`（图表区间补丁修复）。  
 输出目录：`07_Word_to_Excel_to_Figure/output/`。
 
 ---
@@ -388,13 +396,26 @@ python word_style_cleaner.py --input "input" --output "output" --overwrite
 
 ---
 
-### 11. PDF 批量转 Excel（`11_PDF_Batch_to_Excel`）<span id="modules-pdf"></span>
+### 11. Word 文档批量文本替换（`11_Word_Text_Replace`）
+用途：对 CSR/方案等 docx 做 OOXML 级批量查找替换（日期占位符、研究编号、固定短语等），覆盖正文/表格/页眉页脚，支持跨 run 拆分。
+
+```bash
+cd 11_Word_Text_Replace
+python replace_docx.py --yes
+python util_check_docx.py --latest
+```
+
+输入/输出：`input/` → `output/`（生成 `*_updated.docx`）。详见 `11_Word_Text_Replace/README.md`。
+
+---
+
+### 12. PDF 批量转 Excel（`12_PDF_Batch_to_Excel`）<span id="modules-pdf"></span>
 用途：面向 ADR 分级与血清报告的专用提取、回填与一致性校验。
 
 ```bash
-cd 11_PDF_Batch_to_Excel
+cd 12_PDF_Batch_to_Excel
 python fill_adr_from_pdf.py
-python audit_and_fix_consistency.py
+python util_audit_and_fix_consistency.py
 python serology_report_pdf_to_excel.py --input "input" --output "output/serology_report_merged.xlsx" --ocr --ocr-dpi 110
 ```
 
@@ -402,40 +423,40 @@ python serology_report_pdf_to_excel.py --input "input" --output "output/serology
 
 ---
 
-### 12. PDF → Excel 规则提取（`12_PDF_to_Excel_Rule_Extract`）
+### 12. PDF → Excel 规则提取（`13_PDF_to_Excel_Rule_Extract`）
 用途：按 `config.yaml` 规则从 PDF 检索内容并写入 Excel。
 
 ```bash
-cd 12_PDF_to_Excel_Rule_Extract
+cd 13_PDF_to_Excel_Rule_Extract
 python main.py
 ```
 
-可与 `19_PDF_Watermark_Removal` 联动：
+可与 `20_PDF_Watermark_Removal` 联动：
 ```bash
-python main.py --config config.yaml --exclusion-json "../19_PDF_Watermark_Removal/output/你的文件_boxes.json"
+python main.py --config config.yaml --exclusion-json "../20_PDF_Watermark_Removal/output/你的文件_boxes.json"
 ```
 
-输出目录：`12_PDF_to_Excel_Rule_Extract/output/`。
+输出目录：`13_PDF_to_Excel_Rule_Extract/output/`。
 
 ---
 
-### 12. PDF 转 PPT（`12_PDF_to_PPT`）
+### 12. PDF 转 PPT（`13_PDF_to_PPT`）
 用途：每页 PDF 转换为一张 PPT 幻灯片。
 
 ```bash
-cd 12_PDF_to_PPT
+cd 13_PDF_to_PPT
 python pdf_to_ppt.py
 ```
 
-输出目录：`12_PDF_to_PPT/output/`。
+输出目录：`13_PDF_to_PPT/output/`。
 
 ---
 
-### 13. PDF XSS 清理（`13_PDF_XSS`）
+### 13. PDF XSS 清理（`14_PDF_XSS`）
 用途：清理 PDF 中脚本/恶意协议链接/注释/嵌入文件。
 
 ```bash
-cd 13_PDF_XSS
+cd 14_PDF_XSS
 python pdf_xss_clean.py
 ```
 
@@ -443,11 +464,11 @@ python pdf_xss_clean.py
 
 ---
 
-### 15. PPTX/PDF 转原生 PPT（`15_PPTX_PDF_to_PPT`）
+### 15. PPTX/PDF 转原生 PPT（`16_PPTX_PDF_to_PPT`）
 用途：把 PDF 或图片型 PPTX 中的表格重建为可编辑原生 PPT。
 
 ```bash
-cd 15_PPTX_PDF_to_PPT
+cd 16_PPTX_PDF_to_PPT
 python convert_to_native_ppt.py
 ```
 
@@ -456,7 +477,7 @@ python convert_to_native_ppt.py
 
 ---
 
-### 15. PDF 标题驱动重命名（`15_PDF_Title_Renamer`）
+### 15. PDF 标题驱动重命名（`16_PDF_Title_Renamer`）
 用途：从 PDF 首页提取**正文标题**与**年份**，生成 `标题-年份.pdf` 并从 `input/` **剪切**到 `output/`（引擎 v6.9）。
 
 **提取链路**：视觉字号层级 → 学术首屏多行合并 → 元数据/首行 → OCR 后备（`pytesseract` + Tesseract，可选）。
@@ -464,99 +485,99 @@ python convert_to_native_ppt.py
 **噪声过滤**：期刊页眉（PLOS / Elsevier 等）、`RESEARCH ARTICLE` 类型行、`ARTICLE IN PRESS` 待刊横幅、`Please cite this article…` 引用提示、卷期页眉、纯作者姓行；FDA `Guidance for Industry` 封面会剥离泛化前缀。文件名保留科学缩写（如 CpG、mRNA），英文 Smart Title Case，中文压缩至约 40 字。
 
 ```bash
-cd 15_PDF_Title_Renamer
+cd 16_PDF_Title_Renamer
 python pdf_sanitizer.py
 ```
 
 常用参数：`--input`、`--output`、`--no-recursive`、`--no-keep-structure`、`--overwrite`。  
-注意：执行后 `input/` 中 PDF 会被移走，请先备份。详见 `15_PDF_Title_Renamer/README.md`。
+注意：执行后 `input/` 中 PDF 会被移走，请先备份。详见 `16_PDF_Title_Renamer/README.md`。
 
 ---
 
-### 16. PDF eCTD 转换（`16_PDF_eCTD_Converter`）
+### 16. PDF eCTD 转换（`17_PDF_eCTD_Converter`）
 用途：按 eCTD 附件 6 常见条款批量校验、清洗并重写 PDF；含 **6.26 字体**、**6.5/6.6/6.8 书签**（无动作补全、承前缩放）；输出 Excel 审计报告。
 
 ```bash
-cd 16_PDF_eCTD_Converter
+cd 17_PDF_eCTD_Converter
 python pdf_ectd_converter.py --input "./input" --output "./output" --report "./ectd_report.xlsx" --overwrite
 ```
 
 常用参数：`--validate-only`、`--overwrite`、`--keep-name`、`--no-recursive`、`--no-keep-structure`、`--add-auto-bookmarks`（默认 `outline`）、`--no-add-auto-bookmarks`。  
-依赖：`pymupdf`、`pandas`、`openpyxl`、`fonttools`（字体嵌入）。详见 `16_PDF_eCTD_Converter/README.md`。
+依赖：`pymupdf`、`pandas`、`openpyxl`、`fonttools`（字体嵌入）。详见 `17_PDF_eCTD_Converter/README.md`。
 
 ---
 
-### 17. PDF 合并（`17_PDF_Merge`）
+### 17. PDF 合并（`18_PDF_Merge`）
 用途：按自然排序合并多个 PDF（支持子目录）。
 
 ```bash
-cd 17_PDF_Merge
+cd 18_PDF_Merge
 python merge_pdf.py
 ```
 
 常用参数：`--input`、`--output`、`--output-name`、`--overwrite`。  
-输出文件：`17_PDF_Merge/output/merged.pdf`。
+输出文件：`18_PDF_Merge/output/merged.pdf`。
 
 ---
 
-### 18. PDF 书签承前缩放（`18_PDF_Bookmark_Inherit_Zoom`）
+### 18. PDF 书签承前缩放（`19_PDF_Bookmark_Inherit_Zoom`）
 用途：重写书签目标为 `XYZ + zoom=0`，点击目录时保持当前缩放比例。
 
 ```bash
-cd 18_PDF_Bookmark_Inherit_Zoom
+cd 19_PDF_Bookmark_Inherit_Zoom
 python pdf_bookmark_inherit_zoom.py
 ```
 
 依赖：`pymupdf`。  
-输出目录：`18_PDF_Bookmark_Inherit_Zoom/output/`。
+输出目录：`19_PDF_Bookmark_Inherit_Zoom/output/`。
 
 ---
 
-### 19. PDF 干扰区定位与审计（`19_PDF_Watermark_Removal`）
+### 19. PDF 干扰区定位与审计（`20_PDF_Watermark_Removal`）
 用途：定位页眉/水印等干扰区，输出排除框 JSON、审计叠加 PDF 与清洗文本。
 
 ```bash
-cd 19_PDF_Watermark_Removal
+cd 20_PDF_Watermark_Removal
 python main.py --input "input" --output "output"
 ```
 
-与 `12_PDF_to_Excel_Rule_Extract` 的 `--exclusion-json` 可直接联动。
+与 `13_PDF_to_Excel_Rule_Extract` 的 `--exclusion-json` 可直接联动。
 
 ---
 
-### 20. PDF 跨文件夹重复分析（`20_PDF_Duplicate_Analyzer`）<span id="modules-others"></span>
+### 20. PDF 跨文件夹重复分析（`21_PDF_Duplicate_Analyzer`）<span id="modules-others"></span>
 用途：在同一根目录的多个子文件夹之间，按**文件名**或**首页文本**检测重复 PDF（无 `input/`，源文件在外部路径）。
 
 ```bash
-cd 20_PDF_Duplicate_Analyzer
+cd 21_PDF_Duplicate_Analyzer
 python pdf_duplicate_analyzer.py --root "D:\References" --folders "FolderA,FolderB" --label "批次1"
 python pdf_duplicate_analyzer.py --config jobs.json
 ```
 
 常用参数：`--root`、`--folders`（省略则扫描 root 下全部一级子目录）、`--label`、`--config`、`--output`。  
-输出目录：`20_PDF_Duplicate_Analyzer/output/`（`duplicate_report_*.txt`）。
+输出目录：`21_PDF_Duplicate_Analyzer/output/`（`duplicate_report_*.txt`）。
 
 ---
 
-### 22. 文档双向翻译（`22_File_Translator`）
+### 22. 文档双向翻译（`23_File_Translator`）
 用途：翻译 Excel/CSV/Word/PDF，默认免费引擎优先并支持多级兜底。
 
 ```bash
-cd 22_File_Translator
+cd 23_File_Translator
 python file_translator.py --self-test
 python file_translator.py
 ```
 
 常用参数：`--direction en2zh|zh2en`、`--provider`、`--engine`、`--columns`、`--pdf-mode`、`--cache-file`、`--max-workers`。  
-输出目录：`22_File_Translator/output/`。
+输出目录：`23_File_Translator/output/`。
 
 ---
 
-### 23. Python 脚本转 EXE（`23_Py_to_EXE`）
+### 23. Python 脚本转 EXE（`24_Py_to_EXE`）
 用途：基于 PyInstaller 将 `.py` 打包为 Windows 可执行文件。
 
 ```bash
-cd 23_Py_to_EXE
+cd 24_Py_to_EXE
 python py_to_exe.py
 ```
 
@@ -564,93 +585,93 @@ python py_to_exe.py
 
 ---
 
-### 23. C 盘垃圾/空文件清理（`23_C_Drive_Cleanup`）
+### 23. C 盘垃圾/空文件清理（`24_C_Drive_Cleanup`）
 用途：清理临时/缓存垃圾文件；默认仅扫描，避免误删。
 
 ```bash
-cd 23_C_Drive_Cleanup
+cd 24_C_Drive_Cleanup
 python c_drive_cleanup.py
 python c_drive_cleanup.py --delete --days 7
 ```
 
 常用参数：`--targets`、`--remove-empty-dirs`。  
-输出文件：`23_C_Drive_Cleanup/output/cleanup_report.csv`。
+输出文件：`24_C_Drive_Cleanup/output/cleanup_report.csv`。
 
 ---
 
-### 24. WiFi 密码查看（`24_WiFi_Passwords`）
+### 24. WiFi 密码查看（`25_WiFi_Passwords`）
 用途：导出 Windows 本机已保存 WiFi 账号密码（需权限）。
 
 ```bash
-cd 24_WiFi_Passwords
+cd 25_WiFi_Passwords
 python wifi_passwords.py
 ```
 
 常用参数：`--output`、`--encoding`、`--quiet`。  
-输出文件：`24_WiFi_Passwords/output/wifi_passwords.csv`。
+输出文件：`25_WiFi_Passwords/output/wifi_passwords.csv`。
 
 ---
 
-### 25. 目录文件数量统计（`25_Folder_File_Count`）
+### 25. 目录文件数量统计（`26_Folder_File_Count`）
 用途：递归统计目录文件数量并输出 TXT + Excel。
 
 ```bash
-cd 25_Folder_File_Count
+cd 26_Folder_File_Count
 python folder_file_count.py --path "D:\data"
 ```
 
 常用参数：`--output`。  
-输出目录：`25_Folder_File_Count/output/`。
+输出目录：`26_Folder_File_Count/output/`。
 
 ---
 
-### 26. 文献批量下载（`26_Paper_Batch_Download`）
+### 26. 文献批量下载（`27_Paper_Batch_Download`）
 用途：按 DOI/PMID/标题/URL 批量下载 Open Access PDF，并在默认安全模式下进行限速与退避重试以降低 IP 限制风险。
 
 ```bash
-cd 26_Paper_Batch_Download
+cd 27_Paper_Batch_Download
 python paper_batch_download.py --queries "10.1038/s41586-020-2649-2" "32788730"
 ```
 
 文件输入模式：`python paper_batch_download.py --file "D:\papers.txt" --mailto "your_email@example.com"`。  
 安全参数（默认开启）：`--safe-mode`、`--min-interval`、`--max-retries`、`--backoff-base`、`--mirror-cooldown`。  
 如需临时关闭限速防护：`python paper_batch_download.py --queries "10.xxx/xxx" --no-safe-mode`。  
-输出目录：`26_Paper_Batch_Download/output/`。
+输出目录：`27_Paper_Batch_Download/output/`。
 
 ---
 
-### 27. 代理配置导出（`27_Proxy_Config_Export`）
+### 27. 代理配置导出（`28_Proxy_Config_Export`）
 用途：导出当前系统代理配置（注册表 + 环境变量）到文本文件。
 
 ```bash
-cd 27_Proxy_Config_Export
+cd 28_Proxy_Config_Export
 python proxy_config_export.py
 ```
 
-输出文件：`27_Proxy_Config_Export/output/proxy_config_YYYYMMDD_HHMMSS.txt`。  
+输出文件：`28_Proxy_Config_Export/output/proxy_config_YYYYMMDD_HHMMSS.txt`。  
 仅支持 Windows。
 
 ---
 
-### 28. DNS 泄漏诊断（`28_DNS_Leak_Detector`）
+### 28. DNS 泄漏诊断（`29_DNS_Leak_Detector`）
 用途：检测公网出口与上游 DNS 是否偏离，用于排查 DNS 泄漏与分流错误。
 
 ```bash
-cd 28_DNS_Leak_Detector
+cd 29_DNS_Leak_Detector
 python dns_leak_detector.py --mode tun
 python dns_leak_detector.py --mode socks --socks-port 10808
 python dns_leak_detector.py --save-json
 ```
 
-报告文件（可选）：`28_DNS_Leak_Detector/output/dns_diagnostic_<mode>_<timestamp>.json`。
+报告文件（可选）：`29_DNS_Leak_Detector/output/dns_diagnostic_<mode>_<timestamp>.json`。
 
 ---
 
-### 30. SAE 结构化抽取（`30_SAE_Extractor`）
+### 30. SAE 结构化抽取（`31_SAE_Extractor`）
 用途：从 PDF/TXT/DOCX/Excel 临床材料中提取严重不良事件（SAE）字段，调用 OpenAI 兼容 Chat Completions 接口，汇总导出 Excel。
 
 ```bash
-cd 30_SAE_Extractor
+cd 31_SAE_Extractor
 python cli.py self-check
 python cli.py batch
 python cli.py pdf-batch
@@ -660,7 +681,7 @@ python cli.py pdf-batch
 
 辅助脚本（仓库根目录 `scripts/`，Windows PowerShell）：
 
-- `set_env.ps1`：在当前会话设置 `SAE_API_BASE_URL`、`SAE_OUTPUT_DIR`（指向 `30_SAE_Extractor/output`）等；**仍需自行设置 `SAE_API_TOKEN`**。用法：在仓库根执行 `.\scripts\set_env.ps1`（注意点开源执行策略）。
+- `set_env.ps1`：在当前会话设置 `SAE_API_BASE_URL`、`SAE_OUTPUT_DIR`（指向 `31_SAE_Extractor/output`）等；**仍需自行设置 `SAE_API_TOKEN`**。用法：在仓库根执行 `.\scripts\set_env.ps1`（注意点开源执行策略）。
 - `start_tunnel.ps1`：建立 SSH 本地端口转发；须设置 **`SAE_TUNNEL_SSH_HOST`**（及可选 `SAE_TUNNEL_SSH_USER`、`SAE_TUNNEL_LOCAL_PORT`、`SAE_TUNNEL_REMOTE_BIND`）。用法：`powershell -ExecutionPolicy Bypass -File .\scripts\start_tunnel.ps1`
 
 手动全量扫描敏感信息：`pre-commit run detect-sensitive-secrets --all-files`（需已 `pre-commit install` 或直接安装 `pre-commit`）。
@@ -670,8 +691,8 @@ python cli.py pdf-batch
 复制 `config.example.yaml` 为 `config.yaml`，按需修改：
 
 ```yaml
-pdf_path: "12_PDF_to_Excel_Rule_Extract/input/不同剂量组ADR分析 (TFL).pdf"
-excel_path: "12_PDF_to_Excel_Rule_Extract/output/不同剂量组ADR分析 (TFL).xlsx"
+pdf_path: "13_PDF_to_Excel_Rule_Extract/input/不同剂量组ADR分析 (TFL).pdf"
+excel_path: "13_PDF_to_Excel_Rule_Extract/output/不同剂量组ADR分析 (TFL).xlsx"
 rules:
   - name: "提取规则1"
     search:
@@ -685,11 +706,11 @@ rules:
 ## 扩展开发
 
 - **PDF 解析扩展**：修改 [`src/pdf_reader.py`](src/pdf_reader.py)（含排除框过滤、旋转坐标映射、`mapping_audit`）
-- **PDF 干扰区管线**：[`19_PDF_Watermark_Removal/main.py`](19_PDF_Watermark_Removal/main.py) 与 [`19_PDF_Watermark_Removal/steps/`](19_PDF_Watermark_Removal/steps/)
+- **PDF 干扰区管线**：[`20_PDF_Watermark_Removal/main.py`](20_PDF_Watermark_Removal/main.py) 与 [`20_PDF_Watermark_Removal/steps/`](20_PDF_Watermark_Removal/steps/)
 - **Excel 写入扩展**：修改 [`src/excel_writer.py`](src/excel_writer.py)
 - **图表样式与临床配色**：修改 [`01_Excel_Charts/build_charts_xlsxwriter.py`](01_Excel_Charts/build_charts_xlsxwriter.py) 内 `COLOR_MAP` 或 [`src/color_theme.py`](src/color_theme.py)
 - **独立配色模块**： [`02_Excel_Chart_Colors/apply_clinical_colors.py`](02_Excel_Chart_Colors/apply_clinical_colors.py) 支持多期刊预设（NPG、Lancet、NEJM 等）
-- **Word→Excel 图表复刻**：主逻辑在 [`07_Word_to_Excel_to_Figure/word_to_excel_to_figure.py`](07_Word_to_Excel_to_Figure/word_to_excel_to_figure.py)；子表映射与 plan 在 [`07_Word_to_Excel_to_Figure/table_mapping_logic.py`](07_Word_to_Excel_to_Figure/table_mapping_logic.py)
+- **Word→Excel 图表复刻**：主逻辑在 [`07_Word_to_Excel_to_Figure/word_to_excel_to_figure.py`](07_Word_to_Excel_to_Figure/word_to_excel_to_figure.py)；子表映射与 plan 在 [`07_Word_to_Excel_to_Figure/lib/table_mapping_logic.py`](07_Word_to_Excel_to_Figure/lib/table_mapping_logic.py)
 
 ## 注意事项
 
@@ -703,7 +724,7 @@ rules:
 
 ### 血清报告对账（PDF vs Word）
 1. 生成 Word 汇总：`09_Word_All_Tables_to_Excel/output/word_tables_merged.xlsx`
-2. 生成 PDF 汇总并回填缺项：在 `11_PDF_Batch_to_Excel/serology_report_pdf_to_excel.py` 使用 `--reference-excel`（可选但强烈建议）
+2. 生成 PDF 汇总并回填缺项：在 `12_PDF_Batch_to_Excel/serology_report_pdf_to_excel.py` 使用 `--reference-excel`（可选但强烈建议）
 3. 对比差异并导出明细：运行 `python scripts/compare_serology_outputs.py --pdf-excel <PDF.xlsx> --word-excel <WORD.xlsx> --out-csv <diff.csv>`
 
 ## 项目优势
@@ -731,4 +752,4 @@ rules:
 
 ## 许可证
 
-本项目采用 [MIT License](LICENSE.md) 开源协议。`30_SAE_Extractor` 模块自独立项目 **SAE-Extractor** 迁入，该部分版权信息见 `LICENSE.md` 中的附加声明。
+本项目采用 [MIT License](LICENSE.md) 开源协议。`31_SAE_Extractor` 模块自独立项目 **SAE-Extractor** 迁入，该部分版权信息见 `LICENSE.md` 中的附加声明。

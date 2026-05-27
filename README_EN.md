@@ -19,10 +19,10 @@ pip install -r requirements.txt
 ```
 
 > Notes in `requirements.txt` explain optional installs:
-> - You may comment Paddle-related lines if you do not need **15_PPTX_PDF_to_PPT**
+> - You may comment Paddle-related lines if you do not need **16_PPTX_PDF_to_PPT**
 > - You may remove/comment `pywin32` if you do not use Office automation modules
 >
-> **Optional pre-commit**: install hooks to run YAML checks and a local secret scanner (`scripts/check_secrets.py`, mainly for **30_SAE_Extractor**-style API tokens) before each commit:
+> **Optional pre-commit**: install hooks to run YAML checks and a local secret scanner (`scripts/check_secrets.py`, mainly for **31_SAE_Extractor**-style API tokens) before each commit:
 >
 > ```bash
 > pip install pre-commit
@@ -31,17 +31,17 @@ pip install -r requirements.txt
 
 ## Architecture overview
 
-This repository is organized as **numbered, mostly-independent tool modules** (`01_` … `30_`).  
+This repository is organized as **numbered, mostly-independent tool modules** (`01_` … `31_`).  
 Two rules define the structure:
 
 1. **Clear layering**: root-level shared resources (`src/`, `config*.yaml`) are separated from module folders.
-2. **Fixed module order**: module numbering is the single source of truth, always read/maintain in ascending order (`01_` → `30_`).
+2. **Fixed module order**: module numbering is the single source of truth, always read/maintain in ascending order (`01_` → `31_`).
 
 | Layer | Description |
 |------|-------------|
 | **Entry points** | `*.py` scripts under each `NN_*/` folder or the folder `README.md` instructions. |
 | **Shared library** | `src/`: `pdf_reader`, `excel_writer`, `color_theme`, etc. |
-| **Config** | `config.yaml` / `config.example.yaml` for **rule-driven extraction** via `12_PDF_to_Excel_Rule_Extract`. |
+| **Config** | `config.yaml` / `config.example.yaml` for **rule-driven extraction** via `13_PDF_to_Excel_Rule_Extract`. |
 | **I/O convention** | Default `input/` → script → `output/`, with CLI overrides in some modules. |
 | **Runtime** | Pure Python libraries (openpyxl/pandas/PyMuPDF…) + optional Windows Office COM automation (`pywin32`). |
 
@@ -49,9 +49,9 @@ Two rules define the structure:
 
 - **Excel (01-02)**: `01_Excel_Charts` → `02_Excel_Chart_Colors`
 - **PowerPoint (03-05)**: `03_PPT_Merge` → `04_PPT_Watermark_Removal` → `05_PPT_to_PDF`
-- **Word (06-10)**: `06_Word_to_PDF` → `07_Word_to_Excel_to_Figure` → `08_Word_Tables_to_Excel` → `09_Word_All_Tables_to_Excel` → `10_Word_Style_Cleaner`
-- **PDF (11-20)**: `11_PDF_Batch_to_Excel` → `12_PDF_to_Excel_Rule_Extract` → `13_PDF_to_PPT` → `14_PDF_XSS` → `15_PPTX_PDF_to_PPT` → `16_PDF_Title_Renamer` → `17_PDF_eCTD_Converter` → `18_PDF_Merge` → `19_PDF_Bookmark_Inherit_Zoom` → `20_PDF_Watermark_Removal`
-- **Utilities (21-30)**: `21_PDF_Duplicate_Analyzer` → `22_File_Translator` → `23_Py_to_EXE` → `24_C_Drive_Cleanup` → `25_WiFi_Passwords` → `26_Folder_File_Count` → `27_Paper_Batch_Download` → `28_Proxy_Config_Export` → `29_DNS_Leak_Detector` → `30_SAE_Extractor`
+- **Word (06-11)**: `06_Word_to_PDF` → … → `10_Word_Style_Cleaner` → `11_Word_Text_Replace`
+- **PDF (12-21)**: `12_PDF_Batch_to_Excel` → `13_PDF_to_Excel_Rule_Extract` → `14_PDF_to_PPT` → `15_PDF_XSS` → `16_PPTX_PDF_to_PPT` → `17_PDF_Title_Renamer` → `18_PDF_eCTD_Converter` → `19_PDF_Merge` → `20_PDF_Bookmark_Inherit_Zoom` → `21_PDF_Watermark_Removal`
+- **Utilities (22-31)**: `22_PDF_Duplicate_Analyzer` → `23_File_Translator` → `24_Py_to_EXE` → `25_C_Drive_Cleanup` → `26_WiFi_Passwords` → `27_Folder_File_Count` → `28_Paper_Batch_Download` → `29_Proxy_Config_Export` → `30_DNS_Leak_Detector` → `31_SAE_Extractor`
 
 ## Project structure
 
@@ -73,36 +73,37 @@ Clinical Data Automation/
 ├── 09_Word_All_Tables_to_Excel/     # Export all top-level Word tables to Excel; also merge to one list
 │
 ├── 10_Word_Style_Cleaner/         # Word styles cleanup & normalization (custom-only, keep built-ins)
+├── 11_Word_Text_Replace/          # Batch OOXML text replace in docx (dates, IDs, literals)
 │
 ├── # —— PDF as main input (incl. PDF/PPTX → editable PPT) ——
-├── 11_PDF_Batch_to_Excel/         # Specialized/batch PDF → Excel (serology, ADR, audits)
-├── 12_PDF_to_Excel_Rule_Extract/  # Generic rule-driven PDF → Excel (config.yaml)
-├── 13_PDF_to_PPT/                 # PDF → PPT
-├── 14_PDF_XSS/                    # PDF XSS/script/link sanitization
-├── 15_PPTX_PDF_to_PPT/            # PDF/PPTX → native editable PPTX (table reconstruction)
-├── 16_PDF_Title_Renamer/          # PDF title-driven rename (Sanitizer v6.9, move not copy)
+├── 12_PDF_Batch_to_Excel/         # Specialized/batch PDF → Excel (serology, ADR, audits)
+├── 13_PDF_to_Excel_Rule_Extract/  # Generic rule-driven PDF → Excel (config.yaml)
+├── 14_PDF_to_PPT/                 # PDF → PPT
+├── 15_PDF_XSS/                    # PDF XSS/script/link sanitization
+├── 16_PPTX_PDF_to_PPT/            # PDF/PPTX → native editable PPTX (table reconstruction)
+├── 17_PDF_Title_Renamer/          # PDF title-driven rename (Sanitizer v6.9, move not copy)
 │   ├── pdf_sanitizer.py           # Visual hierarchy + academic first-page + optional OCR
 │   └── README.md                  # Module docs, noise filters, CLI
-├── 17_PDF_eCTD_Converter/         # eCTD sanitize: 6.26 fonts, bookmark repair, audit Excel (see module README)
-├── 18_PDF_Merge/                  # Merge PDFs in natural sort order
-├── 19_PDF_Bookmark_Inherit_Zoom/  # Bookmark inherit-zoom (XYZ zoom=0)
-├── 20_PDF_Watermark_Removal/      # Detect watermark/interference zones + audit masks + clean text
+├── 18_PDF_eCTD_Converter/         # eCTD sanitize: 6.26 fonts, bookmark repair, audit Excel (see module README)
+├── 19_PDF_Merge/                  # Merge PDFs in natural sort order
+├── 20_PDF_Bookmark_Inherit_Zoom/  # Bookmark inherit-zoom (XYZ zoom=0)
+├── 21_PDF_Watermark_Removal/      # Detect watermark/interference zones + audit masks + clean text
 │
 ├── # —— Multi-format / Utilities ——
-├── 21_PDF_Duplicate_Analyzer/   # PDF duplicate scan across subfolders (no input/)
-├── 22_File_Translator/
-├── 23_Py_to_EXE/
-├── 24_C_Drive_Cleanup/
-├── 25_WiFi_Passwords/
-├── 26_Folder_File_Count/
-├── 27_Paper_Batch_Download/
-├── 28_Proxy_Config_Export/
-├── 29_DNS_Leak_Detector/
-├── 30_SAE_Extractor/           # SAE extraction (LLM + multi-format → Excel)
+├── 22_PDF_Duplicate_Analyzer/   # PDF duplicate scan across subfolders (no input/)
+├── 23_File_Translator/
+├── 24_Py_to_EXE/
+├── 25_C_Drive_Cleanup/
+├── 26_WiFi_Passwords/
+├── 27_Folder_File_Count/
+├── 28_Paper_Batch_Download/
+├── 29_Proxy_Config_Export/
+├── 30_DNS_Leak_Detector/
+├── 31_SAE_Extractor/           # SAE extraction (LLM + multi-format → Excel)
 │
 ├── scripts/                    # Repo-wide helpers
 │   ├── check_secrets.py        # Secret-pattern scan (pre-commit)
-│   ├── set_env.ps1             # PowerShell: sample env for 30_SAE_Extractor
+│   ├── set_env.ps1             # PowerShell: sample env for 31_SAE_Extractor
 │   └── start_tunnel.ps1        # PowerShell: SSH port forward for API gateway
 ├── .pre-commit-config.yaml
 ├── src/
@@ -118,9 +119,9 @@ Clinical Data Automation/
 
 - [Excel (01-02)](#modules-excel)
 - [PowerPoint (03-05)](#modules-ppt)
-- [Word (06-10)](#modules-word)
-- [PDF (11-20)](#modules-pdf)
-- [Utilities (21-30)](#modules-others)
+- [Word (06-11)](#modules-word)
+- [PDF (12-21)](#modules-pdf)
+- [Utilities (22-31)](#modules-others)
 
 ### 01. Excel chart generation (`01_Excel_Charts`)<span id="modules-excel"></span>
 Purpose: generate ADR combo charts (bar + line), with optional clinical palettes.
@@ -231,64 +232,77 @@ Output: `10_Word_Style_Cleaner/output/` (includes `*_styles_cleaned.docx` + repo
 
 ---
 
-### 11. PDF batch to Excel (`11_PDF_Batch_to_Excel`)<span id="modules-pdf"></span>
+### 11. Word batch text replace (`11_Word_Text_Replace`)
+Purpose: batch-replace CSR/report placeholders (dates, study IDs, literals) in body, tables, and headers/footers (OOXML, cross-run safe).
+
+```bash
+cd 11_Word_Text_Replace
+python replace_docx.py --yes
+python util_check_docx.py --latest
+```
+
+Input/output: `input/` → `output/` (`*_updated.docx`). Script roles: [`docs/script_roles.md`](docs/script_roles.md). See `11_Word_Text_Replace/README.md`.
+
+---
+
+### 12. PDF batch to Excel (`12_PDF_Batch_to_Excel`)<span id="modules-pdf"></span>
 Purpose: specialized extraction/audit workflows (ADR grades, serology reports).
 
 ```bash
-cd 11_PDF_Batch_to_Excel
+cd 12_PDF_Batch_to_Excel
 python fill_adr_from_pdf.py
-python audit_and_fix_consistency.py
+python util_audit_and_fix_consistency.py
 python serology_report_pdf_to_excel.py --input "input" --output "output/serology_report_merged.xlsx" --ocr --ocr-dpi 110
 ```
 
 ---
 
-### 12. PDF to Excel rule extraction (`12_PDF_to_Excel_Rule_Extract`)
+### 12. PDF to Excel rule extraction (`13_PDF_to_Excel_Rule_Extract`)
 Purpose: generic rule-based PDF extraction driven by `config.yaml`.
 
 ```bash
-cd 12_PDF_to_Excel_Rule_Extract
+cd 13_PDF_to_Excel_Rule_Extract
 python main.py
 ```
 
 Optional exclusion boxes from module 19:
 ```bash
-python main.py --config config.yaml --exclusion-json "../19_PDF_Watermark_Removal/output/your_boxes.json"
+python main.py --config config.yaml --exclusion-json "../20_PDF_Watermark_Removal/output/your_boxes.json"
 ```
 
 ---
 
-### 12. PDF to PPT (`12_PDF_to_PPT`)
+### 12. PDF to PPT (`13_PDF_to_PPT`)
 Purpose: convert each PDF page into one PPT slide.
 
 ```bash
-cd 12_PDF_to_PPT
+cd 13_PDF_to_PPT
 python pdf_to_ppt.py
 ```
 
 ---
 
-### 13. PDF XSS cleaning (`13_PDF_XSS`)
+### 13. PDF XSS cleaning (`14_PDF_XSS`)
 Purpose: sanitize script/protocol/link risks in PDFs.
 
 ```bash
-cd 13_PDF_XSS
+cd 14_PDF_XSS
 python pdf_xss_clean.py
 ```
 
 ---
 
-### 15. PPTX/PDF to native editable PPT (`15_PPTX_PDF_to_PPT`)
+### 15. PPTX/PDF to native editable PPT (`16_PPTX_PDF_to_PPT`)
 Purpose: reconstruct editable tables from PDF/image-based PPTX into native PPT.
 
 ```bash
-cd 15_PPTX_PDF_to_PPT
+cd 16_PPTX_PDF_to_PPT
 python convert_to_native_ppt.py
 ```
 
 ---
 
-### 15. PDF title-driven rename (`15_PDF_Title_Renamer`)
+### 15. PDF title-driven rename (`16_PDF_Title_Renamer`)
 Purpose: extract the **article title** and **year** from the first page, write `Title-Words-YYYY.pdf`, and **move** (not copy) PDFs from `input/` to `output/` (engine v6.9).
 
 **Pipeline**: font-size visual hierarchy → academic first-page line merge → metadata/first lines → optional OCR (`pytesseract` + Tesseract).
@@ -296,128 +310,128 @@ Purpose: extract the **article title** and **year** from the first page, write `
 **Noise filters**: journal mastheads, article-type banners, Elsevier “Article in Press” lines, “Please cite this article…” prompts, volume/issue headers, author-only lines; FDA “Guidance for Industry” covers strip generic prefixes. Filenames keep scientific tokens (e.g. CpG, mRNA) with smart English title case.
 
 ```bash
-cd 15_PDF_Title_Renamer
+cd 16_PDF_Title_Renamer
 python pdf_sanitizer.py
 ```
 
 Common flags: `--input`, `--output`, `--no-recursive`, `--no-keep-structure`, `--overwrite`.  
-**Warning**: source PDFs are removed from `input/` after a successful run—back up first. See `15_PDF_Title_Renamer/README.md`.
+**Warning**: source PDFs are removed from `input/` after a successful run—back up first. See `16_PDF_Title_Renamer/README.md`.
 
 ---
 
-### 16. PDF eCTD converter (`16_PDF_eCTD_Converter`)
+### 16. PDF eCTD converter (`17_PDF_eCTD_Converter`)
 Purpose: validate, sanitize, and rewrite PDFs for common eCTD Annex 6 checks; includes **6.26** font mapping/embedding, and **6.5/6.6/6.8** bookmark fixes (assign GoTo to inactive entries, flatten multi-level TOC to avoid collapse parents, inherit zoom). Exports an Excel audit report (including a structure-warnings sheet).
 
 ```bash
-cd 16_PDF_eCTD_Converter
+cd 17_PDF_eCTD_Converter
 python pdf_ectd_converter.py --input "./input" --output "./output" --report "./ectd_report.xlsx" --overwrite
 ```
 
 Common flags: `--validate-only`, `--overwrite`, `--add-auto-bookmarks` (default `outline`), `--no-add-auto-bookmarks`.  
-Dependencies: `pymupdf`, `pandas`, `openpyxl`, `fonttools` (font embedding). See `16_PDF_eCTD_Converter/README.md`.
+Dependencies: `pymupdf`, `pandas`, `openpyxl`, `fonttools` (font embedding). See `17_PDF_eCTD_Converter/README.md`.
 
 ---
 
-### 17. PDF merge (`17_PDF_Merge`)
+### 17. PDF merge (`18_PDF_Merge`)
 Purpose: merge PDFs in natural-sort order.
 
 ```bash
-cd 17_PDF_Merge
+cd 18_PDF_Merge
 python merge_pdf.py
 ```
 
 ---
 
-### 18. PDF bookmark inherit zoom (`18_PDF_Bookmark_Inherit_Zoom`)
+### 18. PDF bookmark inherit zoom (`19_PDF_Bookmark_Inherit_Zoom`)
 Purpose: force bookmark jumps to keep current zoom (`XYZ + zoom=0`).
 
 ```bash
-cd 18_PDF_Bookmark_Inherit_Zoom
+cd 19_PDF_Bookmark_Inherit_Zoom
 python pdf_bookmark_inherit_zoom.py
 ```
 
 ---
 
-### 19. PDF watermark/interference detection & audit (`19_PDF_Watermark_Removal`)
+### 19. PDF watermark/interference detection & audit (`20_PDF_Watermark_Removal`)
 Purpose: detect interference zones and output exclusion JSON + audit overlays + cleaned text.
 
 ```bash
-cd 19_PDF_Watermark_Removal
+cd 20_PDF_Watermark_Removal
 python main.py --input "input" --output "output"
 ```
 
 ---
 
-### 21. PDF duplicate analysis (`21_PDF_Duplicate_Analyzer`)<span id="modules-others"></span>
+### 21. PDF duplicate analysis (`22_PDF_Duplicate_Analyzer`)<span id="modules-others"></span>
 Purpose: detect duplicate PDFs across subfolders under one root path (same filename or same first-page text). No `input/` — specify external paths via CLI or JSON config.
 
 ```bash
-cd 21_PDF_Duplicate_Analyzer
+cd 22_PDF_Duplicate_Analyzer
 python pdf_duplicate_analyzer.py --root "D:\References" --folders "FolderA,FolderB" --label "batch1"
 python pdf_duplicate_analyzer.py --config jobs.json
 ```
 
-Output: `21_PDF_Duplicate_Analyzer/output/duplicate_report_*.txt`.
+Output: `22_PDF_Duplicate_Analyzer/output/duplicate_report_*.txt`.
 
 ---
 
-### 22. Bidirectional file translation (`22_File_Translator`)
+### 22. Bidirectional file translation (`23_File_Translator`)
 Purpose: translate Excel/CSV/Word/PDF with fallback providers.
 
 ```bash
-cd 22_File_Translator
+cd 23_File_Translator
 python file_translator.py --self-test
 python file_translator.py
 ```
 
 ---
 
-### 23. Python script to EXE (`23_Py_to_EXE`)
+### 23. Python script to EXE (`24_Py_to_EXE`)
 Purpose: package `.py` files into Windows executables via PyInstaller.
 
 ```bash
-cd 23_Py_to_EXE
+cd 24_Py_to_EXE
 python py_to_exe.py
 ```
 
 ---
 
-### 23. C drive cleanup (`23_C_Drive_Cleanup`)
+### 23. C drive cleanup (`24_C_Drive_Cleanup`)
 Purpose: scan/clean common temporary and cache files on C drive.
 
 ```bash
-cd 23_C_Drive_Cleanup
+cd 24_C_Drive_Cleanup
 python c_drive_cleanup.py
 python c_drive_cleanup.py --delete --days 7
 ```
 
 ---
 
-### 24. WiFi passwords export (`24_WiFi_Passwords`)
+### 24. WiFi passwords export (`25_WiFi_Passwords`)
 Purpose: export saved Windows WiFi credentials to CSV.
 
 ```bash
-cd 24_WiFi_Passwords
+cd 25_WiFi_Passwords
 python wifi_passwords.py
 ```
 
 ---
 
-### 25. Folder file count (`25_Folder_File_Count`)
+### 25. Folder file count (`26_Folder_File_Count`)
 Purpose: recursively count files and export TXT/Excel reports.
 
 ```bash
-cd 25_Folder_File_Count
+cd 26_Folder_File_Count
 python folder_file_count.py --path "D:\data"
 ```
 
 ---
 
-### 26. Paper batch download (`26_Paper_Batch_Download`)
+### 26. Paper batch download (`27_Paper_Batch_Download`)
 Purpose: batch download OA papers by DOI/PMID/title/URL with default safe-mode throttling and retry backoff to reduce IP rate-limit risk.
 
 ```bash
-cd 26_Paper_Batch_Download
+cd 27_Paper_Batch_Download
 python paper_batch_download.py --queries "10.1038/s41586-020-2649-2" "32788730"
 ```
 
@@ -427,21 +441,21 @@ Safe-mode options (enabled by default): `--safe-mode`, `--min-interval`, `--max-
 
 ---
 
-### 27. Proxy config export (`27_Proxy_Config_Export`)
+### 27. Proxy config export (`28_Proxy_Config_Export`)
 Purpose: export current Windows proxy settings (registry + env vars).
 
 ```bash
-cd 27_Proxy_Config_Export
+cd 28_Proxy_Config_Export
 python proxy_config_export.py
 ```
 
 ---
 
-### 28. DNS leak diagnostics (`28_DNS_Leak_Detector`)
+### 28. DNS leak diagnostics (`29_DNS_Leak_Detector`)
 Purpose: compare egress IP and DNS upstream location for leak/split-routing checks.
 
 ```bash
-cd 28_DNS_Leak_Detector
+cd 29_DNS_Leak_Detector
 python dns_leak_detector.py --mode tun
 python dns_leak_detector.py --mode socks --socks-port 10808
 python dns_leak_detector.py --save-json
@@ -449,21 +463,21 @@ python dns_leak_detector.py --save-json
 
 ---
 
-### 30. SAE structured extraction (`30_SAE_Extractor`)
+### 30. SAE structured extraction (`31_SAE_Extractor`)
 Purpose: extract serious adverse event (SAE) fields from clinical PDFs, text, DOCX, or Excel via an OpenAI-compatible Chat Completions API and export to Excel.
 
 ```bash
-cd 30_SAE_Extractor
+cd 31_SAE_Extractor
 python cli.py self-check
 python cli.py batch
 python cli.py pdf-batch
 ```
 
-Requires `SAE_API_TOKEN`; optional `SAE_API_BASE_URL`, `SAE_MODEL_ID`, `TESSERACT_CMD`, `POPPLER_PATH`. Default I/O: `input/` and `output/`. See `30_SAE_Extractor/README.md`.
+Requires `SAE_API_TOKEN`; optional `SAE_API_BASE_URL`, `SAE_MODEL_ID`, `TESSERACT_CMD`, `POPPLER_PATH`. Default I/O: `input/` and `output/`. See `31_SAE_Extractor/README.md`.
 
 Helper scripts at repo root (`scripts/`, Windows PowerShell):
 
-- `set_env.ps1`: sets `SAE_API_BASE_URL` and `SAE_OUTPUT_DIR` (defaults to `30_SAE_Extractor/output`); **you must still set `SAE_API_TOKEN`**. Run from repo root: `.\scripts\set_env.ps1` (may require execution policy).
+- `set_env.ps1`: sets `SAE_API_BASE_URL` and `SAE_OUTPUT_DIR` (defaults to `31_SAE_Extractor/output`); **you must still set `SAE_API_TOKEN`**. Run from repo root: `.\scripts\set_env.ps1` (may require execution policy).
 - `start_tunnel.ps1`: SSH local port forward. **Requires `SAE_TUNNEL_SSH_HOST`**; optional `SAE_TUNNEL_SSH_USER`, `SAE_TUNNEL_LOCAL_PORT`, `SAE_TUNNEL_REMOTE_BIND`. Run: `powershell -ExecutionPolicy Bypass -File .\scripts\start_tunnel.ps1`
 
 Manual secret scan: `pre-commit run detect-sensitive-secrets --all-files`.
@@ -473,8 +487,8 @@ Manual secret scan: `pre-commit run detect-sensitive-secrets --all-files`.
 Copy `config.example.yaml` to `config.yaml` and edit as needed (paths are relative to project root):
 
 ```yaml
-pdf_path: "12_PDF_to_Excel_Rule_Extract/input/your.pdf"
-excel_path: "12_PDF_to_Excel_Rule_Extract/output/out.xlsx"
+pdf_path: "13_PDF_to_Excel_Rule_Extract/input/your.pdf"
+excel_path: "13_PDF_to_Excel_Rule_Extract/output/out.xlsx"
 rules:
   - name: "Rule 1"
     search:
@@ -488,7 +502,7 @@ rules:
 ## Extension points
 
 - PDF reader/exclusion/mapping audit: `src/pdf_reader.py`
-- Watermark/interference pipeline: `19_PDF_Watermark_Removal/main.py` and `19_PDF_Watermark_Removal/steps/`
+- Watermark/interference pipeline: `20_PDF_Watermark_Removal/main.py` and `20_PDF_Watermark_Removal/steps/`
 - Excel writer helpers: `src/excel_writer.py`
 - Chart styles/palettes: `01_Excel_Charts/build_charts_xlsxwriter.py`, `src/color_theme.py`
 - Word→Excel replication: `07_Word_to_Excel_to_Figure/`
@@ -502,7 +516,7 @@ rules:
 ### Serology reconciliation (PDF vs Word)
 
 1. Generate Word merged list: `09_Word_All_Tables_to_Excel/output/word_tables_merged.xlsx`
-2. Generate PDF merged list (and optionally backfill missing markers using `--reference-excel`): `11_PDF_Batch_to_Excel/serology_report_pdf_to_excel.py`
+2. Generate PDF merged list (and optionally backfill missing markers using `--reference-excel`): `12_PDF_Batch_to_Excel/serology_report_pdf_to_excel.py`
 3. Compare and export diffs:
 
 ```bash
@@ -511,7 +525,7 @@ python compare_serology_outputs.py --pdf-excel <PDF.xlsx> --word-excel <WORD.xls
 
 ## License
 
-MIT License. See `LICENSE.md` (includes attribution for **SAE-Extractor**-derived portions such as `30_SAE_Extractor/`).
+MIT License. See `LICENSE.md` (includes attribution for **SAE-Extractor**-derived portions such as `31_SAE_Extractor/`).
 
 ## Maintenance Audit (2026-05)
 

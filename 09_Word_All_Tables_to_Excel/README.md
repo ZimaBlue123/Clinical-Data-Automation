@@ -1,5 +1,12 @@
 # 09_Word_All_Tables_to_Excel
 
+脚本角色见 [`docs/script_roles.md`](../docs/script_roles.md)。
+
+| 文件 | 角色 |
+|------|------|
+| `word_all_tables_to_excel.py` | **主程序**：每份 Word → 多 sheet Excel |
+| `word_tables_merge_to_single_excel.py` | **主程序**：多份 Word 合并为单一血清汇总表 |
+
 把 `input/` 下的所有 Word/RTF 文件的**全部顶层表格**导出为 Excel（`.xlsx`）。
 
 ## 功能

@@ -2,7 +2,7 @@
 
 把 `input/` 下的 Word（`.doc/.docx/.rtf`）表格数据抽取出来，填入 `Template/` 骨架 Excel 的图表数据区间（`chart.series.cat/val`）并生成高保真复刻 Excel（尽量最大化保留图表/透视/OLAP 结构）。
 
-仓库级目录说明与依赖分组见根目录 [`README.md`](../README.md)（「整体架构」、`requirements.txt`）。
+仓库级目录说明与依赖分组见根目录 [`README.md`](../README.md)（「整体架构」、`requirements.txt`）。脚本角色见 [`docs/script_roles.md`](../docs/script_roles.md)。
 
 ## 运行环境
 
@@ -38,13 +38,13 @@
 ### 1) 生成候选映射计划（plan only）
 
 ```bash
-python "07_Word_to_Excel_to_Figure/word_to_excel_to_figure.py" --input-dir "07_Word_to_Excel_to_Figure/input" --plan-only
+python word_to_excel_to_figure.py --input-dir "07_Word_to_Excel_to_Figure/input" --plan-only
 ```
 
 可指定 plan JSON 输出路径：
 
 ```bash
-python "07_Word_to_Excel_to_Figure/word_to_excel_to_figure.py" ^
+python word_to_excel_to_figure.py ^
   --input-dir "07_Word_to_Excel_to_Figure/input" ^
   --plan-only ^
   --plan-out-json "07_Word_to_Excel_to_Figure/output/table_mapping_plan_current.json"
@@ -53,7 +53,7 @@ python "07_Word_to_Excel_to_Figure/word_to_excel_to_figure.py" ^
 ### 2) 用你确认后的映射生成 output
 
 ```bash
-python "07_Word_to_Excel_to_Figure/word_to_excel_to_figure.py" ^
+python word_to_excel_to_figure.py ^
   --input-dir "07_Word_to_Excel_to_Figure/input" ^
   --table-map-json "07_Word_to_Excel_to_Figure/output/table_mapping_plan_current.json"
 ```
@@ -67,7 +67,7 @@ python "07_Word_to_Excel_to_Figure/word_to_excel_to_figure.py" ^
 3. 你需要把“真正对应的候选项”设置为 `selected: true`
 4. 程序会在正式生成 output 时，按 `selected` 的 `word_file + table_index` 作为该子表的数据抓取来源（未标记时默认选择候选列表第一个）
 
-映射候选生成与 JSON 加载的**唯一实现**在：`table_mapping_logic.py`（由 `word_to_excel_to_figure.py` 导入，请勿维护两套逻辑）。
+映射候选生成与 JSON 加载的**唯一实现**在：`lib/table_mapping_logic.py`（由 `word_to_excel_to_figure.py` 导入，请勿维护两套逻辑）。
 
 ## 自检（覆盖率）
 
@@ -76,3 +76,10 @@ python "07_Word_to_Excel_to_Figure/word_to_excel_to_figure.py" ^
 - 每个图表 series 统计 `expected_count` 与 `extracted_count`
 - 若 `extracted_count / expected_count` 低于阈值，会抛出异常并停止（提示抽取覆盖率过低）
 
+## 文件说明
+
+| 文件 | 角色 |
+|------|------|
+| `word_to_excel_to_figure.py` | **主程序** |
+| `lib/table_mapping_logic.py` | 核心库：子表↔Word 表映射与 plan |
+| `util_repair_output_by_patch.py` | 辅助：将已算好的 output 图表区间 patch 回模板副本（修结构/弹窗） |

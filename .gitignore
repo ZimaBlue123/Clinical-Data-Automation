@@ -90,7 +90,20 @@ _doc_*.txt
 *.tmp
 ~$* # Excel/PPT 运行时隐形锁文件
 *.bak.xlsx           # 自动化图表模块的冗余备份
-# [Patch] 拦截数据处理时产生的中转废料
+# [Patch] 已废弃目录名（与 11_Word_Text_Replace 重复，勿提交）
+11_Word_Date_Replace/
+Automation/
+Data/
+Project/
+
+# [Patch] Word 文本替换 / 校验：本地解压与临时目录
+11_Word_Text_Replace/_unpack_tmp/
+**/check_docx_*/
+**/_unpack_tmp/
+**/_extract_tmp/
+# 模块内一次性分析/调试残片（勿提交）
+**/mapping_analysis.txt
+**/debug_*.py
 ~$*.csv
 .ipynb_checkpoints/  # Jupyter Notebook 探索时留存的残影
 

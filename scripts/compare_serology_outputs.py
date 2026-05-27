@@ -52,7 +52,7 @@ def load_serology_excel(path: Path) -> dict[str, dict[str, tuple[str, str]]]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="对比 PDF 输出 Excel 与 Word 汇总 Excel（血清五项）")
-    parser.add_argument("--pdf-excel", type=Path, required=True, help="10_PDF_Batch_to_Excel 输出的 serology_report_merged*.xlsx")
+    parser.add_argument("--pdf-excel", type=Path, required=True, help="12_PDF_Batch_to_Excel 输出的 serology_report_merged*.xlsx")
     parser.add_argument("--word-excel", type=Path, required=True, help="09_Word_All_Tables_to_Excel 输出的 word_tables_merged.xlsx")
     parser.add_argument("--out-csv", type=Path, default=None, help="可选：将差异明细写入 CSV")
     args = parser.parse_args()
