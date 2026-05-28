@@ -12,6 +12,7 @@ env/
 # [Patch] 拦截 Python 打包与分发产生的残骸
 build/
 dist/
+*.spec
 *.egg-info/
 *.egg
 

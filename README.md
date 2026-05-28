@@ -502,16 +502,16 @@ python pdf_sanitizer.py
 
 ---
 
-### 16. PDF eCTD 转换（`17_PDF_eCTD_Converter`）
+### 16. PDF eCTD 转换（`18_PDF_eCTD_Converter`）
 用途：按 eCTD 附件 6 常见条款批量校验、清洗并重写 PDF；含 **6.26 字体**、**6.5/6.6/6.8 书签**（无动作补全、承前缩放）；输出 Excel 审计报告。
 
 ```bash
-cd 17_PDF_eCTD_Converter
+cd 18_PDF_eCTD_Converter
 python pdf_ectd_converter.py --input "./input" --output "./output" --report "./ectd_report.xlsx" --overwrite
 ```
 
 常用参数：`--validate-only`、`--overwrite`、`--keep-name`、`--no-recursive`、`--no-keep-structure`、`--add-auto-bookmarks`（默认 `outline`）、`--no-add-auto-bookmarks`。  
-依赖：`pymupdf`、`pandas`、`openpyxl`、`fonttools`（字体嵌入）。详见 `17_PDF_eCTD_Converter/README.md`。
+依赖：`pymupdf`、`pandas`、`openpyxl`、`fonttools`（字体嵌入）。详见 `18_PDF_eCTD_Converter/README.md`。
 
 ---
 

@@ -1,4 +1,4 @@
-# 17_PDF_eCTD_Converter
+# 18_PDF_eCTD_Converter
 
 eCTD 合规装甲与 PDF 深度清理：按《eCTD 验证标准 V1.1》附件 6 常见条款（可实现部分）批量校验、清洗并重写 PDF，导出 Excel 审计报告。
 
@@ -20,10 +20,25 @@ eCTD 合规装甲与 PDF 深度清理：按《eCTD 验证标准 V1.1》附件 6 
 | 6.25 | 无可搜索文本时报告预警 |
 | 6.26 | 将 Times-Roman / Helvetica 等映射为认可字体名；`subset_fonts` 嵌入所用字体 |
 
-## 快速开始
+## 目录约定（源码 / EXE 通用）
+
+程序始终按**可执行文件所在目录**组织输入输出：
+
+```text
+18_PDF_eCTD_Converter/
+├─ pdf_ectd_converter.exe  (或 pdf_ectd_converter.py)
+├─ input/                  # 放待处理 PDF
+├─ output/                 # 处理后文件归档目录
+└─ ectd_report.xlsx        # 审计报告（默认）
+```
+
+- 运行时若不存在 `input/` 或 `output/`，会自动创建。  
+- 输入文件与输出文件天然分离归档（`input/` 只放原文件，`output/` 放新文件）。
+
+## 快速开始（Python 方式）
 
 ```bash
-cd 17_PDF_eCTD_Converter
+cd 18_PDF_eCTD_Converter
 # 将 PDF 放入 input/ 后执行（Windows 建议用已安装 pymupdf 的 python 全路径）
 python pdf_ectd_converter.py --input "./input" --output "./output" --report "./ectd_report.xlsx" --overwrite
 ```
@@ -43,6 +58,8 @@ python pdf_ectd_converter.py --input "./input" --output "./output" --report "./e
 | `--no-add-auto-bookmarks` | 禁用自动书签，严格按 6.23 拒收 |
 | `--no-recursive` | 不递归子目录 |
 | `--keep-name` | 输出文件名与源文件一致（不加 `_ectd`） |
+| `--subset-fonts / --no-subset-fonts` | 是否尝试嵌入字体子集（可能增大体积；默认关闭） |
+| `--linearize / --no-linearize` | 是否尝试线性化（Fast Web View；默认开启） |
 
 ## 审计报告
 
@@ -52,6 +69,41 @@ python pdf_ectd_converter.py --input "./input" --output "./output" --report "./e
 ## 依赖
 
 根目录 `requirements.txt`：`pymupdf`、`pandas`、`openpyxl`；字体子集嵌入建议安装 `fonttools`（`pip install fonttools`）。
+
+## 封装为 EXE（PyInstaller）
+
+在 `18_PDF_eCTD_Converter` 目录执行：
+
+```powershell
+python -m pip install --upgrade pyinstaller pymupdf pandas openpyxl
+pyinstaller --noconfirm --clean --onefile --name pdf_ectd_converter pdf_ectd_converter.py
+```
+
+生成文件：`dist/pdf_ectd_converter.exe`
+
+建议最终交付结构：
+
+```text
+任意目录/
+├─ pdf_ectd_converter.exe
+├─ input/
+└─ output/
+```
+
+> 即使只复制 `pdf_ectd_converter.exe`，首次运行也会自动创建 `input/` 与 `output/`。
+
+## EXE 使用方式（跨路径 / 跨电脑）
+
+1. 把 `pdf_ectd_converter.exe` 复制到目标路径（或其他电脑）。  
+2. 双击运行一次（会自动创建 `input/`、`output/`）。  
+3. 把待处理 PDF 放入 `input/`。  
+4. 重新运行 `exe`，处理结果输出到 `output/`，审计报告默认在同级 `ectd_report.xlsx`。  
+
+如需命令行指定路径，也可使用与 Python 脚本相同参数：
+
+```powershell
+.\pdf_ectd_converter.exe --input ".\input" --output ".\output" --report ".\ectd_report.xlsx" --overwrite
+```
 
 ## 说明
 

@@ -319,16 +319,16 @@ Common flags: `--input`, `--output`, `--no-recursive`, `--no-keep-structure`, `-
 
 ---
 
-### 16. PDF eCTD converter (`17_PDF_eCTD_Converter`)
+### 16. PDF eCTD converter (`18_PDF_eCTD_Converter`)
 Purpose: validate, sanitize, and rewrite PDFs for common eCTD Annex 6 checks; includes **6.26** font mapping/embedding, and **6.5/6.6/6.8** bookmark fixes (assign GoTo to inactive entries, flatten multi-level TOC to avoid collapse parents, inherit zoom). Exports an Excel audit report (including a structure-warnings sheet).
 
 ```bash
-cd 17_PDF_eCTD_Converter
+cd 18_PDF_eCTD_Converter
 python pdf_ectd_converter.py --input "./input" --output "./output" --report "./ectd_report.xlsx" --overwrite
 ```
 
 Common flags: `--validate-only`, `--overwrite`, `--add-auto-bookmarks` (default `outline`), `--no-add-auto-bookmarks`.  
-Dependencies: `pymupdf`, `pandas`, `openpyxl`, `fonttools` (font embedding). See `17_PDF_eCTD_Converter/README.md`.
+Dependencies: `pymupdf`, `pandas`, `openpyxl`, `fonttools` (font embedding). See `18_PDF_eCTD_Converter/README.md`.
 
 ---
 

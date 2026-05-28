@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-eCTD 合规装甲 & XSS 深度清理器（17_PDF_eCTD_Converter）
+eCTD 合规装甲 & XSS 深度清理器（18_PDF_eCTD_Converter）
 
 该模块融合防止恶意脚本/XSS 的能力，并强制执行《eCTD验证标准V1.1》附件6常见要求（按可实现程度落地）：
 - 可读性校验（6.1）：可打开且页数 > 0
@@ -17,7 +17,7 @@ eCTD 合规装甲 & XSS 深度清理器（17_PDF_eCTD_Converter）
 - 导出合规审计 Excel 报告（便于审计与回溯）
 
 用法：
-  cd 17_PDF_eCTD_Converter
+  cd 18_PDF_eCTD_Converter
   python pdf_ectd_converter.py --input "./input" --output "./output" --report "./ectd_report.xlsx" --overwrite
 
   # 默认已开启 outline 自动书签；若需禁用：--no-add-auto-bookmarks
@@ -135,23 +135,39 @@ def _inspect_open_pdf(doc: fitz.Document, warnings: str) -> tuple[bool, str, dic
     return True, "OK", meta
 
 
-def _save_pdf_document(doc: fitz.Document, tmp_path: Path) -> tuple[bool, str]:
+def _save_pdf_document(doc: fitz.Document, tmp_path: Path, *, linearize: bool) -> tuple[bool, str]:
     """保存 PDF；返回 (是否线性化, 附加提示)。"""
     save_opts = dict(
         incremental=False,
         garbage=4,
         deflate=True,
+        # 进一步压缩：对图片/字体单独 deflate（对体积通常更敏感）
+        deflate_images=True,
+        deflate_fonts=True,
         clean=True,
         encryption=fitz.PDF_ENCRYPT_NONE,
+        # 使用对象流（object streams）与更高压缩强度，通常可显著降低“重写后变大”的概率
+        use_objstms=True,
+        compression_effort=100,
     )
     _reset_mupdf_warnings()
     note = ""
     try:
-        doc.save(str(tmp_path), linear=True, **save_opts)
-        return True, note
-    except TypeError:
+        if linearize:
+            doc.save(str(tmp_path), linear=True, **save_opts)
+            return True, note
         doc.save(str(tmp_path), **save_opts)
-        return False, "提示: 当前 PyMuPDF 不支持 linear 参数，已按非线性方式保存"
+        return False, note
+    except TypeError:
+        # 当前 PyMuPDF 不支持 linear 参数（或不支持某些 deflate_* 参数），降级保存
+        # PyMuPDF 的 save 参数在不同版本/平台可能略有差异，这里做一次“收敛参数”降级
+        fallback = dict(save_opts)
+        fallback.pop("compression_effort", None)
+        fallback.pop("use_objstms", None)
+        doc.save(str(tmp_path), **fallback)
+        if linearize:
+            return False, "提示: 当前 PyMuPDF 不支持 linear 参数，已按非线性方式保存"
+        return False, note
     except Exception as exc:
         if "linear" in str(exc).lower():
             doc.save(str(tmp_path), **save_opts)
@@ -640,12 +656,16 @@ class ECTDComplianceCleaner:
         overwrite: bool,
         *,
         auto_bookmarks: str | None = None,
+        subset_fonts: bool = False,
+        linearize: bool = True,
     ):
         self.input_dir = input_dir
         self.output_dir = output_dir
         self.report_path = report_path
         self.overwrite = overwrite
         self.auto_bookmarks = auto_bookmarks
+        self.subset_fonts = subset_fonts
+        self.linearize = linearize
         self.report_rows: list[dict] = []
 
     def _is_illegal_link(self, link: dict) -> tuple[bool, str]:
@@ -685,6 +705,8 @@ class ECTDComplianceCleaner:
         status: str,
         detail: str,
         *,
+        input_size_bytes: int | None = None,
+        output_size_bytes: int | None = None,
         page_count: int | None = None,
         has_toc: bool | None = None,
         removed_embedded: int | None = None,
@@ -705,6 +727,8 @@ class ECTDComplianceCleaner:
                 "文件名": filename,
                 "处理时间": _now_str(),
                 "状态": status,
+                "输入大小(字节)": input_size_bytes,
+                "输出大小(字节)": output_size_bytes,
                 "页数": page_count,
                 "是否有书签": has_toc,
                 "删除附件数": removed_embedded,
@@ -741,6 +765,8 @@ class ECTDComplianceCleaner:
         toc_repairs = 0
         fonts_subset = False
         all_warnings = ""
+        input_size_bytes: int | None = None
+        output_size_bytes: int | None = None
 
         if not pdf_path.exists():
             logger.error("输入文件不存在: %s", pdf_path)
@@ -760,6 +786,7 @@ class ECTDComplianceCleaner:
         doc = None
         reported = False
         try:
+            input_size_bytes = int(pdf_path.stat().st_size)
             try:
                 doc, open_warnings = _open_pdf(pdf_path)
             except fitz.FileDataError:
@@ -909,10 +936,14 @@ class ECTDComplianceCleaner:
                     + (f" …共 {len(rename_notes)} 种" if len(rename_notes) > 4 else "")
                 )
 
-            subset_ok, subset_note = _embed_fonts_subset(doc)
-            fonts_subset = subset_ok
-            if subset_note:
-                details.append(subset_note)
+            if self.subset_fonts:
+                subset_ok, subset_note = _embed_fonts_subset(doc)
+                fonts_subset = subset_ok
+                if subset_note:
+                    details.append(subset_note)
+            else:
+                # 默认不做字体子集嵌入：该步骤在部分 PDF 上会显著增大体积
+                fonts_subset = False
 
             risky_before_save = _ectd_risky_font_names(doc)
             if risky_before_save:
@@ -942,7 +973,7 @@ class ECTDComplianceCleaner:
             tmp_path = Path(tmp_name)
             saved_ok = False
             try:
-                linearized, save_note = _save_pdf_document(doc, tmp_path)
+                linearized, save_note = _save_pdf_document(doc, tmp_path, linearize=self.linearize)
                 if save_note:
                     details.append(save_note)
                 save_warnings = _drain_mupdf_warnings()
@@ -958,6 +989,11 @@ class ECTDComplianceCleaner:
                         tmp_path.unlink()
                     except OSError:
                         pass
+
+            try:
+                output_size_bytes = int(output_path.stat().st_size)
+            except OSError:
+                output_size_bytes = None
 
             expected_pages = int(doc.page_count)
             verified, verify_msg = _verify_output_pdf(
@@ -991,6 +1027,8 @@ class ECTDComplianceCleaner:
                     pdf_path.name,
                     status,
                     " | ".join(details) if details else msg,
+                    input_size_bytes=input_size_bytes,
+                    output_size_bytes=output_size_bytes,
                     page_count=page_count if isinstance(page_count, int) else None,
                     has_toc=report_has_toc if isinstance(report_has_toc, bool) else None,
                     removed_embedded=removed_embedded,
@@ -1041,7 +1079,14 @@ def main() -> None:
     # 结构警告改由 mupdf_warnings() 采集并写入 Excel，避免 C 层 stderr 刷屏
     fitz.TOOLS.mupdf_display_errors(False)
     fitz.TOOLS.mupdf_display_warnings(False)
-    base_dir = Path(__file__).resolve().parent
+    # 兼容源码运行与 PyInstaller 单文件/单目录运行：
+    # - 源码运行：以脚本所在目录为根目录
+    # - 冻结运行：以 exe 所在目录为根目录（便于复制到任意路径/电脑直接用）
+    base_dir = (
+        Path(sys.executable).resolve().parent
+        if getattr(sys, "frozen", False)
+        else Path(__file__).resolve().parent
+    )
     default_input = base_dir / "input"
     default_output = base_dir / "output"
     default_report = base_dir / "ectd_report.xlsx"
@@ -1082,7 +1127,23 @@ def main() -> None:
         dest="add_auto_bookmarks",
         help="禁用自动补全书签（严格按 6.23 拒收无书签文件）",
     )
+    parser.add_argument(
+        "--subset-fonts",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="是否尝试嵌入所用字体子集（可能增大文件体积；默认关闭）",
+    )
+    parser.add_argument(
+        "--linearize",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="是否尝试线性化（Fast Web View / Linearization；默认开启）",
+    )
     args = parser.parse_args()
+
+    # 自动创建输入/输出目录，保证 exe 复制到新位置后可即开即用
+    default_input.mkdir(parents=True, exist_ok=True)
+    default_output.mkdir(parents=True, exist_ok=True)
 
     input_path = Path(args.input).expanduser().resolve()
     output_dir = Path(args.output).expanduser()
@@ -1098,6 +1159,9 @@ def main() -> None:
 
     pdf_files = _collect_pdfs(input_path, recursive=args.recursive)
     if not pdf_files:
+        if input_path.is_dir() and input_path == default_input:
+            logger.error("未找到 PDF: %s（目录为空，请先放入待处理 PDF 后重试）", input_path)
+            raise SystemExit(1)
         hint = "路径不存在" if not input_path.exists() else "目录下无 .pdf 文件"
         logger.error("未找到 PDF: %s（%s）", input_path, hint)
         raise SystemExit(1)
@@ -1110,6 +1174,8 @@ def main() -> None:
         report_path=report_path,
         overwrite=args.overwrite,
         auto_bookmarks=args.add_auto_bookmarks,
+        subset_fonts=bool(args.subset_fonts),
+        linearize=bool(args.linearize),
     )
 
     total = 0
