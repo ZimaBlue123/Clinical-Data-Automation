@@ -24,6 +24,14 @@ pip install -r requirements.txt
 > pip install pre-commit
 > pre-commit install
 > ```
+>
+> **CI / 本地冒烟测试**（与 GitHub Actions 一致，无需全量 `requirements.txt`）：
+>
+> ```bash
+> pip install pytest flake8
+> pip install -r requirements-ci.txt
+> pytest
+> ```
 
 ## 整体架构
 

@@ -9,7 +9,7 @@ Clinical data automation toolkit for PDF extraction/normalization, Excel chart g
 ## Requirements
 
 - Python 3.8+
-- Dependencies: `requirements.txt`
+- Dependencies: `requirements.txt` (full); `requirements-ci.txt` + `pytest` for CI smoke tests
 - Windows-only dependency (`pywin32`) is required only for Windows + Microsoft Office COM automation modules.
 
 ## Install
