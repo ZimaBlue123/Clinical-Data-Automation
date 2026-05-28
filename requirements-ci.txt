@@ -1,8 +1,10 @@
 # CI / 冒烟测试依赖（GitHub Actions 与本地 pytest）
 # 全量功能依赖见 requirements.txt
+# 须覆盖 tests/ 与 src/ 冒烟导入所用包
 openpyxl>=3.1.0
 pandas>=1.5.0
 numpy>=1.20.0
 lxml>=4.9.0
+pdfplumber>=0.10.0
 pymupdf>=1.23.0
 pyyaml>=6.0
