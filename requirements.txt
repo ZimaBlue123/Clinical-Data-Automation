@@ -54,9 +54,10 @@ tqdm>=4.66.0
 pytesseract>=0.3.10
 
 # ---------------------------------------------------------------------------
-# 网络与翻译（28_Paper_Batch_Download 含安全模式限速/退避重试 / 23_File_Translator / 30_DNS_Leak_Detector）
+# 网络与翻译（28_Paper_Batch_Download 含安全模式限速/退避重试 / 23_File_Translator / 30_DNS_Leak_Detector / 31_Network_Speed_Test）
 # ---------------------------------------------------------------------------
 requests>=2.31.0
+PySocks>=1.7.1
 translators>=5.9.2
 python-docx>=1.1.0
 lxml>=4.9.0  # 11_Word_Text_Replace：OOXML 跨 run 文本替换
@@ -68,12 +69,13 @@ pyinstaller>=5.13.0
 
 # ---------------------------------------------------------------------------
 # PDF 重复分析（22_PDF_Duplicate_Analyzer：复用 pymupdf，见上方 PDF 相关依赖）
-# 以下模块仅标准库，无额外 pip 包：24_C_Drive_Cleanup、25_WiFi_Passwords、
-# 26_Folder_File_Count（复用 pandas/openpyxl）、28_Proxy_Config_Export
+# 以下模块仅标准库，无额外 pip 包：25_C_Drive_Cleanup、26_WiFi_Passwords、
+# 27_Folder_File_Count（复用 pandas/openpyxl）、29_Proxy_Config_Export
+# 31_Network_Speed_Test：复用 requests + PySocks（见上方网络依赖）
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
-# SAE 抽取（31_SAE_Extractor：pdf2image 用于 PDF 页渲染 OCR；urllib3 由 requests 引入，显式下限与上游一致）
+# SAE 抽取（32_SAE_Extractor：pdf2image 用于 PDF 页渲染 OCR；urllib3 由 requests 引入，显式下限与上游一致）
 # ---------------------------------------------------------------------------
 pdf2image>=1.16.0
 urllib3>=2.0.0

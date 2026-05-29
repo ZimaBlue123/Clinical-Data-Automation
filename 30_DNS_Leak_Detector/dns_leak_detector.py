@@ -179,7 +179,7 @@ class UniversalDNSLeakDetector:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="22 模块：DNS 泄漏检测（TUN / SOCKS）")
+    parser = argparse.ArgumentParser(description="30 模块：DNS 泄漏检测（TUN / SOCKS）")
     parser.add_argument("--mode", choices=["tun", "socks"], default="tun", help="检测模式")
     parser.add_argument("--socks-port", type=int, default=10808, help="SOCKS 端口（mode=socks 时生效）")
     parser.add_argument("--timeout", type=int, default=10, help="接口请求超时秒数")

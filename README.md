@@ -18,7 +18,7 @@ pip install -r requirements.txt
 
 > `requirements.txt` 文件头已注明：非 Windows 或仅使用非 Office 自动化模块时，可移除或注释 `pywin32` 行后再安装；不需要 **16_PPTX_PDF_to_PPT** 时也可注释 Paddle 相关行以减轻安装体积。
 >
-> **提交前检查（可选）**：安装预提交钩子可在 commit 前运行 YAML 检查与本仓库敏感信息扫描（`scripts/check_secrets.py`，主要为 **31_SAE_Extractor** 等场景的 API Token 防误提交）：
+> **提交前检查（可选）**：安装预提交钩子可在 commit 前运行 YAML 检查与本仓库敏感信息扫描（`scripts/check_secrets.py`，主要为 **32_SAE_Extractor** 等场景的 API Token 防误提交）：
 >
 > ```bash
 > pip install pre-commit
@@ -35,10 +35,10 @@ pip install -r requirements.txt
 
 ## 整体架构
 
-本仓库为 **按编号目录划分的独立工具集**（`01_` … `31_`）。整体遵循三条规则：
+本仓库为 **按编号目录划分的独立工具集**（`01_` … `32_`）。整体遵循三条规则：
 
 1. **结构分层清晰**：根级公共资源（`src/`、`config*.yaml`）与各独立模块目录分离。
-2. **模块顺序固定**：以目录编号作为唯一顺序基准，按 **`01_` → `31_`** 递增组织与阅读。
+2. **模块顺序固定**：以目录编号作为唯一顺序基准，按 **`01_` → `32_`** 递增组织与阅读。
 3. **脚本主次**：各模块内 **主程序** / **`lib/` 核心库** / **`util_*` 辅助工具** 见 [`docs/script_roles.md`](docs/script_roles.md)。
 
 | 层次 | 说明 |
@@ -55,7 +55,7 @@ pip install -r requirements.txt
 - **PowerPoint 相关（03-05）**：`03_PPT_Merge` → `04_PPT_Watermark_Removal` → `05_PPT_to_PDF`
 - **Word 相关（06-11）**：`06_Word_to_PDF` → … → `10_Word_Style_Cleaner` → `11_Word_Text_Replace`
 - **PDF 相关（12-21）**：`12_PDF_Batch_to_Excel` → `13_PDF_to_Excel_Rule_Extract` → `14_PDF_to_PPT` → `15_PDF_XSS` → `16_PPTX_PDF_to_PPT` → `17_PDF_Title_Renamer` → `18_PDF_eCTD_Converter` → `19_PDF_Merge` → `20_PDF_Bookmark_Inherit_Zoom` → `21_PDF_Watermark_Removal`
-- **其他工具（22-31）**：`22_PDF_Duplicate_Analyzer` → `23_File_Translator` → `24_Py_to_EXE` → `25_C_Drive_Cleanup` → `26_WiFi_Passwords` → `27_Folder_File_Count` → `28_Paper_Batch_Download` → `29_Proxy_Config_Export` → `30_DNS_Leak_Detector` → `31_SAE_Extractor`
+- **其他工具（22-32）**：`22_PDF_Duplicate_Analyzer` → `23_File_Translator` → `24_Py_to_EXE` → `25_C_Drive_Cleanup` → `26_WiFi_Passwords` → `27_Folder_File_Count` → `28_Paper_Batch_Download` → `29_Proxy_Config_Export` → `30_DNS_Leak_Detector` → `31_Network_Speed_Test` → `32_SAE_Extractor`
 
 ## 项目结构
 
@@ -237,7 +237,12 @@ Clinical Data Automation/
 │   ├── dns_leak_detector.py          # 主程序：出口与上游 DNS 一致性检测
 │   └── README.md                     # 模块说明与命令行用法
 │
-├── 31_SAE_Extractor/          # SAE 结构化抽取（LLM + 多格式解析 → Excel）
+├── 31_Network_Speed_Test/   # 网速测试 + 局域网占用排查
+│   ├── output/                       # 输出：测速/排查 JSON（可选，见 .gitignore）
+│   ├── network_speed_test.py         # 主程序：外网/VPN 测速；菜单 4 扫在线设备 IP/MAC
+│   └── README.md                     # 模块说明与交互菜单
+│
+├── 32_SAE_Extractor/          # SAE 结构化抽取（LLM + 多格式解析 → Excel）
 │   ├── input/                        # 输入：临床文本/PDF/DOCX/Excel
 │   ├── output/                       # 输出：SAE 列表 xlsx
 │   ├── cli.py                        # 主入口：self-check / batch / pdf-batch
@@ -255,7 +260,7 @@ Clinical Data Automation/
 ├── .pre-commit-config.yaml   # 可选：pre-commit（含敏感信息本地扫描）
 ├── scripts/                  # 仓库级辅助脚本
 │   ├── check_secrets.py      # pre-commit 调用的密钥模式扫描
-│   ├── set_env.ps1           # PowerShell：示例环境变量（31_SAE_Extractor）
+│   ├── set_env.ps1           # PowerShell：示例环境变量（32_SAE_Extractor）
 │   └── start_tunnel.ps1      # PowerShell：SSH 本地端口转发（API 网关）
 ├── requirements.txt
 ├── LICENSE.md
@@ -675,11 +680,27 @@ python dns_leak_detector.py --save-json
 
 ---
 
-### 30. SAE 结构化抽取（`31_SAE_Extractor`）
+### 30. 网速测试与局域网占用排查（`31_Network_Speed_Test`）
+用途：**外网测速**（国内/国外 HTTP 下载、VPN 直连 vs SOCKS 对比）；**局域网占用排查**（扫描在线设备 IP/MAC，指引在路由器按 QoS 限速）。网速慢时建议运行后选菜单 **4**。
+
+```bash
+cd 31_Network_Speed_Test
+python network_speed_test.py
+```
+
+交互菜单：**1** 完整测速 · **2** 跳过 VPN · **3** 仅局域网 Ping · **4** 占用排查（推荐）  
+
+命令行常用参数：`--socks-port`、`--skip-vpn`、`--skip-international`、`--max-mb`、`--save-json`。  
+报告（可选）：`output/speed_test_*.json`、`output/lan_survey_*.json`。  
+VPN SOCKS 对比需 `PySocks`（见 `requirements.txt`）。
+
+---
+
+### 31. SAE 结构化抽取（`32_SAE_Extractor`）
 用途：从 PDF/TXT/DOCX/Excel 临床材料中提取严重不良事件（SAE）字段，调用 OpenAI 兼容 Chat Completions 接口，汇总导出 Excel。
 
 ```bash
-cd 31_SAE_Extractor
+cd 32_SAE_Extractor
 python cli.py self-check
 python cli.py batch
 python cli.py pdf-batch
@@ -689,7 +710,7 @@ python cli.py pdf-batch
 
 辅助脚本（仓库根目录 `scripts/`，Windows PowerShell）：
 
-- `set_env.ps1`：在当前会话设置 `SAE_API_BASE_URL`、`SAE_OUTPUT_DIR`（指向 `31_SAE_Extractor/output`）等；**仍需自行设置 `SAE_API_TOKEN`**。用法：在仓库根执行 `.\scripts\set_env.ps1`（注意点开源执行策略）。
+- `set_env.ps1`：在当前会话设置 `SAE_API_BASE_URL`、`SAE_OUTPUT_DIR`（指向 `32_SAE_Extractor/output`）等；**仍需自行设置 `SAE_API_TOKEN`**。用法：在仓库根执行 `.\scripts\set_env.ps1`（注意点开源执行策略）。
 - `start_tunnel.ps1`：建立 SSH 本地端口转发；须设置 **`SAE_TUNNEL_SSH_HOST`**（及可选 `SAE_TUNNEL_SSH_USER`、`SAE_TUNNEL_LOCAL_PORT`、`SAE_TUNNEL_REMOTE_BIND`）。用法：`powershell -ExecutionPolicy Bypass -File .\scripts\start_tunnel.ps1`
 
 手动全量扫描敏感信息：`pre-commit run detect-sensitive-secrets --all-files`（需已 `pre-commit install` 或直接安装 `pre-commit`）。
@@ -760,4 +781,4 @@ rules:
 
 ## 许可证
 
-本项目采用 [MIT License](LICENSE.md) 开源协议。`31_SAE_Extractor` 模块自独立项目 **SAE-Extractor** 迁入，该部分版权信息见 `LICENSE.md` 中的附加声明。
+本项目采用 [MIT License](LICENSE.md) 开源协议。`32_SAE_Extractor` 模块自独立项目 **SAE-Extractor** 迁入，该部分版权信息见 `LICENSE.md` 中的附加声明。模块编号：`31_Network_Speed_Test`（网速/局域网排查）、`32_SAE_Extractor`（SAE 抽取）。

@@ -86,7 +86,10 @@ pip-wheel-metadata/
 **/run_summary_*.txt
 _doc_*.txt
 **/*styles_pruned_report*.txt
-21_PDF_Duplicate_Analyzer/jobs.json
+22_PDF_Duplicate_Analyzer/jobs.json
+**/dns_diagnostic_*.json
+**/speed_test_*.json
+**/lan_survey_*.json
 *.bak
 *.tmp
 ~$* # Excel/PPT 运行时隐形锁文件

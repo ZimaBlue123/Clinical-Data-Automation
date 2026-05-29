@@ -22,7 +22,7 @@ pip install -r requirements.txt
 > - You may comment Paddle-related lines if you do not need **16_PPTX_PDF_to_PPT**
 > - You may remove/comment `pywin32` if you do not use Office automation modules
 >
-> **Optional pre-commit**: install hooks to run YAML checks and a local secret scanner (`scripts/check_secrets.py`, mainly for **31_SAE_Extractor**-style API tokens) before each commit:
+> **Optional pre-commit**: install hooks to run YAML checks and a local secret scanner (`scripts/check_secrets.py`, mainly for **32_SAE_Extractor**-style API tokens) before each commit:
 >
 > ```bash
 > pip install pre-commit
@@ -31,11 +31,11 @@ pip install -r requirements.txt
 
 ## Architecture overview
 
-This repository is organized as **numbered, mostly-independent tool modules** (`01_` … `31_`).  
+This repository is organized as **numbered, mostly-independent tool modules** (`01_` … `32_`).  
 Two rules define the structure:
 
 1. **Clear layering**: root-level shared resources (`src/`, `config*.yaml`) are separated from module folders.
-2. **Fixed module order**: module numbering is the single source of truth, always read/maintain in ascending order (`01_` → `31_`).
+2. **Fixed module order**: module numbering is the single source of truth, always read/maintain in ascending order (`01_` → `32_`).
 
 | Layer | Description |
 |------|-------------|
@@ -51,7 +51,7 @@ Two rules define the structure:
 - **PowerPoint (03-05)**: `03_PPT_Merge` → `04_PPT_Watermark_Removal` → `05_PPT_to_PDF`
 - **Word (06-11)**: `06_Word_to_PDF` → … → `10_Word_Style_Cleaner` → `11_Word_Text_Replace`
 - **PDF (12-21)**: `12_PDF_Batch_to_Excel` → `13_PDF_to_Excel_Rule_Extract` → `14_PDF_to_PPT` → `15_PDF_XSS` → `16_PPTX_PDF_to_PPT` → `17_PDF_Title_Renamer` → `18_PDF_eCTD_Converter` → `19_PDF_Merge` → `20_PDF_Bookmark_Inherit_Zoom` → `21_PDF_Watermark_Removal`
-- **Utilities (22-31)**: `22_PDF_Duplicate_Analyzer` → `23_File_Translator` → `24_Py_to_EXE` → `25_C_Drive_Cleanup` → `26_WiFi_Passwords` → `27_Folder_File_Count` → `28_Paper_Batch_Download` → `29_Proxy_Config_Export` → `30_DNS_Leak_Detector` → `31_SAE_Extractor`
+- **Utilities (22-32)**: `22_PDF_Duplicate_Analyzer` → `23_File_Translator` → `24_Py_to_EXE` → `25_C_Drive_Cleanup` → `26_WiFi_Passwords` → `27_Folder_File_Count` → `28_Paper_Batch_Download` → `29_Proxy_Config_Export` → `30_DNS_Leak_Detector` → `31_Network_Speed_Test` → `32_SAE_Extractor`
 
 ## Project structure
 
@@ -99,11 +99,12 @@ Clinical Data Automation/
 ├── 28_Paper_Batch_Download/
 ├── 29_Proxy_Config_Export/
 ├── 30_DNS_Leak_Detector/
-├── 31_SAE_Extractor/           # SAE extraction (LLM + multi-format → Excel)
+├── 31_Network_Speed_Test/      # Speed test + LAN device survey (menu 4)
+├── 32_SAE_Extractor/           # SAE extraction (LLM + multi-format → Excel)
 │
 ├── scripts/                    # Repo-wide helpers
 │   ├── check_secrets.py        # Secret-pattern scan (pre-commit)
-│   ├── set_env.ps1             # PowerShell: sample env for 31_SAE_Extractor
+│   ├── set_env.ps1             # PowerShell: sample env for 32_SAE_Extractor
 │   └── start_tunnel.ps1        # PowerShell: SSH port forward for API gateway
 ├── .pre-commit-config.yaml
 ├── src/
@@ -121,7 +122,7 @@ Clinical Data Automation/
 - [PowerPoint (03-05)](#modules-ppt)
 - [Word (06-11)](#modules-word)
 - [PDF (12-21)](#modules-pdf)
-- [Utilities (22-31)](#modules-others)
+- [Utilities (22-32)](#modules-others)
 
 ### 01. Excel chart generation (`01_Excel_Charts`)<span id="modules-excel"></span>
 Purpose: generate ADR combo charts (bar + line), with optional clinical palettes.
@@ -463,21 +464,33 @@ python dns_leak_detector.py --save-json
 
 ---
 
-### 30. SAE structured extraction (`31_SAE_Extractor`)
+### 30. Network speed test & LAN occupancy survey (`31_Network_Speed_Test`)
+Purpose: domestic/international download probes and VPN comparison (direct route vs SOCKS). **Menu 4** scans online LAN devices (IP/MAC) and explains router QoS rate limits (no ARP attack tooling).
+
+```bash
+cd 31_Network_Speed_Test
+python network_speed_test.py
+```
+
+Interactive: **4** = LAN device survey (recommended when the network feels slow). CLI flags: `--socks-port`, `--skip-vpn`, `--save-json`. Reports: `output/speed_test_*.json`, `output/lan_survey_*.json`. Requires `PySocks` for SOCKS tests.
+
+---
+
+### 31. SAE structured extraction (`32_SAE_Extractor`)
 Purpose: extract serious adverse event (SAE) fields from clinical PDFs, text, DOCX, or Excel via an OpenAI-compatible Chat Completions API and export to Excel.
 
 ```bash
-cd 31_SAE_Extractor
+cd 32_SAE_Extractor
 python cli.py self-check
 python cli.py batch
 python cli.py pdf-batch
 ```
 
-Requires `SAE_API_TOKEN`; optional `SAE_API_BASE_URL`, `SAE_MODEL_ID`, `TESSERACT_CMD`, `POPPLER_PATH`. Default I/O: `input/` and `output/`. See `31_SAE_Extractor/README.md`.
+Requires `SAE_API_TOKEN`; optional `SAE_API_BASE_URL`, `SAE_MODEL_ID`, `TESSERACT_CMD`, `POPPLER_PATH`. Default I/O: `input/` and `output/`. See `32_SAE_Extractor/README.md`.
 
 Helper scripts at repo root (`scripts/`, Windows PowerShell):
 
-- `set_env.ps1`: sets `SAE_API_BASE_URL` and `SAE_OUTPUT_DIR` (defaults to `31_SAE_Extractor/output`); **you must still set `SAE_API_TOKEN`**. Run from repo root: `.\scripts\set_env.ps1` (may require execution policy).
+- `set_env.ps1`: sets `SAE_API_BASE_URL` and `SAE_OUTPUT_DIR` (defaults to `32_SAE_Extractor/output`); **you must still set `SAE_API_TOKEN`**. Run from repo root: `.\scripts\set_env.ps1` (may require execution policy).
 - `start_tunnel.ps1`: SSH local port forward. **Requires `SAE_TUNNEL_SSH_HOST`**; optional `SAE_TUNNEL_SSH_USER`, `SAE_TUNNEL_LOCAL_PORT`, `SAE_TUNNEL_REMOTE_BIND`. Run: `powershell -ExecutionPolicy Bypass -File .\scripts\start_tunnel.ps1`
 
 Manual secret scan: `pre-commit run detect-sensitive-secrets --all-files`.
@@ -525,7 +538,7 @@ python compare_serology_outputs.py --pdf-excel <PDF.xlsx> --word-excel <WORD.xls
 
 ## License
 
-MIT License. See `LICENSE.md` (includes attribution for **SAE-Extractor**-derived portions such as `31_SAE_Extractor/`).
+MIT License. See `LICENSE.md` (includes attribution for **SAE-Extractor**-derived portions such as `32_SAE_Extractor/`).
 
 ## Maintenance Audit (2026-05)
 

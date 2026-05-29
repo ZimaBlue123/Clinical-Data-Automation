@@ -1,4 +1,4 @@
-# 31_SAE_Extractor
+# 32_SAE_Extractor
 
 脚本角色见 [`docs/script_roles.md`](../docs/script_roles.md)。
 
@@ -35,10 +35,10 @@ $env:POPPLER_PATH="D:\poppler\Library\bin"
 
 ## 用法
 
-默认目录：`31_SAE_Extractor/input/` → `31_SAE_Extractor/output/`。
+默认目录：`32_SAE_Extractor/input/` → `32_SAE_Extractor/output/`。
 
 ```bash
-cd 31_SAE_Extractor
+cd 32_SAE_Extractor
 python cli.py self-check
 python cli.py batch
 python cli.py batch --fast-docx
