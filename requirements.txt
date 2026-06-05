@@ -4,6 +4,11 @@
 # - 全量安装体积较大（含 PaddleOCR / paddlepaddle）；若不需要 16_PPTX_PDF_to_PPT，可暂时注释对应行。
 # - 非 Windows 或不用 Office COM 自动化时，可移除或注释 pywin32 环境标记行后再安装。
 # - 各编号目录为独立工具；未使用的模块不会强制加载，但依赖会一并装上。
+#
+# 完整 vs 精简
+# - 本文件是**完整版**（含 paddleocr / paddlepaddle，约 1.5GB+ 模型依赖）
+# - **精简版**见 `requirements.lite.txt`（跳过 PaddleOCR/PP，仅适合不需要 16_PPTX_PDF_to_PPT 表格识别的场景）
+# - **CI 冒烟**用 `requirements-ci.txt`（仅覆盖 tests/ + src/ 冒烟导入所需包）
 
 # ---------------------------------------------------------------------------
 # 核心表格与数据处理（多模块共用）
@@ -17,9 +22,9 @@ numpy>=1.20.0
 # PDF：解析、渲染、合并、幻灯片（12–21 等 PDF 模块）
 # ---------------------------------------------------------------------------
 pdfplumber>=0.10.0
-pymupdf>=1.23.0
+pymupdf>=1.27.0  # 1.27+ 改进了 page.delete_link 行为（23_PDF_Threat_Analyzer 工业级剥离）
 fonttools>=4.0.0  # 18_PDF_eCTD_Converter：subset_fonts 嵌入字体（6.26）
-pypdf>=4.0.0
+pypdf>=6.0  # 6.x 改进了加密 PDF 处理（23_PDF_Threat_Analyzer 结构化提取）.0
 python-pptx>=0.6.21
 Pillow>=10.0.0
 
@@ -54,7 +59,7 @@ tqdm>=4.66.0
 pytesseract>=0.3.10
 
 # ---------------------------------------------------------------------------
-# 网络与翻译（28_Paper_Batch_Download 含安全模式限速/退避重试 / 23_File_Translator / 30_DNS_Leak_Detector / 31_Network_Speed_Test）
+# 网络与翻译（29_Paper_Batch_Download 含安全模式限速/退避重试 / 24_File_Translator / 31_DNS_Leak_Detector / 32_Network_Speed_Test）
 # ---------------------------------------------------------------------------
 requests>=2.31.0
 PySocks>=1.7.1
@@ -63,19 +68,19 @@ python-docx>=1.1.0
 lxml>=4.9.0  # 11_Word_Text_Replace：OOXML 跨 run 文本替换
 
 # ---------------------------------------------------------------------------
-# 打包（24_Py_to_EXE）
+# 打包（25_Py_to_EXE）
 # ---------------------------------------------------------------------------
 pyinstaller>=5.13.0
 
 # ---------------------------------------------------------------------------
 # PDF 重复分析（22_PDF_Duplicate_Analyzer：复用 pymupdf，见上方 PDF 相关依赖）
-# 以下模块仅标准库，无额外 pip 包：25_C_Drive_Cleanup、26_WiFi_Passwords、
-# 27_Folder_File_Count（复用 pandas/openpyxl）、29_Proxy_Config_Export
-# 31_Network_Speed_Test：复用 requests + PySocks（见上方网络依赖）
+# 以下模块仅标准库，无额外 pip 包：26_C_Drive_Cleanup、27_WiFi_Passwords、
+# 28_Folder_File_Count（复用 pandas/openpyxl）、30_Proxy_Config_Export
+# 32_Network_Speed_Test：复用 requests + PySocks（见上方网络依赖）
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
-# SAE 抽取（32_SAE_Extractor：pdf2image 用于 PDF 页渲染 OCR；urllib3 由 requests 引入，显式下限与上游一致）
+# SAE 抽取（33_SAE_Extractor：pdf2image 用于 PDF 页渲染 OCR；urllib3 由 requests 引入，显式下限与上游一致）
 # ---------------------------------------------------------------------------
 pdf2image>=1.16.0
 urllib3>=2.0.0

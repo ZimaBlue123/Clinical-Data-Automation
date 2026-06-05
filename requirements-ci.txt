@@ -1,5 +1,6 @@
 # CI / 冒烟测试依赖（GitHub Actions 与本地 pytest）
 # 全量功能依赖见 requirements.txt
+# 精简版（跳过 paddleocr / paddlepaddle）见 requirements.lite.txt
 # 须覆盖 tests/ 与 src/ 冒烟导入所用包
 openpyxl>=3.1.0
 pandas>=1.5.0
@@ -8,3 +9,4 @@ lxml>=4.9.0
 pdfplumber>=0.10.0
 pymupdf>=1.23.0
 pyyaml>=6.0
+pypdf>=6.0  # 23_PDF_Threat_Analyzer 测试需要
