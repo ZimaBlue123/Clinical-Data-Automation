@@ -1,0 +1,98 @@
+# 25_Py_to_EXE 批量打包 manifest 模板
+#
+# 用法：
+#   1. 复制本文件为 manifest.yaml
+#   2. 按需增删/调整 modules
+#   3. 运行：python py_to_exe.py --batch --manifest ./manifest.yaml
+#
+# 设计要点：
+# - default_pyinstaller: 全局默认；modules[*].pyinstaller 可逐项覆盖
+# - warning: 不阻断打包，只在报告 + 日志里提示（适合 Office COM 等平台依赖）
+# - collect_submodules: 解决 PyInstaller 静态分析漏掉动态子模块
+#   （如 pymupdf.mupdf、openpyxl.cell._writer、pandas 子模块）
+
+batch:
+  # ----- 全局默认 -----
+  default_pyinstaller:
+    onefile: true
+    console: true
+    clean_artifacts: true
+    # 通用收集项：覆盖本仓库多数 PDF/Excel 模块
+    collect_submodules:
+      - pymupdf
+      - openpyxl
+      - pandas
+    # 通用排除项：瘦身体验（按需启用；部分模块可能反向依赖，需测试）
+    # excludes:
+    #   - sklearn
+    #   - scipy
+    #   - matplotlib
+    #   - tkinter
+    icon: null
+    datas: []
+    hiddenimports: []
+
+  # ----- 模块清单（按需增删）-----
+  modules:
+
+    # ============================================================
+    # 1) 18_PDF_eCTD_Converter（已验证；上次单独打包过）
+    # ============================================================
+    - module: 18_PDF_eCTD_Converter
+      script: pdf_ectd_converter.py
+      pyinstaller:
+        # 这里显式列一遍，保持"与上次单次打包完全一致"的行为
+        collect_submodules: [pymupdf, openpyxl, pandas]
+
+    # ============================================================
+    # 2) 19_PDF_Merge（纯 PyMuPDF，标准打包）
+    # ============================================================
+    - module: 19_PDF_Merge
+      script: merge_pdf.py
+
+    # ============================================================
+    # 3) 22_PDF_Duplicate_Analyzer（PDF + Excel 报告）
+    # ============================================================
+    - module: 22_PDF_Duplicate_Analyzer
+      script: pdf_duplicate_analyzer.py
+
+    # ============================================================
+    # 4) 13_PDF_to_Excel_Rule_Extract（入口是 main.py）
+    # ============================================================
+    - module: 13_PDF_to_Excel_Rule_Extract
+      script: main.py
+      warning: "入口为 main.py（非惯用命名），如打包后行为异常请检查"
+
+    # ============================================================
+    # 5) 21_PDF_Watermark_Removal（入口是 main.py）
+    # ============================================================
+    - module: 21_PDF_Watermark_Removal
+      script: main.py
+      warning: "入口为 main.py（非惯用命名）"
+
+    # ============================================================
+    # 6) 05_PPT_to_PDF（依赖 Windows + Office，跨电脑会失败）
+    # ============================================================
+    - module: 05_PPT_to_PDF
+      script: ppt_to_pdf.py
+      pyinstaller:
+        # 显式收集 pywin32 常用子模块（COM 自动化）
+        hiddenimports:
+          - win32com
+          - win32com.client
+          - pythoncom
+        collect_submodules: [win32com]
+      warning: "Windows + PowerPoint 依赖；目标机需装同款 Office 才能跑；非 Windows 平台打包会失败"
+
+    # ============================================================
+    # 7) 06_Word_to_PDF（同上，依赖 Office + pywin32）
+    # ============================================================
+    - module: 06_Word_to_PDF
+      script: word_to_pdf.py
+      pyinstaller:
+        hiddenimports:
+          - win32com
+          - win32com.client
+          - pythoncom
+        collect_submodules: [win32com]
+      warning: "Windows + Word + pywin32 依赖；目标机需装 Word 才能跑"
