@@ -41,7 +41,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -426,7 +426,6 @@ class PDFSanitizer:
         if self.engines.pypdf and intermediate is not None:
             try:
                 from pypdf import PdfReader, PdfWriter  # type: ignore
-                from pypdf.generic import NameObject
                 reader = PdfReader(str(intermediate))
                 writer = PdfWriter()
                 for page in reader.pages:
@@ -750,7 +749,6 @@ def build_test_pdf_with_javascript() -> bytes:
     from pypdf.generic import (
         DictionaryObject,
         NameObject,
-        NumberObject,
         TextStringObject,
         ArrayObject,
     )

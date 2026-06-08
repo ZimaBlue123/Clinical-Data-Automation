@@ -23,33 +23,33 @@ def test_imports():
     print("=" * 80)
     
     try:
-        from pptx import Presentation
+        from pptx import Presentation  # noqa: F401
         print("[OK] python-pptx 导入成功")
     except ImportError as e:
         print(f"[ERROR] python-pptx 导入失败: {e}")
         return False
-    
+
     try:
-        import pandas as pd
+        import pandas as pd  # noqa: F401
         print("[OK] pandas 导入成功")
     except ImportError as e:
         print(f"[WARN] pandas 导入失败: {e} (可选)")
-    
+
     try:
-        import numpy as np
+        import numpy as np  # noqa: F401
         print("[OK] numpy 导入成功")
     except ImportError as e:
         print(f"[WARN] numpy 导入失败: {e} (可选)")
-    
+
     try:
-        from sklearn.feature_extraction.text import TfidfVectorizer
-        from sklearn.metrics.pairwise import cosine_similarity
+        from sklearn.feature_extraction.text import TfidfVectorizer  # noqa: F401
+        from sklearn.metrics.pairwise import cosine_similarity  # noqa: F401
         print("[OK] sklearn 导入成功")
     except ImportError as e:
         print(f"[WARN] sklearn 导入失败: {e} (可选)")
-    
+
     try:
-        from merge_ppt import (
+        from merge_ppt import (  # noqa: F401
             get_merge_dir,
             get_output_dir,
             auto_discover_ppts,
@@ -59,9 +59,9 @@ def test_imports():
     except ImportError as e:
         print(f"[ERROR] merge_ppt 模块导入失败: {e}")
         return False
-    
+
     try:
-        from ppt_engine import (
+        from ppt_engine import (  # noqa: F401
             run_editor,
             run_engine,
             CURATED_SCRIPT,
@@ -94,14 +94,14 @@ def test_directory_structure():
             print(f"    - {ppt.name}")
     else:
         print(f"[WARN] 输入目录不存在: {input_dir}")
-        print(f"  创建目录...")
+        print("  创建目录...")
         input_dir.mkdir(exist_ok=True)
     
     if output_dir.exists():
         print(f"[OK] 输出目录存在: {output_dir}")
     else:
         print(f"[WARN] 输出目录不存在: {output_dir}")
-        print(f"  创建目录...")
+        print("  创建目录...")
         output_dir.mkdir(exist_ok=True)
     
     print()

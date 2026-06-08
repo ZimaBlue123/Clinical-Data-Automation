@@ -635,12 +635,14 @@ class PDFSanitizer:
                             if text:
                                 text_sizes.append((size, text))
             
-            if not text_sizes: return ""
+            if not text_sizes:
+                return ""
             
             size_map = {}
             for size, text in text_sizes:
                 s = round(size, 1)
-                if s not in size_map: size_map[s] = []
+                if s not in size_map:
+                    size_map[s] = []
                 size_map[s].append(text)
                 
             sorted_sizes = sorted(size_map.keys(), reverse=True)

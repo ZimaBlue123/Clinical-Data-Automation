@@ -17,7 +17,6 @@ import json
 import logging
 import os
 import platform
-import re
 import shutil
 import threading
 import time
@@ -639,7 +638,6 @@ def translate_pdf_overlay(input_path: Path, output_path: Path, translator: Trans
         for (rect, fontsize, src), tr in zip(spans, translated):
             if not tr or tr == src:
                 continue
-            lineheight = fontsize
             unused_area = page.insert_textbox(
                 rect,
                 tr,
@@ -845,7 +843,7 @@ def main() -> None:
             try:
                 _, out = _worker(f)
                 logger.info("action=process_success file=%s output=%s", f.name, out)
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:  # noqa: BLE001, F841
                 logger.exception("处理失败: file=%s", f.name)
     else:
         with ThreadPoolExecutor(max_workers=cfg.max_workers) as ex:
@@ -857,7 +855,7 @@ def main() -> None:
                 try:
                     _, out = fut.result()
                     logger.info("action=process_success index=%s total=%s file=%s output=%s", done_count, len(files), f.name, out)
-                except Exception as e:  # noqa: BLE001
+                except Exception as e:  # noqa: BLE001, F841
                     logger.exception("处理失败: file=%s", f.name)
 
     mem.save()

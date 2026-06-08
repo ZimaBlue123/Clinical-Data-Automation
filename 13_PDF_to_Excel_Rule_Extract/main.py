@@ -17,7 +17,6 @@ from src.excel_writer import (
     ensure_sheet,
     load_or_create_workbook,
     save_workbook,
-    write_cell,
     write_table,
     write_text_block,
 )

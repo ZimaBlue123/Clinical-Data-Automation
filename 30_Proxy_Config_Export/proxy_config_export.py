@@ -70,7 +70,7 @@ def export_proxy_config():
         f.write("-" * 60 + "\n")
         if config['proxy_enable'] and config['proxy_server']:
             proxy_addr = config['proxy_server']
-            f.write(f"状态: 已启用\n")
+            f.write("状态: 已启用\n")
             f.write(f"代理服务器: {proxy_addr}\n\n")
             
             f.write("1. HTTP 代理 (http_proxy)\n")

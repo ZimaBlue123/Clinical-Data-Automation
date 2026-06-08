@@ -24,12 +24,12 @@ ROOT = MODULE_DIR.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from openpyxl import Workbook
-from openpyxl.styles import Alignment, Border, Font, Side
-from openpyxl.utils import get_column_letter
+from openpyxl import Workbook  # noqa: E402
+from openpyxl.styles import Alignment, Border, Font, Side  # noqa: E402
+from openpyxl.utils import get_column_letter  # noqa: E402
 
-from src.pdf_reader import extract_tables_from_pdf
-from src.serology_utils import OUTPUT_MARKERS, MARKER_UNITS, canonical_sample_id
+from src.pdf_reader import extract_tables_from_pdf  # noqa: E402 — 须在 sys.path.insert 之后
+from src.serology_utils import OUTPUT_MARKERS, MARKER_UNITS, canonical_sample_id  # noqa: E402
 
 try:
     import fitz  # PyMuPDF

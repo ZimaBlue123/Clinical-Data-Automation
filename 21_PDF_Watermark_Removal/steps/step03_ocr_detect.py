@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import DefaultDict, Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 import fitz  # PyMuPDF
 import pytesseract

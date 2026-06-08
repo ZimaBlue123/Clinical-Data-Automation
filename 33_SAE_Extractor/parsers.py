@@ -3,7 +3,6 @@ import os
 import zipfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 import pdfplumber

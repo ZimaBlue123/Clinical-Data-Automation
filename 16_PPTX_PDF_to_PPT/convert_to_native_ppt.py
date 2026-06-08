@@ -15,7 +15,6 @@ import os
 os.environ['PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK'] = 'True'
 os.environ["GLOG_minloglevel"] = "2"
 
-import argparse
 import logging
 import tempfile
 from pathlib import Path
@@ -23,7 +22,6 @@ from pathlib import Path
 import pandas as pd
 import fitz  # PyMuPDF
 from PIL import Image
-import io
 from tqdm import tqdm  # 进度条神器
 
 from pptx import Presentation
@@ -158,7 +156,7 @@ class ClinicalDocConverter:
                     if df_list:
                         df = df_list[0].fillna("").astype(str)
                         self._render_dataframe_to_slide(df, slide, r_left, r_top, r_width, r_height)
-                except Exception as e:
+                except Exception as e:  # noqa: F841
                     pass
 
             # ---- 处理普通文字/标题 ----
@@ -168,7 +166,7 @@ class ClinicalDocConverter:
                     texts = [item['text'] for item in region['res']]
                     full_text = "\n".join(texts)
                     self._render_text_to_slide(full_text, slide, r_left, r_top, r_width, r_height)
-                except Exception as e:
+                except Exception as e:  # noqa: F841
                     pass
 
     # ==========================================

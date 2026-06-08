@@ -34,7 +34,6 @@
    - merge_report.xlsx：每张原始幻灯片的来源、相似度与处理结果。
 """
 
-import io
 import os
 from copy import deepcopy
 from dataclasses import dataclass, field
@@ -46,11 +45,6 @@ from pptx import Presentation
 from pptx.opc.constants import RELATIONSHIP_TYPE as RT
 from pptx.opc.constants import CONTENT_TYPE as CT
 from pptx.opc.package import Part
-from pptx.opc.packuri import PackURI
-from pptx.oxml import parse_xml
-from pptx.parts.image import Image, ImagePart
-from pptx.parts.chart import ChartPart
-from pptx.parts.embeddedpackage import EmbeddedXlsxPart
 from pptx.util import Pt
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity

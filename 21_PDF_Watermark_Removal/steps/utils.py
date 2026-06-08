@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import pytesseract
-from PIL import Image
 
 
 Box = Tuple[float, float, float, float]  # (x0, top, x1, bottom)

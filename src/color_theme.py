@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """
 统一科研/医学风格的配色方案。
 
@@ -7,6 +5,8 @@ from __future__ import annotations
 - 所有图表（柱状图、折线图、散点/标记等）应通过本模块获取颜色，避免在各处硬编码。
 - 颜色均使用 HEX（不带 # 的 6 位大写）以便直接给 openpyxl 等库使用。
 """
+
+from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Dict
@@ -50,9 +50,9 @@ def _lighten(hex_color: str, factor: float) -> str:
     # 转到 HLS，只调亮度
     import colorsys
 
-    h, l, s = colorsys.rgb_to_hls(r / 255.0, g / 255.0, b / 255.0)
-    l = min(1.0, l * factor)
-    r2, g2, b2 = colorsys.hls_to_rgb(h, l, s)
+    h, lgt, s = colorsys.rgb_to_hls(r / 255.0, g / 255.0, b / 255.0)
+    lgt = min(1.0, lgt * factor)
+    r2, g2, b2 = colorsys.hls_to_rgb(h, lgt, s)
     return _rgb_to_hex(int(r2 * 255), int(g2 * 255), int(b2 * 255))
 
 
@@ -112,11 +112,11 @@ def _canonical_category(name: str) -> str | None:
     return None
 
 
-def _hsl_to_rgb_hex(h: float, s: float, l: float) -> str:
+def _hsl_to_rgb_hex(h: float, s: float, lgt: float) -> str:
     """简易 HSL → HEX，用于生成低饱和度回退色。"""
     import colorsys
 
-    r, g, b = colorsys.hls_to_rgb(h, l, s)  # 注意：colorsys 使用 HLS 顺序
+    r, g, b = colorsys.hls_to_rgb(h, lgt, s)  # 注意：colorsys 使用 HLS 顺序
     return f"{int(r * 255):02X}{int(g * 255):02X}{int(b * 255):02X}"
 
 
@@ -135,8 +135,8 @@ def _fallback_color_for_name(name: str) -> str:
     h = (h_seed % 360) / 360.0
     # 低饱和度 + 偏亮，保证“高级感”
     s = 0.25
-    l = 0.70
-    return _hsl_to_rgb_hex(h, s, l)
+    lgt = 0.70
+    return _hsl_to_rgb_hex(h, s, lgt)
 
 
 def get_series_color(category_name: str) -> str:

@@ -357,8 +357,6 @@ def run_editor() -> None:
         print(f"✓ 成功加载 {len(slide_infos)} 张幻灯片")
         print()
 
-        # 记录原始索引映射（用于日志）
-        original_index_map = {s.global_id: (s.source_ppt, s.source_index) for s in slide_infos}
 
         for s in slide_infos:
             s.slide_title = _get_slide_title(s.slide_obj)
@@ -668,14 +666,14 @@ def _self_check(output_pptx: str, expected_slides: int, original_count: int) -> 
         print(f"✓ [检查1] 输出文件存在 ({file_size:,} 字节)")
         checks_passed += 1
     else:
-        print(f"❌ [检查1] 输出文件不存在")
+        print("❌ [检查1] 输出文件不存在")
     
     # 检查2: 文件可读性
     checks_total += 1
     try:
         prs = Presentation(output_pptx)
         actual_slides = len(prs.slides)
-        print(f"✓ [检查2] PPT文件可正常读取")
+        print("✓ [检查2] PPT文件可正常读取")
         checks_passed += 1
         
         # 检查3: 幻灯片数量
@@ -700,10 +698,10 @@ def _self_check(output_pptx: str, expected_slides: int, original_count: int) -> 
                 all_valid = False
         
         if all_valid:
-            print(f"✓ [检查4] 所有幻灯片结构完整")
+            print("✓ [检查4] 所有幻灯片结构完整")
             checks_passed += 1
         else:
-            print(f"⚠ [检查4] 部分幻灯片可能存在问题")
+            print("⚠ [检查4] 部分幻灯片可能存在问题")
         
     except Exception as e:
         print(f"❌ [检查2] PPT文件读取失败: {e}")

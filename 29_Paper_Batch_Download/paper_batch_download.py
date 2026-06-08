@@ -158,12 +158,14 @@ class PDFSanitizer:
                             if text:
                                 text_sizes.append((size, text))
             
-            if not text_sizes: return ""
+            if not text_sizes:
+                return ""
             
             size_map = {}
             for size, text in text_sizes:
                 s = round(size, 1)
-                if s not in size_map: size_map[s] = []
+                if s not in size_map:
+                    size_map[s] = []
                 size_map[s].append(text)
                 
             sorted_sizes = sorted(size_map.keys(), reverse=True)
@@ -399,9 +401,12 @@ class PaperDownloader:
 
     @staticmethod
     def _classify_query(query: str) -> str:
-        if DOI_PATTERN.match(query): return "doi"
-        if PMID_PATTERN.match(query): return "pmid"
-        if query.lower().startswith("http"): return "url"
+        if DOI_PATTERN.match(query):
+            return "doi"
+        if PMID_PATTERN.match(query):
+            return "pmid"
+        if query.lower().startswith("http"):
+            return "url"
         return "title"
 
     @staticmethod
@@ -434,7 +439,8 @@ class PaperDownloader:
                     self.cache["title_to_doi"][title] = doi
                     self._cache_dirty = True
                 return doi
-        except Exception: pass
+        except Exception:
+            pass
         return None
 
     def _pmid_to_doi(self, pmid: str) -> str | None:
@@ -453,11 +459,13 @@ class PaperDownloader:
                         self.cache["pmid_to_doi"][pmid] = doi
                         self._cache_dirty = True
                     return doi
-        except Exception: pass
+        except Exception:
+            pass
         return None
 
     def _unpaywall_pdf(self, doi: str) -> str | None:
-        if not self.mailto: return None
+        if not self.mailto:
+            return None
         cached = self.cache["doi_to_pdf"].get(doi)
         if cached:
             return cached
@@ -470,28 +478,34 @@ class PaperDownloader:
                 self.cache["doi_to_pdf"][doi] = resolved
                 self._cache_dirty = True
             return resolved
-        except Exception: return None
+        except Exception:
+            return None
 
     @staticmethod
     def _plos_pdf_from_doi(doi: str) -> str | None:
         match = re.search(r"10\.1371/journal\.([a-z]+)\.", doi, re.I)
-        if not match: return None
+        if not match:
+            return None
         journal_map = {"pone": "plosone", "pbio": "plosbiology", "pmed": "plosmedicine", "pcbi": "ploscompbiol", "pgen": "plosgenetics", "pntd": "plosntds", "ppat": "plospathogens"}
         journal = journal_map.get(match.group(1).lower())
-        if not journal: return None
+        if not journal:
+            return None
         return f"https://journals.plos.org/{journal}/article/file?id={doi}&type=printable"
 
     def _find_pdf_in_html(self, html: str, base_url: str) -> str | None:
         candidates = re.findall(r'href=["\']([^"\']+\.pdf[^"\']*)["\']', html, flags=re.I)
-        if not candidates: candidates = re.findall(r'src=["\']([^"\']+\.pdf[^"\']*)["\']', html, flags=re.I)
-        if candidates: return urljoin(base_url, candidates[0])
+        if not candidates:
+            candidates = re.findall(r'src=["\']([^"\']+\.pdf[^"\']*)["\']', html, flags=re.I)
+        if candidates:
+            return urljoin(base_url, candidates[0])
         return None
 
     def _doi_landing_pdf(self, doi: str) -> str | None:
         try:
             res = self._request("GET", f"https://doi.org/{doi}", timeout=15, allow_redirects=True)
             return self._find_pdf_in_html(res.text, res.url)
-        except Exception: return None
+        except Exception:
+            return None
 
     def _scihub_pdf(self, doi: str) -> str | None:
         for mirror in self.scihub_mirrors:
@@ -502,12 +516,16 @@ class PaperDownloader:
                 res = self._request("GET", f"{mirror}/{doi}", timeout=12)
                 res.raise_for_status()
                 match = re.search(r'(?:iframe|embed|object)[^>]+(?:id=["\']pdf["\']|type=["\']application/pdf["\'])[^>]*src=["\'](.*?)["\']', res.text, re.I)
-                if not match: match = re.search(r"location\.href=['\"](.*?)['\"]", res.text, re.I)
+                if not match:
+                    match = re.search(r"location\.href=['\"](.*?)['\"]", res.text, re.I)
                 if match:
                     pdf_url = match.group(1)
-                    if pdf_url.startswith('//'): pdf_url = 'https:' + pdf_url
-                    elif pdf_url.startswith('/'): pdf_url = f"{mirror}{pdf_url}"
-                    elif not pdf_url.startswith('http'): pdf_url = f"{mirror}/{pdf_url}"
+                    if pdf_url.startswith('//'):
+                        pdf_url = 'https:' + pdf_url
+                    elif pdf_url.startswith('/'):
+                        pdf_url = f"{mirror}{pdf_url}"
+                    elif not pdf_url.startswith('http'):
+                        pdf_url = f"{mirror}/{pdf_url}"
                     self.scihub_mirrors.remove(mirror)
                     self.scihub_mirrors.insert(0, mirror)
                     return pdf_url
@@ -521,9 +539,11 @@ class PaperDownloader:
         try:
             with self._request("GET", url, timeout=15, stream=True, allow_redirects=True) as res:
                 content_type = res.headers.get('Content-Type', '').lower()
-                if 'application/pdf' in content_type: return res.url
+                if 'application/pdf' in content_type:
+                    return res.url
                 return self._find_pdf_in_html(res.text, res.url)
-        except Exception: return None
+        except Exception:
+            return None
 
     def _download_pdf(self, pdf_url: str, filename: str) -> None:
         # 下载到临时缓存区
@@ -532,7 +552,8 @@ class PaperDownloader:
             res.raise_for_status()
             with path.open("wb") as f:
                 for chunk in res.iter_content(chunk_size=8192):
-                    if chunk: f.write(chunk)
+                    if chunk:
+                        f.write(chunk)
 
     def download(self, queries: Iterable[str]) -> dict[str, list[tuple[str, str]]]:
         results = {"success": [], "failed": []}
@@ -543,7 +564,8 @@ class PaperDownloader:
 
         for query in tqdm(query_list, desc="Downloading", unit="paper"):
             normalized, note = self._normalize_query(query)
-            if note: tqdm.write(f"[i] 输入修正: {query} -> {normalized}")
+            if note:
+                tqdm.write(f"[i] 输入修正: {query} -> {normalized}")
             query = normalized
             q_type = self._classify_query(query)
             target = query
@@ -621,7 +643,8 @@ def normalize_path(value: str) -> Path:
     return Path(value.strip().strip('"').strip("'"))
 
 def load_queries_from_file(path: Path) -> list[str]:
-    if not path.exists(): raise FileNotFoundError(f"未找到文件: {path}")
+    if not path.exists():
+        raise FileNotFoundError(f"未找到文件: {path}")
     return [line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip() and not line.strip().startswith("#")]
 
 def parse_args() -> argparse.Namespace:
@@ -651,10 +674,12 @@ def main() -> None:
     args = parse_args()
     queries: list[str] = []
 
-    if args.queries: queries.extend(args.queries)
+    if args.queries:
+        queries.extend(args.queries)
     if args.file:
         file_path = normalize_path(args.file)
-        if not file_path.is_absolute(): file_path = Path.cwd() / file_path
+        if not file_path.is_absolute():
+            file_path = Path.cwd() / file_path
         queries.extend(load_queries_from_file(file_path))
 
     if not queries:
@@ -666,16 +691,19 @@ def main() -> None:
         while True:
             try:
                 line = input().strip()
-                if not line: break
+                if not line:
+                    break
                 queries.append(line)
-            except EOFError: break
+            except EOFError:
+                break
                 
         if not queries:
             logger.error("action=input_missing mode=interactive")
             sys.exit(1)
 
     out_dir = Path(args.output) if args.output else output_dir
-    if not out_dir.is_absolute(): out_dir = output_dir / out_dir
+    if not out_dir.is_absolute():
+        out_dir = output_dir / out_dir
 
     downloader = PaperDownloader(
         out_dir,

@@ -14,13 +14,13 @@ if str(ROOT_DIR) not in sys.path:
     # Allow `import src.*` when running from module directory.
     sys.path.insert(0, str(ROOT_DIR))
 
-from steps.step01_triage import triage_document
-from steps.step02_vector_detect import detect_vector_boxes
-from steps.step03_ocr_detect import detect_ocr_boxes
-from steps.step04_merge_boxes import merge_boxes_by_page
-from steps.step05_audit_render import render_audit_pdf
-from steps.step06_safe_extract import extract_clean_text_by_page, save_text_map_json
-from steps.utils import Box, configure_tesseract, save_boxes_json_v2
+from steps.step01_triage import triage_document  # noqa: E402
+from steps.step02_vector_detect import detect_vector_boxes  # noqa: E402
+from steps.step03_ocr_detect import detect_ocr_boxes  # noqa: E402
+from steps.step04_merge_boxes import merge_boxes_by_page  # noqa: E402
+from steps.step05_audit_render import render_audit_pdf  # noqa: E402
+from steps.step06_safe_extract import extract_clean_text_by_page, save_text_map_json  # noqa: E402
+from steps.utils import Box, configure_tesseract, save_boxes_json_v2  # noqa: E402
 
 
 logger = logging.getLogger("watermark_exclusion")
@@ -209,7 +209,7 @@ def main() -> None:
 
             logger.info("action=process_success file=%s output_dir=%s", pdf_path.name, out_dir)
             success_count += 1
-        except Exception as exc:
+        except Exception as exc:  # noqa: F841
             failed_count += 1
             logger.exception("处理失败: file=%s", pdf_path.name)
         finally:

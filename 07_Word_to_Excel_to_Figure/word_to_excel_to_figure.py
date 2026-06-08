@@ -33,7 +33,6 @@ from lib.table_mapping_logic import (
     ChartSeriesRefs,
     WordTableRef,
     build_table_mapping_plan,
-    label_tokens as _label_tokens,
     labels_match as _labels_match,
     load_table_mapping_json,
     strip_word_cell_text as _strip_word_cell_text,

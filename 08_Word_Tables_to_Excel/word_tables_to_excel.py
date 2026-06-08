@@ -755,7 +755,6 @@ def _parse_int_list(s: str) -> list[int]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="将 Word 指定表格导出为 Excel（精准表头对齐）")
-    default_input = Path(__file__).resolve().parent / "input"
     default_output_dir = Path(__file__).resolve().parent / "output"
 
     parser.add_argument("--input", "-i", required=True, help="Word/RTF 文件路径（.doc/.docx/.rtf）")

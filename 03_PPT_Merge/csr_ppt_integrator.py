@@ -14,10 +14,8 @@ CSR 规范 PPT 整合脚本
 from __future__ import annotations
 
 import os
-import re
 import logging
-from typing import List, Dict, Tuple, Optional, Set
-from dataclasses import dataclass, field
+from typing import List, Dict, Optional, Set
 from collections import defaultdict
 
 from merge_ppt import (
@@ -35,7 +33,6 @@ from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
-from pptx.enum.shapes import MSO_SHAPE
 
 # 配置日志
 logging.basicConfig(
@@ -505,7 +502,7 @@ def integrate_ppts() -> None:
             title = slide_info.slide_title[:50] if slide_info.slide_title else "[无标题]"
             print(f"  [未分类]: {title}...")
     
-    print(f"\n分类结果:")
+    print("\n分类结果:")
     for chapter in CHAPTERS:
         count = len(chapter_slides.get(chapter["id"], []))
         print(f"  章节 {chapter['id']} ({chapter['title']}): {count} 张")
@@ -539,7 +536,7 @@ def integrate_ppts() -> None:
                 chapter_slides["3"].append(slide_info)
                 unclassified.remove(slide_info)
         
-        print(f"启发式分类后，所有幻灯片已分配到章节")
+        print("启发式分类后，所有幻灯片已分配到章节")
     
     # 每章节内按优先级排序和精选
     print("=" * 80)

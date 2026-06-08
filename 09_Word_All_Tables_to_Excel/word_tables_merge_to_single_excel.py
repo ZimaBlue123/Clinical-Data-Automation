@@ -34,7 +34,7 @@ ROOT_DIR = MODULE_DIR.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from src.serology_utils import OUTPUT_MARKERS as MARKERS, MARKER_UNITS, canonical_sample_id
+from src.serology_utils import OUTPUT_MARKERS as MARKERS, MARKER_UNITS, canonical_sample_id  # noqa: E402 — 须在 sys.path.insert 之后
 
 WORD_SUFFIXES = {".doc", ".docx", ".rtf"}
 

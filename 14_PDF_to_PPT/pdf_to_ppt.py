@@ -189,7 +189,7 @@ def main(target_dir: Path, out_dir: Path) -> None:
             print(f"文件未找到: {e}")
         except ValueError as e:
             print(f"转换错误: {e}")
-        except Exception as e:
+        except Exception as e:  # noqa: F841
             print(f"处理文件时出现未捕捉异常: {pdf_path}")
             traceback.print_exc()
     

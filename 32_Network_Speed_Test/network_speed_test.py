@@ -18,7 +18,6 @@ import re
 import socket
 import subprocess
 import sys
-import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field
@@ -1065,7 +1064,7 @@ def run_lan_occupancy_survey(save_json: bool = False, deep_scan: bool = False) -
     if router_ports:
         print(f"  路由器管理  {admin_url}  （端口 {router_ports} 已开）")
     else:
-        print(f"  路由器管理  未检测到 80/443（Web 管理可能关闭或使用非标准端口）")
+        print("  路由器管理  未检测到 80/443（Web 管理可能关闭或使用非标准端口）")
     print("-" * w)
     print("  【在线设备】（Ping/ARP 扫描，约 1–2 分钟）")
     print(f"  {'IP':<16} {'MAC':<18} {'延迟':<8} {'类型/名称':<22} 备注")

@@ -12,7 +12,7 @@ import shutil
 import tempfile
 import zipfile
 from dataclasses import dataclass, field
-from typing import Callable, Iterable, List, Sequence, Tuple
+from typing import List, Sequence, Tuple
 
 from lxml import etree
 
