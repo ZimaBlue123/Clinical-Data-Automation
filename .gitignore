@@ -98,6 +98,17 @@ __tmp_*.py  # 本地临时脚本（前次任务的中间产物；运行时不会
 *.bak.xlsx           # 自动化图表模块的冗余备份
 # [Patch] 已废弃目录名（与 11_Word_Text_Replace 重复，勿提交）
 11_Word_Date_Replace/
+
+# [Patch] PEP 582 单一文件 Python 安装（__pypackages__/）
+__pypackages__/
+
+# [Patch] merge 冲突产物（避免误传）
+*.orig
+*.rej
+
+# [Patch] direnv 配置（每个开发者本地化，不入库）
+.envrc
+
 Automation/
 Data/
 Project/

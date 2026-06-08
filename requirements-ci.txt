@@ -2,6 +2,7 @@
 # 全量功能依赖见 requirements.txt
 # 精简版（跳过 paddleocr / paddlepaddle）见 requirements.lite.txt
 # 须覆盖 tests/ 与 src/ 冒烟导入所用包
+pytest>=7.0.0  # tests/ 用了 pytest
 openpyxl>=3.1.0
 pandas>=1.5.0
 numpy>=1.20.0
