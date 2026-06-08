@@ -498,7 +498,7 @@ def search_by_keyword(
             if i == 0:
                 continue
             start = max(0, len(part) - context_chars)
-            end = min(len(part) + context_chars, len(part) + len(keyword) + context_chars)
+            # 向后截断由 next_part[:context_chars] + 下方 segment[:context_chars*2] 共同实现
             next_part = parts[i + 1][:context_chars] if i + 1 < len(parts) else ""
             segment = (part[start:] + keyword + next_part)[: context_chars * 2]
             hits.append((pno, segment.strip()))
