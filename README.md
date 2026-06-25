@@ -65,6 +65,7 @@ Clinical Data Automation/
 ├── 01_Excel_Charts/          # Excel 图表生成模块
 │   ├── input/                        # 输入：源 Excel 文件
 │   ├── output/                       # 输出：生成的图表文件
+│   ├── fill_clinical_table.py        # 临床表格数据填充（统一入口：GMC + 阳转率）
 │   ├── build_charts_xlsxwriter.py    # 主程序（推荐，支持持续时间+临床配色）
 │   ├── build_charts_openpyxl.py      # 备用引擎
 │   └── apply_template_charts.py      # 基于模板应用配色（依赖 src/color_theme）
@@ -291,7 +292,26 @@ cd 01_Excel_Charts
 python build_charts_xlsxwriter.py
 ```
 
-常用参数：`--input`、`--output`、`--clinical-colors`。  
+**临床表格数据填充（统一入口：GMC + GMI + 阳转率）：**
+```bash
+# 处理所有支持的子表（自动检测GMC/GMI/阳转率）
+python fill_clinical_table.py input/TVAX-006.xlsx
+
+# 仅处理GMC
+python fill_clinical_table.py input/TVAX-006.xlsx --type gmc
+
+# 仅处理GMI
+python fill_clinical_table.py input/TVAX-006.xlsx --type gmi
+
+# 仅处理阳转率
+python fill_clinical_table.py input/TVAX-006.xlsx --type yangzhuai
+
+# 指定子表
+python fill_clinical_table.py input/TVAX-006.xlsx --sheets "总体GMC,40-59岁GMC"
+```
+用途：GMC/GMI 从详细统计表（LS GMC/GMI 95%CI格式，如`768.17(507.87, 1161.89)`）自动解析并填入；阳转率自动扫描定位"阳转例数（阳转率）"和"95%CI"行；GMI自动适配不同行号结构。
+
+常用参数：`--type`、`--sheets`、`--output-dir`、`--verbose`。
 输出目录：`01_Excel_Charts/output/`。
 
 ---

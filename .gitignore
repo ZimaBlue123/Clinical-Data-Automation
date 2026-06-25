@@ -145,6 +145,28 @@ Project/
 **/Template/**/*
 **/.request_cache.json
 
+# ==========================================
+# 7. Git worktree 与临时调试产物
+# ==========================================
+# [Patch] Git worktree 临时工作区（需跨分支调试时生成，避免入库）
+.worktrees/
+# [Patch] 临时调试脚本（fill_clinical_table.py 等调试期间产生的中间文件）
+*scan_cleanup*.py
+*execute_cleanup*.py
+*audit_*.py
+*audit_*.txt
+*cleanup_report*.txt
+*py_files*.txt
+*audit_test*.txt
+*read_excel*.py
+*verify_*.py
+*read_yangzhuai*.py
+*read_gmi*.py
+*fill_gmc_table.py
+*fill_yangzhuai_table.py
+__tmp_*.py
+*_debug_*.py
+
 !**/input/**/README.md
 !**/output/**/README.md
 !**/Template/**/README.md
