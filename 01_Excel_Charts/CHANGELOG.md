@@ -1,69 +1,70 @@
-# 01_Excel_Charts 更新日志
+# 01_Excel_Charts Changelog
 
-记录本模块的关键变更与新功能。
+Records key changes and new features for this module.
 
 ## [1.0.0] - 2026-06-25
 
-### 新增
-- **`fill_clinical_table.py`**：临床试验表格数据填充的统一入口脚本
-  - 支持 `GMC`（几何平均浓度）、`GMI`（几何平均倍数）、`阳转率` 三类表格
-  - 自动识别子表类型，无需手动指定
-  - 动态扫描源数据行号，适配不同子表结构
-  - 完整的类型提示、logging、异常捕获
+### Added
+- **`fill_clinical_table.py`**: Unified entry script for clinical trial table data filling
+  - Supports `GMC` (Geometric Mean Concentration), `GMI` (Geometric Mean Fold Increase), and `seroconversion rate` (阳转率) table types
+  - Auto-detects sheet type via `detect_sheet_type()`, no manual specification needed
+  - Dynamically scans source data row numbers, adapting to different sheet structures
+  - Full type hints, logging, exception handling, and boundary checks
+  - Adapts to "60+ GMI" 51-row structure (default 52 rows)
 
-### 优化
-- 整合 `fill_gmc_table.py` 和 `fill_yangzhuai_table.py` 为单一入口
-- 移除 `__pycache__` 目录及其 `.pyc` 缓存文件
-- 清理调试脚本残留
+### Changed
+- Consolidated `fill_gmc_table.py` and `fill_yangzhuai_table.py` into a single entry point
+- Removed all `__pycache__` directories and `.pyc` cache files
+- Cleaned up debug script residues
 
-### 数据格式
+### Data Format
 
-#### GMC（几何平均浓度）
-- 表格结构：第1-7行（组别标题、子标题、免前 + 4个时间点）
-- 源数据：
-  - 行12：`GMC (95%CI)` → 用于免前
-  - 行17/22/27/32：`LS GMC (95%CI)` → 用于4个时间点
-- 源格式：`"768.17(507.87, 1161.89)"` 或 `"644.46 (280.78, 1479.20)"`
+#### GMC (Geometric Mean Concentration)
+- Table structure: rows 1-7 (group header, sub-header, pre-vaccination + 4 time points)
+- Source data:
+  - Row 12: `GMC (95%CI)` → for pre-vaccination
+  - Rows 17/22/27/32: `LS GMC (95%CI)` → for 4 time points
+- Source format: `"768.17(507.87, 1161.89)"` or `"644.46 (280.78, 1479.20)"`
 
-#### GMI（几何平均倍数）
-- 表格结构：同GMC
-- 源数据：脚本动态扫描定位 `GMI (95%CI)` 行
-  - "60岁以上GMI"使用51行结构（默认52行）
-- 源格式：同GMC
+#### GMI (Geometric Mean Fold Increase)
+- Table structure: same as GMC
+- Source data: script dynamically scans to locate `GMI (95%CI)` rows
+  - "60+ GMI" uses 51-row structure (default 52 rows)
+- Source format: same as GMC
 
-#### 阳转率
-- 表格结构：第1-7行（组别标题、子标题、免前不填 + 4个时间点）
-- 源数据：脚本自动扫描定位
-  - 标题行：A列含"一免后"或"全免后"
-  - "阳转例数（阳转率）"行：格式 `"24 (75.00)"`
-  - "95%CI"行：格式 `"56.60, 88.54"`
+#### Seroconversion Rate (阳转率)
+- Table structure: rows 1-7 (group header, sub-header, pre-vaccination not filled + 4 time points)
+- Source data: script auto-scans to locate:
+  - Title row: column A contains "一免后" or "全免后"
+  - "阳转例数（阳转率）" row: format `"24 (75.00)"`
+  - "95%CI" row: format `"56.60, 88.54"`
 
-#### 列结构（5个组 × 3列）
+#### Column Structure (5 groups × 3 columns)
 
-| 列范围 | 组别 |
-|--------|------|
-| B-D | 低剂量佐剂组（均值、上限、下限） |
-| E-G | 高剂量佐剂组 |
-| H-J | 低剂量试验组 |
-| K-M | 高剂量试验组 |
-| N-P | 安慰剂组 |
+| Column Range | Group |
+|--------------|-------|
+| B-D | Low-dose adjuvant group (mean, upper, lower) |
+| E-G | High-dose adjuvant group |
+| H-J | Low-dose test group |
+| K-M | High-dose test group |
+| N-P | Placebo group |
 
-## 使用示例
+## Usage Examples
 
 ```bash
-# 处理所有支持的子表
+# Process all supported sheets
 python fill_clinical_table.py input/TVAX-006.xlsx
 
-# 仅处理GMI
+# Process only GMI
 python fill_clinical_table.py input/TVAX-006.xlsx --type gmi
 
-# 指定输出目录
+# Specify output directory
 python fill_clinical_table.py input/TVAX-006.xlsx -o ./output
 
-# 显示详细日志
+# Show verbose logs
 python fill_clinical_table.py input/TVAX-006.xlsx -v
 ```
 
-## 依赖
+## Dependencies
 
-- `openpyxl>=3.1.0`（Excel读写）
+- `openpyxl>=3.1.0` (Excel I/O)

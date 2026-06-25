@@ -58,7 +58,7 @@ Two rules define the structure:
 ```
 Clinical Data Automation/
 ├── # —— Excel as main input ——
-├── 01_Excel_Charts/          # Excel chart generation
+├── 01_Excel_Charts/          # Excel chart generation + clinical table filler (GMC/GMI/seroconversion)
 ├── 02_Excel_Chart_Colors/    # Excel chart recoloring (clinical palettes)
 │
 ├── # —— PowerPoint as main input ——
@@ -138,8 +138,28 @@ cd 01_Excel_Charts
 python build_charts_xlsxwriter.py
 ```
 
-Common flags: `--input`, `--output`, `--clinical-colors`.  
+**Clinical table data filler (unified entry: GMC + GMI + seroconversion rate):**
+```bash
+# Process all supported sheets (auto-detect GMC/GMI/seroconversion)
+python fill_clinical_table.py input/TVAX-006.xlsx
+
+# Process only GMC
+python fill_clinical_table.py input/TVAX-006.xlsx --type gmc
+
+# Process only GMI
+python fill_clinical_table.py input/TVAX-006.xlsx --type gmi
+
+# Process only seroconversion rate
+python fill_clinical_table.py input/TVAX-006.xlsx --type yangzhuai
+
+# Specify sheets
+python fill_clinical_table.py input/TVAX-006.xlsx --sheets "Total GMC,40-59 GMC"
+```
+Purpose: GMC/GMI parses data from detailed stats (LS GMC/GMI 95%CI format like `768.17(507.87, 1161.89)`); seroconversion auto-scans to locate rows; GMI auto-adapts to different row structures (e.g. "60+ GMI" uses 51 rows instead of 52).
+
+Common flags: `--type`, `--sheets`, `--output-dir`, `--verbose`.
 Output: `01_Excel_Charts/output/`.
+See module `README.md` and `CHANGELOG.md` for details.
 
 ---
 
