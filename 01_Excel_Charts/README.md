@@ -114,3 +114,20 @@ python fill_clinical_table.py input/TVAX-006.xlsx -v
 - 总体GMC、40-59岁GMC、60岁以上GMC
 - 总体GMI、40-59岁GMI、60岁以上GMI
 - 总体阳转率、40-59岁阳转率、60岁以上阳转率
+
+## 变更日志 (Changelog)
+
+### [1.0.0] - 2026-06-25
+
+#### 新增 (Added)
+- **`fill_clinical_table.py`**：临床试验表格数据填充的统一入口脚本
+  - 支持 `GMC`（几何平均浓度）、`GMI`（几何平均倍数）和 `阳转率`（seroconversion rate）三类表格
+  - 通过 `detect_sheet_type()` 自动识别子表类型，无需手动指定
+  - 动态扫描源数据行号，适配不同子表结构
+  - 完整类型提示、logging、异常捕获、边界条件处理
+  - 适配"60岁以上GMI"的51行特殊结构（默认52行）
+
+#### 变更 (Changed)
+- 整合 `fill_gmc_table.py` 和 `fill_yangzhuai_table.py` 为单一入口
+- 移除 `__pycache__` 目录及 `.pyc` 缓存文件
+- 清理调试脚本残留
