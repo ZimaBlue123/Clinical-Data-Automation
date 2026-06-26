@@ -33,12 +33,12 @@ python serology_report_pdf_to_excel.py ^
   --input input ^
   --output output/serology_report_merged_final.xlsx ^
   --ocr --ocr-dpi 110 ^
-  --reference-excel ../09_Word_All_Tables_to_Excel/output/word_tables_merged.xlsx
+  --reference-excel ../09_Word_Tables_to_Excel/output/word_tables_merged.xlsx
 ```
 
 ## 进一步对比（可选）
 
 可以使用根目录脚本对比 PDF 输出与 Word 汇总：
 ```bash
-python compare_serology_outputs.py --pdf-excel output/serology_report_merged_final.xlsx --word-excel ../09_Word_All_Tables_to_Excel/output/word_tables_merged.xlsx --out-csv output/diff.csv
+python compare_serology_outputs.py --pdf-excel output/serology_report_merged_final.xlsx --word-excel ../09_Word_Tables_to_Excel/output/word_tables_merged.xlsx --out-csv output/diff.csv
 ```

@@ -9,11 +9,12 @@ from pathlib import Path
 from typing import Any
 
 from openpyxl import Workbook, load_workbook
+from openpyxl.worksheet.worksheet import Worksheet
 
 logger = logging.getLogger(__name__)
 
 
-def ensure_sheet(wb: Workbook, sheet_name: str):
+def ensure_sheet(wb: Workbook, sheet_name: str) -> Worksheet:
     """
     若工作表不存在则创建。
     
@@ -77,7 +78,7 @@ def cell_to_row_col(cell: str) -> tuple[int, int]:
     return row, col
 
 
-def write_cell(ws, cell_address: str, value: Any):
+def write_cell(ws: Worksheet, cell_address: str, value: Any) -> None:
     """
     向指定单元格写入一个值。
     
@@ -94,7 +95,7 @@ def write_cell(ws, cell_address: str, value: Any):
         raise
 
 
-def write_table(ws, start_cell: str, table: list[list[Any]]):
+def write_table(ws: Worksheet, start_cell: str, table: list[list[Any]]) -> None:
     """
     从 start_cell 开始按行、列写入二维表格。
     
@@ -123,7 +124,7 @@ def write_table(ws, start_cell: str, table: list[list[Any]]):
         raise
 
 
-def write_text_block(ws, start_cell: str, text: str, max_chars_per_cell: int = 32000):
+def write_text_block(ws: Worksheet, start_cell: str, text: str, max_chars_per_cell: int = 32000) -> None:
     """
     将长文本写入从 start_cell 开始的一个单元格（若超长则截断，Excel 单格约 32k 字符）。
     
@@ -173,7 +174,7 @@ def load_or_create_workbook(excel_path: str | Path) -> Workbook:
     return Workbook()
 
 
-def save_workbook(wb: Workbook, excel_path: str | Path):
+def save_workbook(wb: Workbook, excel_path: str | Path) -> None:
     """
     保存工作簿。
     

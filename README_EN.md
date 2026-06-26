@@ -69,8 +69,8 @@ Clinical Data Automation/
 ├── # —— Word as main input ——
 ├── 06_Word_to_PDF/           # Batch Word → PDF (Word COM)
 ├── 07_Word_to_Excel_to_Figure/     # Word → Excel (tables + chart data) replication
-├── 08_Word_Tables_to_Excel/         # Export selected Word tables to Excel
-├── 09_Word_All_Tables_to_Excel/     # Export all top-level Word tables to Excel; also merge to one list
+├── 08_Word_Tables_to_Graphpad/  # docx → pzfx: replace antibody data (gE ↔ VZV etc.) in Prism template
+├── 09_Word_Tables_to_Excel/         # Word tables → Excel (selected / batch / merge, three-in-one)
 │
 ├── 10_Word_Style_Cleaner/         # Word styles cleanup & normalization (custom-only, keep built-ins)
 ├── 11_Word_Text_Replace/          # Batch OOXML text replace in docx (dates, IDs, literals)
@@ -227,8 +227,15 @@ python word_to_excel_to_figure.py --input-dir "input" --table-map-json "output/t
 
 ---
 
-### 08. Word selected tables to Excel (`08_Word_Tables_to_Excel`)
-Purpose: export selected Word tables by title/index/header keywords.
+### 08. docx → pzfx antibody data replacement (`08_Word_Tables_to_Graphpad`) 🆕
+Purpose: extract source-antibody immunogenicity data (GMC / GMI / seroconversion × 4 age bands × 3 time points × 2 arms) from docx, then replace into pzfx template by (age band × metric) to produce a new pzfx for the target antibody. Typical use: gE pzfx → VZV pzfx; table names, column names, Subcolumn order preserved, only `<d>` values changed.
+
+```bash
+cd 08_Word_Tables_to_Graphpad
+python poc_replicate.py --docx input/source.docx --pzfx input/template.pzfx --source-antibody gE --target-antibody VZV --out output/result.pzfx -v
+```
+
+> ⚠️ The original `08_Word_Tables_to_Excel` has been replaced by this module. Its functionality (export selected Word tables by title/index/header keywords) is merged into `09_Word_Tables_to_Excel` below.
 
 ```bash
 cd 08_Word_Tables_to_Excel
@@ -237,11 +244,14 @@ python word_tables_to_excel.py --help
 
 ---
 
-### 09. Word all tables batch export (`09_Word_All_Tables_to_Excel`)
-Purpose: export all top-level tables from each Word file (one table per sheet).
+### 09. Word tables → Excel (`09_Word_Tables_to_Excel`, includes former 08 + 09)
+Purpose: three-in-one (single file / batch / merge). Export Word (.doc/.docx/.rtf) tables to xlsx.
+- Single file with selected tables: `word_tables_to_excel.py --input X.docx --table-indices 1,3`
+- Batch all Word files under a directory: `word_all_tables_to_excel.py`
+- Merge multiple Word files into a single five-marker summary: `word_tables_merge_to_single_excel.py`
 
 ```bash
-cd 09_Word_All_Tables_to_Excel
+cd 09_Word_Tables_to_Excel
 python word_all_tables_to_excel.py
 ```
 
@@ -554,7 +564,7 @@ rules:
 
 ### Serology reconciliation (PDF vs Word)
 
-1. Generate Word merged list: `09_Word_All_Tables_to_Excel/output/word_tables_merged.xlsx`
+1. Generate Word merged list: `09_Word_Tables_to_Excel/output/word_tables_merged.xlsx`
 2. Generate PDF merged list (and optionally backfill missing markers using `--reference-excel`): `12_PDF_Batch_to_Excel/serology_report_pdf_to_excel.py`
 3. Compare and export diffs:
 

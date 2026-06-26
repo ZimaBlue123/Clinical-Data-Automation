@@ -183,3 +183,20 @@ __tmp_*.py
 !**/Template/**/README.md
 
 !**/.gitkeep
+
+# [Patch 2026-06-26] 一次性诊断/扫描输出（阶段三）
+# 任何 *_baseline.txt / *_audit.txt / *_log.txt / *_scan*.txt / *_junk.txt
+# 均为本轮或历史阶段的临时扫描结果，勿入库。
+*_baseline.txt
+*_audit.txt
+*_log.txt
+*_scan*.txt
+*_junk.txt
+*_deps*.txt
+# 阶段一/二留下的临时辅助脚本
+_audit_*.py
+_audit_deps.py
+_fix_*.py
+_scan_*.py
+_verify.py
+_delete_caches.py

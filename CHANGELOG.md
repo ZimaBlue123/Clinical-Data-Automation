@@ -52,6 +52,25 @@
 ### Cleanup
 - 删除 76 项 `__pycache__/*.cpython-314.pyc`（1.15 MB，**已 gitignore 兜底**）
 
+### Added
+- `requirements-ci.txt` 头部补充注释：定位"完整 vs 精简 vs CI"三档关系
+
+### Changed
+- **代码健壮性增强**：
+  - `01_Excel_Charts/fill_clinical_table.py`：去除 5 处 f-string 无占位符冗余前缀（ruff F541 → 0）
+  - `33_SAE_Extractor/sae_extractor.py`：将 `except json.JSONDecodeError: pass` 替换为 `except ... as e: logging.debug(...)`；不再静默吞异常
+  - `src/excel_writer.py`：5 个公共 API 补全返回类型注解与 `Worksheet` 参数类型
+- **依赖审计**：扫描全仓 81 个 .py 文件 74 个 import 声明；现有 3 个 requirements 文件覆盖完整，无未声明的第三方库
+- **`.gitignore` 补全**：追加 12 个诊断/扫描输出模式（`*_baseline.txt` / `*_audit.txt` / `*_scan*.txt` 等），防止本轮及历史阶段临时文件漏入库
+- **ruff 全量扫描**：0 错误（修复前 5 个 F541）
+- **pytest 全量测试**：16/16 通过
+
+### Cleanup
+- 删除 14 项 `__pycache__` 目录与 `.pyc` 缓存（11_Word_Text_Replace/lib、src/、tests/ 三处）
+
+---
+
+
 ---
 
 ## 历史
@@ -65,3 +84,21 @@
 - 01-12 模块（Excel / PowerPoint / Word / PDF 基础）逐步成型
 - `15_PDF_XSS` 作为 PDF 安全清理原型
 - `32_SAE_Extractor` 从外部项目迁入（[SAE-Extractor](https://github.com/...)）
+
+### Added
+- **新增模块 08_Word_Tables_to_Graphpad**：docx 临床小结 → pzfx 模板抗体数据替换（gE ↔ VZV 等）
+  - `lib/docx_parser.py`：标准库 zipfile + ElementTree 解析 docx 段落 + 顶层表
+  - `lib/pzfx_parser.py`：单文件 XML / ZIP 容器两种 pzfx 格式兼容
+  - `lib/pzfx_writer.py`：基于字符串定位的 Subcolumn 改写（不破坏 XML 结构）
+  - `lib/antibody_mapping.py`：句式识别 + Triple 解析 + 跨抗体映射
+  - `poc_replicate.py`：CLI 主程序（含源值校验 + 审计 + 替换）
+  - `util_probe.py`：辅助工具：同时探查 docx + pzfx 结构
+  - 18 个单元测试（unittest）覆盖核心解析、改写、句式识别
+  - 典型场景：gE 抗体 pzfx 模板 → VZV 抗体 pzfx；表名/列名/Subcolumn 顺序不变，仅 `<d>` 数值替换
+
+### Changed
+- **模块编号顺位调整**：原 08_Word_Tables_to_Excel + 09_Word_All_Tables_to_Excel 合并为新的 `09_Word_Tables_to_Excel`
+  - 原 08_Word_Tables_to_Excel 的核心导出逻辑（`word_tables_to_excel.py`）整合到 09
+  - 原 09 的两个脚本（`word_all_tables_to_excel.py` / `word_tables_merge_to_single_excel.py`）改用直接 `import` 调用，去掉 importlib hack
+  - 受影响：08_Word_Tables_to_Excel/ 整目录删除、09_Word_All_Tables_to_Excel/ 改名、README.md / README_EN.md / docs/script_roles.md
+

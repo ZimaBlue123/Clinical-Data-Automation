@@ -78,8 +78,10 @@ class ClinicalDataGuard:
         try:
             json.loads(content)
             return content
-        except json.JSONDecodeError:
-            pass
+        except json.JSONDecodeError as e:
+            # raw_content 不是合法 JSON，将回退到 regex 提取首个 {...}。
+            # 保留 debug 日志以便审计模型返回结构是否符合预期。
+            logging.debug("raw_content 不是合法 JSON，回退 regex: %s", e)
 
         match = re.search(r"\{.*\}", content, flags=re.DOTALL)
         if match:
