@@ -66,7 +66,9 @@ def _norm_key(s: str) -> str:
 class TableData:
     table_index: int
     rows: list[list[str]]  # 纯文本矩阵（已清洗）
-    merged_range: Optional[tuple[int, int]] = None  # (from_index, to_index) 合并多段 Word 表时记录
+    merged_range: Optional[tuple[int, int]] = (
+        None  # (from_index, to_index) 合并多段 Word 表时记录
+    )
 
     @property
     def nrows(self) -> int:
@@ -127,7 +129,9 @@ def _docx_approx_table_row_counts(path: Path) -> list[int]:
     return counts
 
 
-def _self_check_table(t: Any, table_index: int, matrix: list[list[str]], source: str) -> None:
+def _self_check_table(
+    t: Any, table_index: int, matrix: list[list[str]], source: str
+) -> None:
     try:
         er = int(t.Rows.Count)
         ec = int(t.Columns.Count)
@@ -202,7 +206,10 @@ def _extract_table(doc: Any, table_index: int, *, quiet: bool = False) -> TableD
         raw_probe = str(t.Range.Text or "")
     except Exception:
         raw_probe = ""
-    skip_fast = expected_rows > FAST_PATH_MAX_TABLE_ROWS or len(raw_probe) >= WHOLE_TABLE_RANGE_TEXT_MAX_CHARS
+    skip_fast = (
+        expected_rows > FAST_PATH_MAX_TABLE_ROWS
+        or len(raw_probe) >= WHOLE_TABLE_RANGE_TEXT_MAX_CHARS
+    )
 
     # 快速路径：一次性取 Table.Range.Text 再切分（小表更快）
     if not skip_fast:
@@ -211,12 +218,19 @@ def _extract_table(doc: Any, table_index: int, *, quiet: bool = False) -> TableD
             if matrix:
                 parsed_rows = len(matrix)
                 parsed_cols = max((len(r) for r in matrix), default=0)
-                rows_ok = parsed_rows >= max(1, int(expected_rows * FAST_PATH_ROW_RATIO))
-                cols_ok = parsed_cols >= max(1, int(expected_cols * FAST_PATH_COL_RATIO))
+                rows_ok = parsed_rows >= max(
+                    1, int(expected_rows * FAST_PATH_ROW_RATIO)
+                )
+                cols_ok = parsed_cols >= max(
+                    1, int(expected_cols * FAST_PATH_COL_RATIO)
+                )
                 if rows_ok and cols_ok:
                     if not quiet:
                         _self_check_table(t, table_index, matrix, "Range.Text 快速路径")
-                    return TableData(table_index=table_index, rows=_pad_rows_to_ncols(matrix, expected_cols))
+                    return TableData(
+                        table_index=table_index,
+                        rows=_pad_rows_to_ncols(matrix, expected_cols),
+                    )
         except Exception:
             pass
 
@@ -253,7 +267,9 @@ def _extract_table(doc: Any, table_index: int, *, quiet: bool = False) -> TableD
     return TableData(table_index=table_index, rows=matrix2)
 
 
-def _merge_table_range(doc: Any, start_i: int, end_i: int, *, quiet: bool = False) -> TableData:
+def _merge_table_range(
+    doc: Any, start_i: int, end_i: int, *, quiet: bool = False
+) -> TableData:
     """将多个连续 Word 表纵向拼成一张（跨页被拆成多段 <w:tbl> 时常用）。"""
     all_rows: list[list[str]] = []
     per_counts: list[tuple[int, int]] = []
@@ -409,7 +425,10 @@ def _find_table_index_by_title(doc: Any, title_text: str) -> Optional[int]:
             # 在 doc.Content.Tables 中找 index
             all_tables = doc.Content.Tables
             for i in range(1, int(all_tables.Count) + 1):
-                if all_tables.Item(i).Range.Start == t.Range.Start and all_tables.Item(i).Range.End == t.Range.End:
+                if (
+                    all_tables.Item(i).Range.Start == t.Range.Start
+                    and all_tables.Item(i).Range.End == t.Range.End
+                ):
                     return int(i)
     except Exception:
         pass
@@ -503,7 +522,9 @@ def _collect_selected_tables(
     )
 
 
-def _merge_headers(table: TableData, header_rows: int) -> tuple[list[str], list[list[str]]]:
+def _merge_headers(
+    table: TableData, header_rows: int
+) -> tuple[list[str], list[list[str]]]:
     """
     将多行表头合并为单行列名：例如第1行=分组，第2行=指标 -> "分组 / 指标"
     返回：(merged_headers, body_rows)
@@ -513,7 +534,10 @@ def _merge_headers(table: TableData, header_rows: int) -> tuple[list[str], list[
     ncols = table.ncols
 
     # 取 header 矩阵并做“向左/向上填充”以适配 Word 合并单元格带来的空洞
-    header = [[(table.rows[r][c] if c < len(table.rows[r]) else "") for c in range(ncols)] for r in range(hr)]
+    header = [
+        [(table.rows[r][c] if c < len(table.rows[r]) else "") for c in range(ncols)]
+        for r in range(hr)
+    ]
 
     # 向左填充：同一行空值继承左侧（常见于横向合并）
     for r in range(hr):
@@ -541,13 +565,15 @@ def _merge_headers(table: TableData, header_rows: int) -> tuple[list[str], list[
             if v and (not parts or parts[-1] != v):
                 parts.append(v)
         name = " / ".join(parts).strip()
-        merged.append(name if name else f"COL_{c+1}")
+        merged.append(name if name else f"COL_{c + 1}")
 
     body = table.rows[hr:] if table.nrows >= hr else []
     return merged, body
 
 
-def _fill_header_matrix_for_style(table: TableData, header_rows: int) -> list[list[str]]:
+def _fill_header_matrix_for_style(
+    table: TableData, header_rows: int
+) -> list[list[str]]:
     """
     生成用于“多行表头美化”的 header 矩阵：做与 _merge_headers 同样的向左/向上填充，
     但保留为多行，写入 Excel 便于冻结窗格与视觉分层。
@@ -555,7 +581,10 @@ def _fill_header_matrix_for_style(table: TableData, header_rows: int) -> list[li
     hr = max(1, header_rows)
     hr = min(hr, table.nrows) if table.nrows else 1
     ncols = table.ncols
-    header = [[(table.rows[r][c] if c < len(table.rows[r]) else "") for c in range(ncols)] for r in range(hr)]
+    header = [
+        [(table.rows[r][c] if c < len(table.rows[r]) else "") for c in range(ncols)]
+        for r in range(hr)
+    ]
 
     for r in range(hr):
         last = ""
@@ -645,7 +674,9 @@ def _apply_table_style(ws, *, header_rows: int, ncols: int) -> None:
     ws.freeze_panes = ws.cell(header_rows + 1, 1).coordinate
     # 自动筛选
     header_row_for_filter = max(1, min(header_rows, max_row))
-    ws.auto_filter.ref = f"A{header_row_for_filter}:{openpyxl.utils.get_column_letter(max_col)}{max_row}"
+    ws.auto_filter.ref = (
+        f"A{header_row_for_filter}:{openpyxl.utils.get_column_letter(max_col)}{max_row}"
+    )
     # 表头行高
     for r in range(1, header_rows + 1):
         ws.row_dimensions[r].height = 22
@@ -684,7 +715,9 @@ def _write_workbook_for_tables(
                 v = row[c - 1] if c - 1 < len(row) else ""
                 ws.cell(r, c, value=v)
 
-        _apply_table_style(ws, header_rows=len(header_matrix), ncols=len(merged_headers))
+        _apply_table_style(
+            ws, header_rows=len(header_matrix), ncols=len(merged_headers)
+        )
         _autosize_columns(ws)
 
     wb.save(str(output_path))
@@ -707,7 +740,9 @@ def export_word_tables_to_excel(
     if not input_path.is_file():
         raise FileNotFoundError(f"输入文件不存在: {input_path}")
     if input_path.suffix.lower() not in WORD_SUFFIXES:
-        raise ValueError(f"不支持的输入后缀: {input_path.suffix}（仅支持 {sorted(WORD_SUFFIXES)}）")
+        raise ValueError(
+            f"不支持的输入后缀: {input_path.suffix}（仅支持 {sorted(WORD_SUFFIXES)}）"
+        )
 
     with WordComRunner() as runner:
         doc = runner.open_doc(input_path)
@@ -725,13 +760,18 @@ def export_word_tables_to_excel(
         )
 
     if not selected:
-        raise ValueError("未筛选到任何表格：请检查 --table-indices 或 --header-keywords")
+        raise ValueError(
+            "未筛选到任何表格：请检查 --table-indices 或 --header-keywords"
+        )
 
     if dry_run:
         print(f"[dry-run] Word 顶层表数: {total_tables}", file=sys.stderr)
         for t in selected:
             mr = f" merged={t.merged_range}" if t.merged_range else ""
-            print(f"[dry-run] 导出块: table_index={t.table_index}{mr} rows={t.nrows} cols={t.ncols}", file=sys.stderr)
+            print(
+                f"[dry-run] 导出块: table_index={t.table_index}{mr} rows={t.nrows} cols={t.ncols}",
+                file=sys.stderr,
+            )
         return output_path
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -754,15 +794,40 @@ def _parse_int_list(s: str) -> list[int]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="将 Word 指定表格导出为 Excel（精准表头对齐）")
+    parser = argparse.ArgumentParser(
+        description="将 Word 指定表格导出为 Excel（精准表头对齐）"
+    )
     default_output_dir = Path(__file__).resolve().parent / "output"
 
-    parser.add_argument("--input", "-i", required=True, help="Word/RTF 文件路径（.doc/.docx/.rtf）")
-    parser.add_argument("--output", "-o", default=None, help="输出 xlsx 路径（默认 output/<name>_tables.xlsx）")
-    parser.add_argument("--table-indices", default=None, help="要导出的表格序号（1-based），例如 1,3,5")
-    parser.add_argument("--table-index", type=int, default=None, help="只导出单个表格序号（1-based），例如 9")
-    parser.add_argument("--header-keywords", default=None, help="按表头关键字筛选（逗号分隔），例如 系统器官分类,首选术语")
-    parser.add_argument("--header-rows", type=int, default=1, help="表头行数（默认 1；用于多级表头合并）")
+    parser.add_argument(
+        "--input", "-i", required=True, help="Word/RTF 文件路径（.doc/.docx/.rtf）"
+    )
+    parser.add_argument(
+        "--output",
+        "-o",
+        default=None,
+        help="输出 xlsx 路径（默认 output/<name>_tables.xlsx）",
+    )
+    parser.add_argument(
+        "--table-indices", default=None, help="要导出的表格序号（1-based），例如 1,3,5"
+    )
+    parser.add_argument(
+        "--table-index",
+        type=int,
+        default=None,
+        help="只导出单个表格序号（1-based），例如 9",
+    )
+    parser.add_argument(
+        "--header-keywords",
+        default=None,
+        help="按表头关键字筛选（逗号分隔），例如 系统器官分类,首选术语",
+    )
+    parser.add_argument(
+        "--header-rows",
+        type=int,
+        default=1,
+        help="表头行数（默认 1；用于多级表头合并）",
+    )
     parser.add_argument(
         "--table-title",
         default=None,
@@ -780,7 +845,9 @@ def main() -> None:
         default=None,
         help="合并到第 M 个 Word 表（含 M）；默认合并到文档最后一个表",
     )
-    parser.add_argument("--quiet", action="store_true", help="减少自检信息输出到 stderr")
+    parser.add_argument(
+        "--quiet", action="store_true", help="减少自检信息输出到 stderr"
+    )
     parser.add_argument(
         "--list-docx-tables",
         action="store_true",
@@ -826,12 +893,16 @@ def main() -> None:
         default_output_dir.mkdir(parents=True, exist_ok=True)
         output_path = default_output_dir / f"{input_path.stem}_tables.xlsx"
 
-    table_indices: Optional[list[int]] = _parse_int_list(args.table_indices) if args.table_indices else None
+    table_indices: Optional[list[int]] = (
+        _parse_int_list(args.table_indices) if args.table_indices else None
+    )
     if args.table_index is not None:
         table_indices = [int(args.table_index)]
     header_keywords: Optional[list[str]] = None
     if args.header_keywords:
-        header_keywords = [p.strip() for p in args.header_keywords.split(",") if p.strip()]
+        header_keywords = [
+            p.strip() for p in args.header_keywords.split(",") if p.strip()
+        ]
 
     merge_from = args.merge_tables_from
     merge_to = args.merge_tables_to
@@ -860,4 +931,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

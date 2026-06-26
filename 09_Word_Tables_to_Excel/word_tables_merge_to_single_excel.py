@@ -84,8 +84,9 @@ def _looks_like_sample_id(s: str) -> bool:
     return False
 
 
-
-def _extract_row_values(row: list[str], c0: int, c1: int, sub_row: list[str] | None) -> tuple[str, str]:
+def _extract_row_values(
+    row: list[str], c0: int, c1: int, sub_row: list[str] | None
+) -> tuple[str, str]:
     """
     提取某个指标区间里的（数值, 说明）。
     若子表头存在“说明”列，优先按该列切分。
@@ -95,7 +96,9 @@ def _extract_row_values(row: list[str], c0: int, c1: int, sub_row: list[str] | N
         return "", ""
 
     if sub_row:
-        sub = [_clean_text(sub_row[i]) if i < len(sub_row) else "" for i in range(c0, c1)]
+        sub = [
+            _clean_text(sub_row[i]) if i < len(sub_row) else "" for i in range(c0, c1)
+        ]
         note_idx = None
         for i, sh in enumerate(sub):
             if sh == "说明":
@@ -111,7 +114,13 @@ def _extract_row_values(row: list[str], c0: int, c1: int, sub_row: list[str] | N
     non_empty = [x for x in seg if x]
     if not non_empty:
         return "", ""
-    if len(non_empty) >= 2 and non_empty[-1] in {"阴性", "阳性", "可疑", "反应", "待查"}:
+    if len(non_empty) >= 2 and non_empty[-1] in {
+        "阴性",
+        "阳性",
+        "可疑",
+        "反应",
+        "待查",
+    }:
         return non_empty[0], non_empty[-1]
     return non_empty[0], ""
 
@@ -125,7 +134,9 @@ def _parse_table_matrix(matrix: list[list[str]]) -> list[dict[str, Any]]:
     for r in range(min(6, len(matrix))):
         row = matrix[r]
         row_text = " ".join(_clean_text(c) for c in row[:4])
-        has_sid = ("样品" in row_text and "ID" in row_text) or ("sample" in row_text.lower() and "id" in row_text.lower())
+        has_sid = ("样品" in row_text and "ID" in row_text) or (
+            "sample" in row_text.lower() and "id" in row_text.lower()
+        )
         has_marker = any(_marker_from_cell(c) for c in row)
         if has_sid and has_marker:
             header_idx = r
@@ -154,7 +165,9 @@ def _parse_table_matrix(matrix: list[list[str]]) -> list[dict[str, Any]]:
         groups.append((mk, st, ed))
 
     data_start = header_idx + 1
-    if sub_row and any(_clean_text(c) in {"mIU/ml", "IU/ml", "S/CO", "说明"} for c in sub_row):
+    if sub_row and any(
+        _clean_text(c) in {"mIU/ml", "IU/ml", "S/CO", "说明"} for c in sub_row
+    ):
         data_start = header_idx + 2
 
     out: list[dict[str, Any]] = []
@@ -258,7 +271,13 @@ class WordComRunner:
 
 
 def _iter_word_files(input_dir: Path) -> list[Path]:
-    files = [p for p in input_dir.iterdir() if p.is_file() and p.suffix.lower() in WORD_SUFFIXES and not p.name.startswith("~$")]
+    files = [
+        p
+        for p in input_dir.iterdir()
+        if p.is_file()
+        and p.suffix.lower() in WORD_SUFFIXES
+        and not p.name.startswith("~$")
+    ]
     files.sort(key=lambda x: x.name.lower())
     return files
 
@@ -270,7 +289,10 @@ def _merge_records(records: list[dict[str, Any]]) -> OrderedDict[str, dict[str, 
         if not sid:
             continue
         if sid not in merged:
-            merged[sid] = {"样品ID": sid, **{m: {"value": "", "note": ""} for m in MARKERS}}
+            merged[sid] = {
+                "样品ID": sid,
+                **{m: {"value": "", "note": ""} for m in MARKERS},
+            }
         cur = merged[sid]
         for mk in MARKERS:
             blk = rec.get(mk) if isinstance(rec.get(mk), dict) else {}
@@ -455,7 +477,9 @@ def run(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="将多个 Word 表格合并为一个列表 Excel")
-    parser.add_argument("--input-dir", "-i", default=str(MODULE_DIR / "input"), help="输入目录")
+    parser.add_argument(
+        "--input-dir", "-i", default=str(MODULE_DIR / "input"), help="输入目录"
+    )
     parser.add_argument(
         "--output",
         "-o",
@@ -477,16 +501,21 @@ def main() -> None:
     input_dir = Path(args.input_dir).expanduser().resolve()
     output_path = Path(args.output).expanduser().resolve()
 
-    ref_excel = Path(args.reference_excel).expanduser().resolve() if args.reference_excel else None
+    ref_excel = (
+        Path(args.reference_excel).expanduser().resolve()
+        if args.reference_excel
+        else None
+    )
     n_files, n_tables, n_rows = run(
         input_dir,
         output_path,
         prefer_docx_reader=not bool(args.disable_docx_reader),
         reference_excel=ref_excel,
     )
-    print(f"完成：文件 {n_files} 个，命中表 {n_tables} 张，汇总样品 {n_rows} 行 -> {output_path}")
+    print(
+        f"完成：文件 {n_files} 个，命中表 {n_tables} 张，汇总样品 {n_rows} 行 -> {output_path}"
+    )
 
 
 if __name__ == "__main__":
     main()
-

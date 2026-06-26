@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import argparse
 import datetime as _dt
-import importlib.util
 import re
 import sys
 import traceback
@@ -19,24 +18,10 @@ from typing import Optional
 
 
 MODULE_DIR = Path(__file__).resolve().parent
-ROOT_DIR = MODULE_DIR.parent
-MOD08_SCRIPT = ROOT_DIR / "08_Word_Tables_to_Excel" / "word_tables_to_excel.py"
-
-
-def _load_word_tables_exporter():
-    if not MOD08_SCRIPT.is_file():
-        raise FileNotFoundError(f"未找到模块 08 代码：{MOD08_SCRIPT}")
-
-    spec = importlib.util.spec_from_file_location("word_tables_to_excel_08", str(MOD08_SCRIPT))
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"无法加载模块 08：{MOD08_SCRIPT}")
-
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)  # type: ignore[attr-defined]
-
-    if not hasattr(module, "export_word_tables_to_excel"):
-        raise RuntimeError("模块 08 缺少导出函数 export_word_tables_to_excel")
-    return module
+# 本模块（09_Word_Tables_to_Excel）合并了原 08 的导出逻辑，直接从同目录导入
+from word_tables_to_excel import (  # noqa: E402
+    export_word_tables_to_excel,
+)
 
 
 def _natural_key(s: str):
@@ -103,7 +88,9 @@ def _maybe_backup_output(output_path: Path, *, backup_existing: bool) -> None:
         return
 
     ts = _dt.datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_path = output_path.with_name(f"{output_path.stem}.bak_{ts}{output_path.suffix}")
+    backup_path = output_path.with_name(
+        f"{output_path.stem}.bak_{ts}{output_path.suffix}"
+    )
     try:
         output_path.rename(backup_path)
     except Exception:
@@ -112,7 +99,9 @@ def _maybe_backup_output(output_path: Path, *, backup_existing: bool) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="批量：Word 全部顶层表格 -> Excel（多 sheet）")
+    parser = argparse.ArgumentParser(
+        description="批量：Word 全部顶层表格 -> Excel（多 sheet）"
+    )
     parser.add_argument(
         "--input-dir",
         "-i",
@@ -125,27 +114,54 @@ def main() -> None:
         default=str(MODULE_DIR / "output"),
         help="输出目录（默认本模块 output/）",
     )
-    parser.add_argument("--header-rows", type=int, default=1, help="表头占用行数（默认 1）")
-    parser.add_argument("--dry-run", action="store_true", help="只统计并打印行列，不写 xlsx")
-    parser.add_argument("--quiet", action="store_true", help="减少导出过程输出到 stderr")
+    parser.add_argument(
+        "--header-rows", type=int, default=1, help="表头占用行数（默认 1）"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="只统计并打印行列，不写 xlsx"
+    )
+    parser.add_argument(
+        "--quiet", action="store_true", help="减少导出过程输出到 stderr"
+    )
 
-    parser.add_argument("--skip-existing", action="store_true", help="output 已存在则跳过该文件")
-    parser.add_argument("--no-backup-existing", action="store_true", help="覆盖前不备份旧输出（默认启用备份）")
-    parser.add_argument("--overwrite", action="store_true", help="直接覆盖输出（不备份）")
+    parser.add_argument(
+        "--skip-existing", action="store_true", help="output 已存在则跳过该文件"
+    )
+    parser.add_argument(
+        "--no-backup-existing",
+        action="store_true",
+        help="覆盖前不备份旧输出（默认启用备份）",
+    )
+    parser.add_argument(
+        "--overwrite", action="store_true", help="直接覆盖输出（不备份）"
+    )
     parser.add_argument("--fail-fast", action="store_true", help="遇到错误立即中止")
-    parser.add_argument("--max-files", type=int, default=None, help="最多处理多少个文件（调试用）")
+    parser.add_argument(
+        "--max-files", type=int, default=None, help="最多处理多少个文件（调试用）"
+    )
 
     # 可选筛表（默认导出全部顶层表格）
-    parser.add_argument("--table-indices", default=None, help="导出指定表序号（1-based），如 1,3,5")
-    parser.add_argument("--table-index", type=int, default=None, help="导出单个表序号（1-based）")
-    parser.add_argument("--header-keywords", default=None, help="按表头关键字筛选（逗号分隔）")
+    parser.add_argument(
+        "--table-indices", default=None, help="导出指定表序号（1-based），如 1,3,5"
+    )
+    parser.add_argument(
+        "--table-index", type=int, default=None, help="导出单个表序号（1-based）"
+    )
+    parser.add_argument(
+        "--header-keywords", default=None, help="按表头关键字筛选（逗号分隔）"
+    )
     parser.add_argument(
         "--merge-tables-from",
         type=int,
         default=None,
         help="多段顶层表纵向合并：从第 N 个开始（启用后会仅导出合并区间结果）",
     )
-    parser.add_argument("--merge-tables-to", type=int, default=None, help="多段顶层表纵向合并：合并到第 M 个")
+    parser.add_argument(
+        "--merge-tables-to",
+        type=int,
+        default=None,
+        help="多段顶层表纵向合并：合并到第 M 个",
+    )
 
     args = parser.parse_args()
 
@@ -155,9 +171,6 @@ def main() -> None:
 
     # 覆盖/备份策略
     backup_existing = not bool(args.no_backup_existing) and not bool(args.overwrite)
-
-    # 加载 24 的导出器（仅加载一次）
-    exporter = _load_word_tables_exporter()
 
     table_indices: Optional[list[int]] = None
     if args.table_indices:
@@ -192,7 +205,7 @@ def main() -> None:
                 _maybe_backup_output(out_path, backup_existing=backup_existing)
 
         try:
-            exporter.export_word_tables_to_excel(
+            export_word_tables_to_excel(
                 input_path=wp,
                 output_path=out_path,
                 table_indices=table_indices,
@@ -222,4 +235,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
