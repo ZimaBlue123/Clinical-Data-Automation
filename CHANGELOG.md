@@ -8,6 +8,11 @@
 ## [Unreleased]
 
 ### Changed
+- **阶段三：核心配置文件更新（2026-06-26，Refs: chore/code-health-2026-06-26）**
+  - `.gitignore`：新增 `.pyright/` 目录排除（pyright 类型检查缓存）
+  - `requirements-ci.txt`：新增 `ruff>=0.15.0` 与 `pre-commit>=3.7.0` 声明
+  - `requirements.lite.txt`：新增 `ruff>=0.15.0` 与 `pytest>=7.0.0` 声明（精简版含完整开发工具链）
+  - `README.md`：新增「静态分析（ruff）」小节（指向 pyproject.toml 规则集与 ruff check . 用法）
 - **阶段一：代码健壮性与语法审计（2026-06-26，Refs: chore/code-health-2026-06-26）**
   - 新增 `pyproject.toml` ruff 静态分析配置（与 AGENTS.md §4.1 规则集完全对齐：E/F/W/B/UP/S/N/SIM/RET/ARG/PTH/ERA/PLR）
   - 批量自动修复：UP 系列注解升级（typing → PEP 585/604）、W 系列空白整理、PTH 系列（os.path → pathlib），累计修复 645 处

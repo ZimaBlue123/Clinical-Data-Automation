@@ -115,6 +115,8 @@ __pypackages__/
 
 # [Patch] Python 类型检查工具（pyright）配置（可能含 extraPaths 本地路径）
 pyrightconfig.json
+# [Patch] pyright 缓存目录（2026-06-26 阶段三补全）
+.pyright/
 
 # [Patch] Windows 编译产物：CPython 扩展与 PDB 调试符号
 *.pyd

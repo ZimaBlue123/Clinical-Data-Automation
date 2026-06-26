@@ -82,3 +82,5 @@ urllib3>=2.0.0
 # 开发 / 提交钩子（可选：根目录 .pre-commit-config.yaml + scripts/check_secrets.py）
 # ---------------------------------------------------------------------------
 pre-commit>=3.7.0
+ruff>=0.15.0  # 静态分析（与 pyproject.toml 规则集一致）
+pytest>=7.0.0  # 本地冒烟测试
