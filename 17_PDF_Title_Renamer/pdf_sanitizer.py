@@ -4,6 +4,7 @@
 Vibe: Academic Cyberpunk
 Engine: PyMuPDF | Chrono-Tracker | Visual Hierarchy | Subtitle Severance | OCR
 """
+
 import re
 import shutil
 from pathlib import Path
@@ -75,8 +76,10 @@ GUIDANCE_COVER_PREFIXES: tuple[str, ...] = (
 )
 
 # 期刊封面页眉：字号常最大但不是论文题目，视觉层级需跳过
+# ruff: noqa: RUF012
 _JOURNAL_MASTHEAD_COMPRESSED: frozenset[str] = frozenset(
     {
+        # PLOS 系列
         "plosone",
         "plosone.",
         "plosbiology",
@@ -84,6 +87,12 @@ _JOURNAL_MASTHEAD_COMPRESSED: frozenset[str] = frozenset(
         "plospathogens",
         "plosgenetics",
         "ploscompbiol",
+        "ploswater",
+        "plosclimate",
+        "plossustainability",
+        "plosdigitalhealth",
+        "plosglobalpublichealth",
+        # 顶级综合刊
         "nature",
         "science",
         "cell",
@@ -96,13 +105,54 @@ _JOURNAL_MASTHEAD_COMPRESSED: frozenset[str] = frozenset(
         "sciadv",
         "naturecommunications",
         "naturemedicine",
+        "naturebiotechnology",
+        "naturemethods",
+        "natureimmunology",
+        "natureneuroscience",
+        "naturegenetics",
+        # 免疫 / 疫苗 / 微生物（针对本仓库涉猎领域）
         "vaccine",
         "immunity",
-        "lancet",
         "bmjopen",
-        "plosone",
         "elsevier",
         "sciencedirect",
+        # Taylor & Francis 系（v7 新增：解决 Emerging Microbes & Infections 误识别）
+        "emergingmicrobesinfections",
+        "tandfonline",
+        "taylorfrancis",
+        "taylorandfrancis",
+        "virulence",
+        "mabs",
+        "expertopinion",
+        "expertopinionondrugdelivery",
+        "expertopiniononbiologicaltherapy",
+        "expertopiniononemergingdrugs",
+        "expertreview",
+        "expertreviewvaccines",
+        "expertreviewantiinfectivetherapy",
+        "humanvaccines",
+        "humanvaccinesimmunotherapeutics",
+        # Wiley 系（v7 新增）
+        "advancedscience",
+        "angewandtechemie",
+        "angewandtechemieinternationaledition",
+        "chemicalcommunications",
+        "chemistryaeuropean",
+        "europeanjournaloforganicchemistry",
+        "europeanjournalofinorganicchemistry",
+        # Springer Nature 系（v7 新增）
+        "scientificreports",
+        "naturebiomedicalengineering",
+        "naturechemicalbiology",
+        "translationalmolecularmedicine",
+        "cellandmolecularimmunology",
+        # 出版商通用
+        "journalhomepage",
+        "wileyonlinelibrary",
+        "springernature",
+        "academicoup",
+        "oupcom",
+        "academicjournals",
     }
 )
 
@@ -148,13 +198,23 @@ _JOURNAL_VOL_HEADER = re.compile(
     re.IGNORECASE,
 )
 
-# 出版商页脚/页眉套话（非标题）
+# 出版商页脚/页眉套话（非标题）——v7 扩展 T&F / Wiley / Springer / ISSN 行
 _BOILERPLATE_LINE = re.compile(
-    r"(?i)^(contents lists available|journal homepage|www\.elsevier\.com|"
+    r"(?i)^(contents lists available|journal homepage|"
+    r"www\.elsevier\.com|www\.tandfonline\.com|www\.wiley\.com|"
+    r"www\.wileyonlinelibrary\.com|www\.springer\.com|www\.nature\.com|"
+    r"link\.springer\.com|"
     r"sciencedirect|g model|received in revised form|"
     r"available online|copyright\s*©|all rights reserved|"
     r"please\s+cite\s+this\s+article|cite\s+this\s+article\s+in\s+press|"
-    r"crossmark\.crossref\.org)",
+    r"crossmark\.crossref\.org|"
+    r"taylor\s*&\s*francis|"
+    r"wiley\s*&\s*sons|"
+    r"published by\s+(?:elsevier|springer|wiley|taylor|mdpi|frontiers)|"
+    r"©\s*\d{4}|"
+    r"issn\s*:?\s*\d{4}[\-\s]?\d{3}[\dX]|"
+    r"this\s+article\s+is\s+(?:distributed|made)|"
+    r"under\s+the\s+terms\s+of\s+the\s+creative\s+commons)",
 )
 
 # Elsevier「Please cite this article in press as:」引用提示（整行或视觉拼接前缀）
@@ -183,6 +243,7 @@ logger = logging.getLogger(__name__)
 # --- 视觉矩阵依赖 (容错加载) ---
 try:
     import pytesseract
+
     # 如果你是 Windows 用户且没有配置环境变量，请取消下方注释并修改路径
     # pytesseract.pytesseract.tesseract_cmd = r'D:\Tesseract-OCR\tesseract.exe'
     OCR_AVAILABLE = True
@@ -260,17 +321,23 @@ class PDFSanitizer:
 
     @staticmethod
     def _is_journal_masthead_only(candidate: str) -> bool:
-        """是否为仅期刊名/页眉（非正文标题）。"""
+        """是否为仅期刊名/页眉（非正文标题）。v7 放宽：≤5 词且 ≤44 字符。"""
         t = candidate.strip()
         if not t or len(t) < 4:
             return True
         comp = PDFSanitizer._compress_for_masthead(t)
         if comp in _JOURNAL_MASTHEAD_COMPRESSED:
             return True
-        # 常见「Journal Name」短行：≤4 词且总长较短
+        # 常见「Journal Name / Group Name」短行：≤5 词且总长 ≤44
         words = t.split()
-        if len(words) <= 4 and len(t) <= 36 and not re.search(r"[.?:;]", t):
-            if comp.endswith("journal") or "journalof" in comp:
+        # v7：不再要求以 .?:; 作为终止标点判断，避免误伤 "Emerging Microbes & Infections"
+        if len(words) <= 5 and len(t) <= 48 and not re.search(r"[.?:;]$", t):
+            if (
+                comp.endswith("journal")
+                or "journalof" in comp
+                or "infections" in comp
+                or "&" in t  # 「X & Y Group / X & Y Infections」出版商命名模式
+            ):
                 return True
         return False
 
@@ -370,10 +437,12 @@ class PDFSanitizer:
         m = _TITLE_BODY_START.search(t)
         if m and m.start() > 0:
             head = t[: m.start()]
-            if _CITATION_INSTRUCTION_IN_TEXT.search(head) or re.search(
-                r"(?i)\bpress\b", head
-            ) or re.search(
-                r"(?i)\b(?:scheiermann|klinman|[A-Z][a-z]+,\s*[A-Z]\.)\b", head
+            if (
+                _CITATION_INSTRUCTION_IN_TEXT.search(head)
+                or re.search(r"(?i)\bpress\b", head)
+                or re.search(
+                    r"(?i)\b(?:scheiermann|klinman|[A-Z][a-z]+,\s*[A-Z]\.)\b", head
+                )
             ):
                 t = t[m.start() :].strip()
         t = re.sub(
@@ -392,7 +461,9 @@ class PDFSanitizer:
         return t
 
     @staticmethod
-    def _should_prefer_academic(hierarchy: str, academic: str, text_payload: str) -> bool:
+    def _should_prefer_academic(
+        hierarchy: str, academic: str, text_payload: str
+    ) -> bool:
         """Elsevier 待刊：学术行解析优先于（更长的）视觉拼接。"""
         if not academic or len(academic) < 20:
             return False
@@ -418,10 +489,14 @@ class PDFSanitizer:
             return False
         if re.search(r"\*\s*$", s):
             return True
-        if s.count(",") >= 1 and re.match(
-            r"^[A-Z][\w\-\.']+(?:\s*,\s*[A-Z][\w\-\.']*)+",
-            s,
-        ) and len(s) < 120:
+        if (
+            s.count(",") >= 1
+            and re.match(
+                r"^[A-Z][\w\-\.']+(?:\s*,\s*[A-Z][\w\-\.']*)+",
+                s,
+            )
+            and len(s) < 120
+        ):
             return True
         if PDFSanitizer._looks_like_author_surnames_only(s):
             return True
@@ -496,7 +571,9 @@ class PDFSanitizer:
                 or PDFSanitizer._is_publisher_status_line(s)
                 or PDFSanitizer._is_citation_instruction_line(s)
                 or PDFSanitizer._is_boilerplate_line(s)
-                or (not title_parts and PDFSanitizer._looks_like_author_surnames_only(s))
+                or (
+                    not title_parts and PDFSanitizer._looks_like_author_surnames_only(s)
+                )
             ):
                 i += 1
                 continue
@@ -527,13 +604,19 @@ class PDFSanitizer:
 
     @staticmethod
     def _preserve_scientific_token(word: str) -> str:
-        """保留 CpG、mRNA、IL-6 等科学缩写原有大小写。"""
+        """保留 CpG、mRNA、IL-6 等科学缩写原有大小写（v7：罗马数字如 IIa/IVb）。"""
         w = word.strip()
         if not w:
             return w
         if re.match(r"^[A-Z][a-z]*[A-Z][\w\-]*$", w):
             return w
         if re.search(r"\d", w) and re.search(r"[A-Za-z]", w):
+            return w
+        # v7：罗马数字+可选小写尾缀（IIa / IIIb / IV），按原样保留
+        if re.fullmatch(r"[IVXLCDM]+[a-z]?", w):
+            return w
+        # v7：罗马数字与下划线拼接（I_IIa / II_IV），仅出现一次 _，忽略为 phase 分离标记
+        if re.fullmatch(r"[IVXLCDM]+_[IVXLCDM]+[a-z]?", w):
             return w
         return ""
 
@@ -559,31 +642,109 @@ class PDFSanitizer:
         return " ".join(formatted_words)
 
     @staticmethod
+    def _split_on_smart_colon(name: str) -> str:
+        """v7：智能副标题处理。
+        英文冒号后若含临床试验关键分期词（Phase / Trial / Randomized / Study / Analysis / Review），
+        则保留副标题；否则按中文冒号硬截断。
+        """
+        # 1. 中文冒号一律硬截断（中文一般没有副标题嵌套）
+        if "：" in name:
+            return name.split("：", 1)[0]
+        # 2. 英文冒号智能判断
+        if ":" in name:
+            head, _, tail = name.partition(":")
+            tail_clean = tail.strip()
+            if re.search(
+                r"(?i)\b(phase|randomized|trial|study|analysis|review|"
+                r"double[\-\s]?blind|open[\-\s]?label|single[\-\s]?blind|"
+                r"multicenter|multicentre|case\s+report|brief\s+report|"
+                r"short\s+report|letter\s+to|preliminary)\b",
+                tail_clean,
+            ):
+                # 保留：副标题含临床试验设计信息
+                return name
+            # 不保留：截断
+            return head
+        return name
+
+    @staticmethod
+    def _smart_bracket_removal(name: str) -> str:
+        """v7：智能括号处理。
+        保留含字母/数字的技术括号（如 (Pichia pastoris)、(COVID-19)、(n=100)）；
+        删除纯符号括号（如 [10.1016/xxx]、():）。
+        """
+        # 1. 先删除纯符号括号对：内部不含任何字母/数字/中文
+        #    模式：半角或全角方括号、圆括号嵌套的“纯符号”块
+        out = re.sub(
+            r"[\[\(（【《][^\[\]\(\)\u4e00-\u9fa5\w]*[\]\)）】》]",
+            "",
+            name,
+        )
+        # 2. 剩余括号对中，若有字母数字则保留其内容
+        #    （如 "(Pichia pastoris)" → "Pichia pastoris"）
+        out = re.sub(
+            r"[\[\(（【《]([^\[\]\(\)）】》]*?[A-Za-z0-9\u4e00-\u9fa5][^\[\]\(\)）】》]*?)[\]\)）】》]",
+            r" \1 ",
+            out,
+        )
+        return out
+
+    @staticmethod
+    def _split_roman_numerals(words: list[str]) -> list[str]:
+        """v7：罗马数字斜杠分离。
+        "I/IIa"、"I/iia" → ["I", "IIa"]，避免被文件名压缩器当作路径分隔符。
+        不区分大小写；不处理 URL / DOI 路径（包含点号、域名等）。
+        """
+        # 仅匹配纯罗马数字/小写组合的斜杠 token，避免误伤 https://example.com
+        roman_token = re.compile(r"^([IVXLCDM]+)/([IVXLCDM]+[a-z]?)$", re.IGNORECASE)
+        result: list[str] = []
+        for w in words:
+            if "/" in w and "." not in w and roman_token.match(w):
+                parts = w.split("/", 1)
+                # 保留原始大小写（IIa → IIa，iia → iia）
+                result.append(f"{parts[0]}_{parts[1]}")
+            else:
+                result.append(w)
+        return result
+
+    @staticmethod
     def _simplify_filename(name: str, max_words: int = 22, max_chars: int = 40) -> str:
-        """核心文本手术刀：副标题截断，双语自适应解析，全角标点粉碎，边缘修剪"""
-        # 0. [核心优化] 副标题物理切除：在遇到中英文冒号时进行硬截断
-        name = re.split(r"[:：]", name)[0]
+        """核心文本手术刀 v7：智能副标题、&/斜杠容错、技术括号保留、悬挂词修剪。"""
+        # 0. 智能副标题处理（v7）
+        name = PDFSanitizer._split_on_smart_colon(name)
 
         # 1. 阵营嗅探：检测是否包含中文字符
         is_chinese = bool(re.search(r"[\u4e00-\u9fa5]", name))
-        
-        # 2. 物理切除：切除各类括号及内部噪点
-        cleaned = re.sub(r"[\[\(（【《].*?[\]\)）】》]", "", name)
-        
-        # 3. 抹除非法路径字符，替换为空格
-        cleaned = re.sub(r"[^\w\s\-\u4e00-\u9fa5]", " ", cleaned)
+
+        # 2. v7：& 替换为 " And "，避免被非法字符过滤后拼接成 "MicrobesInfections"
+        name = re.sub(r"\s*&\s*", " And ", name)
+
+        # 3. v7：智能括号处理（保留技术术语）
+        name = PDFSanitizer._smart_bracket_removal(name)
+
+        # 4. 抹除非法路径字符，替换为空格（保留中英文、连字符、斜杠临时标记）
+        cleaned = re.sub(r"[^\w\s\-\u4e00-\u9fa5/]", " ", name)
         cleaned = re.sub(r"\s+", " ", cleaned).strip()
+
+        # 5. v7：罗马数字斜杠分离（必须在 smart_title_case 之前，否则 IIa 会被小写化）
+        if not is_chinese:
+            roman_words = []
+            for w in cleaned.split():
+                roman_words.extend(PDFSanitizer._split_roman_numerals([w]))
+            cleaned = " ".join(roman_words)
 
         if is_chinese:
             # 中文高压压缩
-            cleaned_cjk = cleaned.replace(" ", "")
+            cleaned_cjk = cleaned.replace(" ", "").replace("/", "")
             if not cleaned_cjk:
                 return "未命名文献_Untitled"
-            return cleaned_cjk[:max_chars] 
+            return cleaned_cjk[:max_chars]
         else:
             # 纯英文边缘修剪
             cleaned_en = PDFSanitizer._smart_title_case(cleaned)
             words = cleaned_en.split()[:max_words]
+            # 清理残留的斜杠（URL/DOI 残片）
+            words = [w.replace("/", "") for w in words]
             # 仅修剪首尾悬挂介词；保留题目内部的 of/for（如 evaluation of CpG）
             while len(words) > 2 and words[-1].lower() in DANGLING_TOXINS:
                 words.pop()
@@ -593,7 +754,7 @@ class PDFSanitizer:
             if not words:
                 fallback = cleaned_en[:50].strip().replace(" ", "_")
                 return fallback if fallback else "Untitled_Document"
-                
+
             return "_".join(words)
 
     def _dedupe_filename(self, target_dir: Path, base_name: str) -> str:
@@ -625,7 +786,7 @@ class PDFSanitizer:
         try:
             blocks = page.get_text("dict").get("blocks", [])
             text_sizes = []
-            
+
             for b in blocks:
                 if "lines" in b:
                     for line in b["lines"]:
@@ -634,19 +795,19 @@ class PDFSanitizer:
                             size = span.get("size", 0)
                             if text:
                                 text_sizes.append((size, text))
-            
+
             if not text_sizes:
                 return ""
-            
+
             size_map = {}
             for size, text in text_sizes:
                 s = round(size, 1)
                 if s not in size_map:
                     size_map[s] = []
                 size_map[s].append(text)
-                
+
             sorted_sizes = sorted(size_map.keys(), reverse=True)
-            
+
             # 黑名单：免疫期刊页眉噪点 + 出版商待刊横幅
             blacklist = {
                 "majorarticle",
@@ -661,7 +822,7 @@ class PDFSanitizer:
                 "pleasecitethisarticle",
                 "citethisarticleinpress",
             }
-            
+
             for s in sorted_sizes:
                 candidate = " ".join(size_map[s]).strip()
                 compressed_cand = candidate.lower().replace(" ", "")
@@ -685,14 +846,25 @@ class PDFSanitizer:
 
                 refined = PDFSanitizer._strip_guidance_cover_prefix(candidate)
                 refined = PDFSanitizer._strip_noise_prefix_from_title(refined)
-                if refined and len(refined) >= 8 and not PDFSanitizer._is_toxic_title_candidate(refined):
+                if (
+                    refined
+                    and len(refined) >= 8
+                    and not PDFSanitizer._is_toxic_title_candidate(refined)
+                ):
                     return refined
 
                 norm_one = PDFSanitizer._normalize_ws_lower(candidate)
-                if any(norm_one == p or norm_one.startswith(p + " ") for p in GUIDANCE_COVER_PREFIXES):
+                if any(
+                    norm_one == p or norm_one.startswith(p + " ")
+                    for p in GUIDANCE_COVER_PREFIXES
+                ):
                     continue
                 cleaned = PDFSanitizer._strip_noise_prefix_from_title(candidate)
-                if cleaned and len(cleaned) >= 8 and not PDFSanitizer._is_toxic_title_candidate(cleaned):
+                if (
+                    cleaned
+                    and len(cleaned) >= 8
+                    and not PDFSanitizer._is_toxic_title_candidate(cleaned)
+                ):
                     return cleaned
         except Exception:
             logger.debug("视觉层级提取失败", exc_info=True)
@@ -704,16 +876,16 @@ class PDFSanitizer:
         year = "XXXX"
         text_payload = ""
         hierarchy_title = ""
-        
+
         try:
             with fitz.open(pdf_path) as doc:
                 meta_title = doc.metadata.get("title", "").strip()
-                
+
                 # 尝试获取原生文本与视觉层级
                 if len(doc) > 0:
                     text_payload = doc[0].get_text("text").strip()
                     hierarchy_title = self._extract_title_by_visual_hierarchy(doc[0])
-                
+
                 # 如果原生文本极少，触发 OCR
                 if len(text_payload) < 20:
                     text_payload = self._optical_scan(doc)
@@ -721,14 +893,30 @@ class PDFSanitizer:
                 # --- 阶段 1: 标题窃取 (多维降维打击) ---
                 if hierarchy_title:
                     title = hierarchy_title
-                elif meta_title and len(meta_title) > 2 and "microsoft word" not in meta_title.lower():
+                elif (
+                    meta_title
+                    and len(meta_title) > 2
+                    and "microsoft word" not in meta_title.lower()
+                ):
                     title = meta_title
                 else:
-                    lines = [line.strip() for line in text_payload.splitlines() if line.strip()]
-                    for line in lines[:15]: 
-                        if len(line) >= 5: 
+                    lines = [
+                        line.strip()
+                        for line in text_payload.splitlines()
+                        if line.strip()
+                    ]
+                    for line in lines[:15]:
+                        if len(line) >= 5:
                             title = line
                             break
+
+                # v7: 视觉层级仅凭最大字号判断，易被期刊页眉（最大字号但非正文）误伤
+                # 如果 hierarchy_title 被事后判定为 masthead / 文章类型 / 出版商噪点，
+                # 提前清空交给学术解析接管。
+                if hierarchy_title and self._is_journal_masthead_only(hierarchy_title):
+                    hierarchy_title = ""
+                    if (title or "").strip() == hierarchy_title.strip() or not title:
+                        title = ""
 
                 text_head = text_payload[:4000]
                 # FDA 封面：泛化层级已命中时，用首屏结构抽取具体题目
@@ -779,7 +967,7 @@ class PDFSanitizer:
                 header_year = self._year_from_journal_header(text_head)
                 pattern = r"(?:©|copyright|published|vol\.|date|年|出版|收稿).*?\b(19[5-9]\d|20[0-2]\d)\b"
                 explicit_year = re.search(pattern, text_head, re.IGNORECASE)
-                
+
                 if header_year:
                     year = header_year
                 elif explicit_year:
@@ -794,13 +982,15 @@ class PDFSanitizer:
                         if meta_year_match:
                             year = meta_year_match.group(1)
                         else:
-                            fallback_year = re.search(r"\b(19[5-9]\d|20[0-2]\d)\b", text_head)
+                            fallback_year = re.search(
+                                r"\b(19[5-9]\d|20[0-2]\d)\b", text_head
+                            )
                             if fallback_year:
                                 year = fallback_year.group(1)
-                                
+
         except Exception:
             logger.exception("标题探测失败: file=%s", pdf_path.name)
-            
+
         return title or pdf_path.stem, year
 
     def execute(self) -> None:
@@ -812,18 +1002,22 @@ class PDFSanitizer:
             logger.warning("action=input_not_found input=%s", self.input_dir)
             return
 
-        logger.info("action=rename_start targets=%s ocr=%s", len(pdf_targets), OCR_AVAILABLE)
-        
+        logger.info(
+            "action=rename_start targets=%s ocr=%s", len(pdf_targets), OCR_AVAILABLE
+        )
+
         success_count = 0
         skipped_count = 0
         base_input_dir = self.input_dir.resolve()
 
-        for pdf_path in tqdm(pdf_targets, desc="Sanitizing", unit="file", ascii=" ▖▘▝▗▚▞█"):
+        for pdf_path in tqdm(
+            pdf_targets, desc="Sanitizing", unit="file", ascii=" ▖▘▝▗▚▞█"
+        ):
             raw_title, year = self._scan_payload(pdf_path)
             simplified_name = self._simplify_filename(raw_title)
-            
+
             chronological_name = f"{simplified_name}-{year}"
-            
+
             if self.keep_structure:
                 rel_parent = pdf_path.resolve().relative_to(base_input_dir).parent
                 target_dir = (self.output_dir / rel_parent).resolve()
@@ -839,7 +1033,11 @@ class PDFSanitizer:
                 try:
                     target_path.unlink()
                 except Exception:
-                    logger.warning("action=overwrite_delete_failed target=%s", target_path, exc_info=True)
+                    logger.warning(
+                        "action=overwrite_delete_failed target=%s",
+                        target_path,
+                        exc_info=True,
+                    )
 
             final_safe_name = self._dedupe_filename(target_dir, chronological_name)
             target_path = target_dir / f"{final_safe_name}.pdf"
@@ -848,15 +1046,30 @@ class PDFSanitizer:
             success_count += 1
 
         if skipped_count:
-            logger.warning("action=skip_existing count=%s hint=use_overwrite", skipped_count)
-        logger.info("action=rename_complete success=%s output=%s", success_count, self.output_dir)
+            logger.warning(
+                "action=skip_existing count=%s hint=use_overwrite", skipped_count
+            )
+        logger.info(
+            "action=rename_complete success=%s output=%s",
+            success_count,
+            self.output_dir,
+        )
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-    parser = argparse.ArgumentParser(description="PDF 标题驱动重命名（支持递归遍历子文件夹）")
-    parser.add_argument("--input", "-i", default="input", help="输入目录（相对 16_PDF_Title_Renamer/）")
-    parser.add_argument("--output", "-o", default="output", help="输出目录（相对 16_PDF_Title_Renamer/）")
+    parser = argparse.ArgumentParser(
+        description="PDF 标题驱动重命名（支持递归遍历子文件夹）"
+    )
+    parser.add_argument(
+        "--input", "-i", default="input", help="输入目录（相对 16_PDF_Title_Renamer/）"
+    )
+    parser.add_argument(
+        "--output",
+        "-o",
+        default="output",
+        help="输出目录（相对 16_PDF_Title_Renamer/）",
+    )
     parser.add_argument(
         "--recursive",
         action=argparse.BooleanOptionalAction,

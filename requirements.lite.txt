@@ -1,4 +1,4 @@
-﻿# Clinical Data Automation — Python 依赖（pip install -r requirements.txt）
+# Clinical Data Automation — Python 依赖（pip install -r requirements.txt）
 #
 # 安装说明
 # - 全量安装体积较大（含 PaddleOCR / paddlepaddle）；若不需要 16_PPTX_PDF_to_PPT，可暂时注释对应行。
@@ -19,7 +19,7 @@ numpy>=1.20.0
 pdfplumber>=0.10.0
 pymupdf>=1.23.0
 fonttools>=4.0.0  # 18_PDF_eCTD_Converter：subset_fonts 嵌入字体（6.26）
-pypdf>=4.0.0
+pypdf>=6.0
 python-pptx>=0.6.21
 Pillow>=10.0.0
 

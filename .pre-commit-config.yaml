@@ -9,7 +9,7 @@ repos:
       - id: check-ast  # 验证 Python AST 合法
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.7.2
+    rev: v0.15.0  # 与 requirements-ci.txt 中 ruff>=0.15.0 对齐
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
