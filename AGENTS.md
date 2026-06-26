@@ -19,6 +19,7 @@
 | `.gitignore` | 哪些路径**不能**动（input/output/Template 都不入库） |
 | `requirements*.txt` | 真实依赖；不要凭空 `pip install` 未经声明的包 |
 | `CHANGELOG.md` | 看历史变更风格，保持一致 |
+| `plans/` | 阶段性设计文档与可入库的审计报告（v7 优化、阶段修复计划等） |
 
 ## 3. 子项目结构约定
 

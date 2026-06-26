@@ -2,12 +2,14 @@
 # 全量功能依赖见 requirements.txt
 # 精简版（跳过 paddleocr / paddlepaddle）见 requirements.lite.txt
 # 须覆盖 tests/ 与 src/ 冒烟导入所用包
-pytest>=7.0.0  # tests/ 用了 pytest
+# AGENTS.md 4.1 节要求 ruff check .；tests/ 目录用 pytest
+pytest>=7.0.0
+ruff>=0.15.0
 openpyxl>=3.1.0
 pandas>=1.5.0
 numpy>=1.20.0
 lxml>=4.9.0
 pdfplumber>=0.10.0
-pymupdf>=1.23.0
+pymupdf>=1.27.0  # 与 requirements.txt 同步（≥1.27.0 改进了 page.delete_link 行为）
 pyyaml>=6.0
 pypdf>=6.0  # 23_PDF_Threat_Analyzer 测试需要

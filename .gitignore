@@ -160,7 +160,13 @@ Project/
 # 7. Git worktree 与临时调试产物
 # ==========================================
 # [Patch] Git worktree 临时工作区（需跨分支调试时生成，避免入库）
+# 例外：plans/ 设计文档与 CHANGELOG.md 可入库（跨 worktree 重用）
 .worktrees/
+!.worktrees/*/plans/
+!.worktrees/*/plans/**
+!.worktrees/*/CHANGELOG.md
+!.worktrees/**/CHANGELOG.md
+!.worktrees/*/*.md
 # [Patch] 临时调试脚本（fill_clinical_table.py 等调试期间产生的中间文件）
 *scan_cleanup*.py
 *execute_cleanup*.py
@@ -170,7 +176,11 @@ Project/
 *py_files*.txt
 *audit_test*.txt
 *read_excel*.py
-*verify_*.py
+# 仅根目录的 verify_*.py；plans/ 与 worktree 中的诊断脚本可入库
+/verify_*.py
+!plans/
+!plans/**/verify_*.py
+!.worktrees/**/verify_*.py
 *read_yangzhuai*.py
 *read_gmi*.py
 *fill_gmc_table.py

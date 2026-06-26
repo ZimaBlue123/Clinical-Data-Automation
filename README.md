@@ -6,9 +6,10 @@
 
 ## 环境要求
 
-- Python 3.8+
-- 依赖见 `requirements.txt`
+- **Python 3.10+**（推荐 3.10/3.11；AGENTS.md 类型提示规范按 3.10+ 实现；3.8 可运行但缺 PEP 604/585 语法糖）
+- 依赖见 `requirements.txt`；CI 冒烟仅需 `requirements-ci.txt`；跳过 paddleocr 可用 `requirements.lite.txt`
 - Windows 专用依赖（`pywin32`）仅在 Windows + Office 自动化模块中需要
+- macOS 注意事项：`paddlepaddle` 在 `platform_system == "Darwin"` 下无 wheel，`requirements.txt` 已默认排除
 
 ## 安装
 
@@ -32,6 +33,13 @@ pip install -r requirements.txt
 > pip install -r requirements-ci.txt
 > pytest
 > ```
+>
+> **PDF 库版本兼容说明**：`pymupdf >= 1.27.0` 与 `pypdf >= 6.0` 为推荐版本。
+> - 18_PDF_eCTD_Converter / 23_PDF_Threat_Analyzer 在 `pymupdf < 1.27` 下 `page.delete_link` 行为不一致；
+> - 23_PDF_Threat_Analyzer 的加密 PDF 处理依赖 `pypdf >= 6.0`。
+> 若仅运行 17_PDF_Title_Renamer 等标题提取模块，低版本可临时使用。
+>
+> **Paddle 平台限制**：`paddlepaddle` 在 macOS 上无官方 wheel，`requirements.txt` 已添加 `platform_system != "Darwin"` 环境标记，macOS 默认跳过安装。
 
 ## 整体架构
 
