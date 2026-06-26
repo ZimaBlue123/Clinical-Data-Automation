@@ -7,6 +7,24 @@
 
 ## [Unreleased]
 
+### Changed
+- **17_PDF_Title_Renamer PDF Sanitizer v6.9 → v7**（Refs: 17_PDF_Title_Renamer / plans/pdf_sanitizer_v7_optimization.md）
+  - **masthead 黑名单扩展**：新增 Taylor & Francis 系（emergingmicrobesinfections / tandfonline / taylorfrancis / virulence / mabs / expertopinion / expertreviewvaccines 等 14 个）、Wiley 系（advancedscience / angewandtechemie / europeanjournalof* 等 6 个）、Springer Nature 系（scientificreports / naturebiomedicalengineering 等 5 个），出版商通用词（journalhomepage / wileyonlinelibrary / springernature / academicoup / oupcom 等）
+  - **BOILERPLATE_LINE 扩展**：覆盖 www.tandfonline.com / www.wiley.com / www.springer.com / link.springer.com / taylor & francis / wiley & sons / published by ... / © <year> / ISSN: <code> / creative commons 行
+  - **_is_journal_masthead_only 兜底判定放宽**：≤5 词、≤48 字符，且新增 & 出版商命名模式与 infections 后缀识别（命中 Emerging Microbes & Infections）
+  - **新增 _split_on_smart_colon**：英文冒号后含 Phase / Trial / Randomized / Double-blind / Multicenter 等临床试验设计词时**保留副标题**，中文冒号或无关键设计词时仍按硬截断
+  - **新增 _smart_bracket_removal**：含字母/数字的技术括号（如 (Pichia pastoris)、(COVID-19)、(n=100)）保留内容；纯符号括号（如 [10.1016/...]、(:)）整段删除
+  - **& → " And " 容错**：避免 Emerging Microbes & Infections 被非法字符过滤后黏连成 MicrobesInfections
+  - **罗马数字斜杠分离**：_split_roman_numerals 前移到 _smart_title_case 之前，避免 I/IIa 在大小写化时退化为 I/iia；_preserve_scientific_token 同步支持 IIa / IVb 单 token 与 I_IIa 拼接形式
+  - **_scan_payload 视觉层级降级**：当 hierarchy_title（最大字号命中）事后被判定为 masthead 时，提前清空并交给 _academic_title_from_plain_text 接管，避免期刊名压制正文标题
+  - **单元验证脚本**：`_verify_v7.py`（worktree 内），覆盖 masthead 黑名单 / 智能冒号 / 智能括号 / 罗马数字 / boilerplate 7 项断言，全部 PASS
+
+### Fixed
+- **17_PDF_Title_Renamer：Taylor & Francis 期刊封面误识别**
+  - 症状：`Emerging_Microbes_&_Infections_ISSN-2025.pdf` → `Emerging_Microbes_Infections-2025.pdf`
+  - 根因：视觉层级最大字号命中期刊名 masthead，原黑名单未含 T&F 系；副标题 `Phase I/IIa trial` 因 `:` 被截断丢弃；`(Pichia pastoris)` 整块被括号过滤器删除
+  - 修复后：→ `Safety_Tolerability_and_Immunogenicity_of_a_Quadrivalent_Recombinant_Norovirus_Vaccine_Pichia_Pastoris_in_Participants_Six_Weeks_of_Age_or_Older_Phase_I_IIa_Trial-2025.pdf`
+
 ### Added
 - **新增模块 23_PDF_Threat_Analyzer**：PDF 静态威胁扫描 + 工业级安全剥离
   - 关键字扫描（`/JavaScript` / `/OpenAction` / `/Launch` / `/EmbeddedFiles` 等 8 类）
