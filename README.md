@@ -41,6 +41,23 @@ pip install -r requirements.txt
 >
 > **Paddle 平台限制**：`paddlepaddle` 在 macOS 上无官方 wheel，`requirements.txt` 已添加 `platform_system != "Darwin"` 环境标记，macOS 默认跳过安装。
 
+## 静态分析（ruff）
+
+仓库已建立 [`pyproject.toml`](pyproject.toml) 静态分析基线（AGENTS.md §4.1 全规则集：E/F/W/B/UP/S/N/SIM/RET/ARG/PTH/ERA/PLR）。
+
+```bash
+# 安装（已在 requirements*.txt 中声明）
+pip install ruff>=0.15.0
+
+# 全量扫描
+ruff check .
+
+# 自动修复（PEP 585/604 注解升级、空白整理、os.path → pathlib 等）
+ruff check . --fix
+```
+
+鲁棒性风险点（S 系列）按 `per-file-ignores` 集中豁免并配业务说明注释，详见 [`pyproject.toml`](pyproject.toml)。
+
 ## 整体架构
 
 本仓库为 **按编号目录划分的独立工具集**（`01_` … `33_`）。整体遵循三条规则：

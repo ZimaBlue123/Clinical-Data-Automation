@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 中检院血清样本检测报告 PDF 转 Excel。
 
@@ -16,7 +15,8 @@ import re
 import sys
 from collections import OrderedDict
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
+from collections.abc import Iterable
 
 # 项目根：12_PDF_Batch_to_Excel -> Clinical Data Automation
 MODULE_DIR = Path(__file__).resolve().parent

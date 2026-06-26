@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict
 
 
 @dataclass(frozen=True)
@@ -57,7 +56,7 @@ def _lighten(hex_color: str, factor: float) -> str:
 
 
 # 将业务中的组别名称映射到语义分组（英文 key），再映射到具体颜色。
-_CATEGORY_CANONICAL_MAP: Dict[str, str] = {
+_CATEGORY_CANONICAL_MAP: dict[str, str] = {
     # 英文名 / 代码中的类别名
     "Experimental": "experimental",
     "Control": "control",
@@ -71,7 +70,7 @@ _CATEGORY_CANONICAL_MAP: Dict[str, str] = {
     "安慰剂组": "placebo",
 }
 
-_CANONICAL_TO_COLOR: Dict[str, str] = {
+_CANONICAL_TO_COLOR: dict[str, str] = {
     "experimental": COLOR_THEME.group_experimental,
     "control": COLOR_THEME.group_control,
     "placebo": COLOR_THEME.group_placebo,
@@ -83,7 +82,7 @@ _CANONICAL_TO_COLOR: Dict[str, str] = {
 # - 低/高剂量试验组：以 Steel Blue 为基色，高剂量略深，低剂量略浅；
 # - 低/高剂量佐剂组：以 Muted Brick Red 为基色，同样做明度区分；
 # - 安慰剂组：中性色 Slate Gray。
-_GROUP_NAME_OVERRIDE: Dict[str, str] = {
+_GROUP_NAME_OVERRIDE: dict[str, str] = {
     "低剂量试验组": _lighten(COLOR_THEME.group_experimental, 1.25),
     "高剂量试验组": _lighten(COLOR_THEME.group_experimental, 1.05),
     "低剂量佐剂组": _lighten(COLOR_THEME.group_control, 1.25),

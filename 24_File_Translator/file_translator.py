@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 多格式文档翻译模块（Excel/CSV/Word/PDF）
 优化项：
@@ -24,7 +23,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from copy import copy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Protocol
+from typing import Protocol
+from collections.abc import Iterable
 
 import pandas as pd
 import requests

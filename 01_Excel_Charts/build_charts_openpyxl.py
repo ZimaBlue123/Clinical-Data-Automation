@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 在已经“无图形部件”的 `不同剂量组ADR分析 (TFL).xlsx` 上，
 用 openpyxl 重新创建与 Template 风格一致的组合图（柱形 + 折线）。

@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """
 高保真 PPT 合并与整合脚本（03_PPT_Merge 子项目）
 
@@ -37,7 +36,7 @@
 import os
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional, Set, Tuple, Any
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -67,10 +66,10 @@ class SlideInfo:
     text_content: str                 # 文本内容指纹的原始语料
     shape_count: int                  # 形状数量，用作版式复杂度指标
     slide_obj: object                 # python-pptx 的 slide 对象
-    cluster_id: Optional[int] = None  # 连通分量 ID
+    cluster_id: int | None = None  # 连通分量 ID
     max_similarity: float = 0.0       # 与任意其他页的最大相似度
     decision: str = "undecided"       # keep_unique / keep_partial_overlap / drop_conflict
-    notes_flags: List[str] = field(default_factory=list)  # 备注中需要写入的标记
+    notes_flags: list[str] = field(default_factory=list)  # 备注中需要写入的标记
 
 
 # =========================
@@ -163,9 +162,9 @@ def count_shapes(slide) -> int:
 # =========================
 
 
-def _collect_rids_from_element(element) -> Set[str]:
+def _collect_rids_from_element(element) -> set[str]:
     """从 XML 元素树中收集所有 r:embed / r:id 属性值（关系 ID）。"""
-    rids: Set[str] = set()
+    rids: set[str] = set()
     for el in element.iter():
         for key, value in list(el.attrib.items()):
             if "}" in key:
@@ -178,7 +177,7 @@ def _collect_rids_from_element(element) -> Set[str]:
     return rids
 
 
-def _replace_rids_in_element(element, rid_map: Dict[str, str]) -> None:
+def _replace_rids_in_element(element, rid_map: dict[str, str]) -> None:
     """将元素树中所有 r:embed / r:id 属性值按 rid_map 替换为新的 rId（原地修改）。"""
     for el in element.iter():
         for key in list(el.attrib.keys()):
@@ -195,7 +194,7 @@ def _replace_rids_in_element(element, rid_map: Dict[str, str]) -> None:
 
 def _copy_image_part_to_package(
     source_part: Part, target_package
-) -> Optional[Part]:
+) -> Part | None:
     """将源包中的图片 part 复制到目标包，返回新 part（供 relate_to 使用）。"""
     try:
         blob = source_part.blob
@@ -216,7 +215,7 @@ def _copy_image_part_to_package(
 
 def _copy_chart_part_to_package(
     source_chart_part, source_slide_part, target_package, target_slide_part
-) -> Optional[Tuple[Any, str]]:
+) -> tuple[Any, str] | None:
     """
     将源图表 part（及其嵌入的 xlsx）复制到目标包。
     返回 (新 ChartPart, 新 rId) 或 None。新 chart 已与 target_slide_part 建立关系。
@@ -277,8 +276,8 @@ def _copy_part_to_target_and_get_new_rid(
     target_slide_part,
     target_package,
     rId: str,
-    rid_map: Dict[str, str],
-) -> Optional[str]:
+    rid_map: dict[str, str],
+) -> str | None:
     """
     若 rId 尚未在 rid_map 中，则将 source_slide_part 通过 rId 引用的 part 复制到
     target_package，并在 target_slide_part 上建立关系，返回新 rId 并写入 rid_map。
@@ -379,7 +378,7 @@ def clone_slide_into_presentation(template_prs: Presentation, source_slide, layo
         try:
             new_el = deepcopy(shape.element)
             rids = _collect_rids_from_element(new_el)
-            rid_map: Dict[str, str] = {}
+            rid_map: dict[str, str] = {}
             for rId in rids:
                 _copy_part_to_target_and_get_new_rid(
                     source_slide_part,
@@ -426,7 +425,7 @@ def standardize_fonts(slide, title_font_name="Arial", body_font_name="Arial",
                     font.size = Pt(body_size_pt)
 
 
-def add_notes_to_slide(slide, extra_notes: List[str]):
+def add_notes_to_slide(slide, extra_notes: list[str]):
     """在 Notes 中追加“需人工确认整合”等提示信息。"""
     if not extra_notes:
         return
@@ -444,9 +443,9 @@ def add_notes_to_slide(slide, extra_notes: List[str]):
 # 相似度与聚类决策
 # =========================
 
-def build_slide_infos(ppt_paths: List[str]) -> List[SlideInfo]:
+def build_slide_infos(ppt_paths: list[str]) -> list[SlideInfo]:
     """从多个 PPT 文件中构造 SlideInfo 列表。"""
-    slide_infos: List[SlideInfo] = []
+    slide_infos: list[SlideInfo] = []
     gid = 0
 
     for path in ppt_paths:
@@ -470,7 +469,7 @@ def build_slide_infos(ppt_paths: List[str]) -> List[SlideInfo]:
     return slide_infos
 
 
-def compute_similarity(slide_infos: List[SlideInfo]) -> np.ndarray:
+def compute_similarity(slide_infos: list[SlideInfo]) -> np.ndarray:
     """基于 TF-IDF 计算所有幻灯片之间的余弦相似度矩阵。"""
     corpus = [s.text_content for s in slide_infos]
     if all(not c.strip() for c in corpus):
@@ -487,7 +486,7 @@ def compute_similarity(slide_infos: List[SlideInfo]) -> np.ndarray:
     return sim
 
 
-def build_clusters(sim_matrix: np.ndarray, low: float = 0.6) -> Dict[int, int]:
+def build_clusters(sim_matrix: np.ndarray, low: float = 0.6) -> dict[int, int]:
     """
     使用相似度 >= low 的边构造连通分量，得到 cluster_id。
     这里使用简单并查集，避免真正的 KMeans 需要指定簇数的问题。
@@ -511,8 +510,8 @@ def build_clusters(sim_matrix: np.ndarray, low: float = 0.6) -> Dict[int, int]:
             if sim_matrix[i, j] >= low:
                 union(i, j)
 
-    root_to_cluster: Dict[int, int] = {}
-    mapping: Dict[int, int] = {}
+    root_to_cluster: dict[int, int] = {}
+    mapping: dict[int, int] = {}
     next_cid = 0
     for i in range(n):
         root = find(i)
@@ -525,7 +524,7 @@ def build_clusters(sim_matrix: np.ndarray, low: float = 0.6) -> Dict[int, int]:
 
 
 def decide_keep_drop(
-    slide_infos: List[SlideInfo],
+    slide_infos: list[SlideInfo],
     sim_matrix: np.ndarray,
     thr_low: float = 0.6,
     thr_high: float = 0.9,
@@ -580,7 +579,7 @@ def decide_keep_drop(
 # 报表生成
 # =========================
 
-def generate_report(slide_infos: List[SlideInfo], out_xlsx: str):
+def generate_report(slide_infos: list[SlideInfo], out_xlsx: str):
     """输出 merge_report.xlsx，便于后续人工审阅与追溯。"""
     rows = []
     for s in slide_infos:

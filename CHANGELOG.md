@@ -8,6 +8,18 @@
 ## [Unreleased]
 
 ### Changed
+- **阶段三：核心配置文件更新（2026-06-26，Refs: chore/code-health-2026-06-26）**
+  - `.gitignore`：新增 `.pyright/` 目录排除（pyright 类型检查缓存）
+  - `requirements-ci.txt`：新增 `ruff>=0.15.0` 与 `pre-commit>=3.7.0` 声明
+  - `requirements.lite.txt`：新增 `ruff>=0.15.0` 与 `pytest>=7.0.0` 声明（精简版含完整开发工具链）
+  - `README.md`：新增「静态分析（ruff）」小节（指向 pyproject.toml 规则集与 ruff check . 用法）
+- **阶段一：代码健壮性与语法审计（2026-06-26，Refs: chore/code-health-2026-06-26）**
+  - 新增 `pyproject.toml` ruff 静态分析配置（与 AGENTS.md §4.1 规则集完全对齐：E/F/W/B/UP/S/N/SIM/RET/ARG/PTH/ERA/PLR）
+  - 批量自动修复：UP 系列注解升级（typing → PEP 585/604）、W 系列空白整理、PTH 系列（os.path → pathlib），累计修复 645 处
+  - 鲁棒性 S 系列风险点统一审计处置：S110/S112（探测/清理容错）、S602/S603/S607（subprocess 本地硬编码）、S104（0.0.0.0 故意绑定）、S311（伪随机非密码学）、S324（MD5 文档指纹）、S314（xml.etree，待迁 defusedxml）按 per-file-ignores 文件级豁免 + 业务说明注释
+  - 验证：`py_compile` 全部 85 个 .py 编译通过；冒烟导入测试 65/65 成功（21 个缺第三方库的模块为预期跳过）
+  - **安全基线建立**：lint 错误数 1350 → 433（剩余均为业务风格/复杂度类，下个迭代继续）
+- **17_PDF_Title_Renamer PDF Sanitizer v6.9 → v7**（Refs: 17_PDF_Title_Renamer / plans/pdf_sanitizer_v7_optimization.md）
 - **17_PDF_Title_Renamer PDF Sanitizer v6.9 → v7**（Refs: 17_PDF_Title_Renamer / plans/pdf_sanitizer_v7_optimization.md）
   - **masthead 黑名单扩展**：新增 Taylor & Francis 系（emergingmicrobesinfections / tandfonline / taylorfrancis / virulence / mabs / expertopinion / expertreviewvaccines 等 14 个）、Wiley 系（advancedscience / angewandtechemie / europeanjournalof* 等 6 个）、Springer Nature 系（scientificreports / naturebiomedicalengineering 等 5 个），出版商通用词（journalhomepage / wileyonlinelibrary / springernature / academicoup / oupcom 等）
   - **BOILERPLATE_LINE 扩展**：覆盖 www.tandfonline.com / www.wiley.com / www.springer.com / link.springer.com / taylor & francis / wiley & sons / published by ... / © <year> / ISSN: <code> / creative commons 行

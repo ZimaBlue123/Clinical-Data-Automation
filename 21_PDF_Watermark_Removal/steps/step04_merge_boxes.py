@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from typing import Dict, List
 
 import fitz  # PyMuPDF
 
@@ -9,14 +8,14 @@ from .utils import Box, clamp_boxes_to_page, merge_boxes
 
 def merge_boxes_by_page(
     doc: fitz.Document,
-    boxes_by_page: Dict[str, List[Box]],
+    boxes_by_page: dict[str, list[Box]],
     *,
     pad: float = 2.0,
-) -> Dict[str, List[Box]]:
+) -> dict[str, list[Box]]:
     """
     Merge overlapping boxes to reduce fragmentation and improve stability.
     """
-    out: Dict[str, List[Box]] = {}
+    out: dict[str, list[Box]] = {}
     for page_key, page_boxes in boxes_by_page.items():
         try:
             pno = int(page_key)

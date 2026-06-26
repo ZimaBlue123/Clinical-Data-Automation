@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 按 config 从 PDF 检索内容并写入 Excel 对应位置。
 用法: python main.py [--config config.yaml]
@@ -39,13 +38,13 @@ logger = logging.getLogger(__name__)
 def load_config(config_path: str | Path) -> dict:
     """
     加载 YAML 配置文件。
-    
+
     Args:
         config_path: 配置文件路径
-        
+
     Returns:
         配置字典
-        
+
     Raises:
         FileNotFoundError: 配置文件不存在
         ValueError: 配置文件格式错误
@@ -53,9 +52,9 @@ def load_config(config_path: str | Path) -> dict:
     config_path = Path(config_path)
     if not config_path.exists():
         raise FileNotFoundError(f"配置文件不存在: {config_path}")
-    
+
     try:
-        with open(config_path, "r", encoding="utf-8") as f:
+        with open(config_path, encoding="utf-8") as f:
             config = yaml.safe_load(f)
             if not isinstance(config, dict):
                 raise ValueError("配置文件格式错误：根节点必须是字典")
@@ -82,7 +81,7 @@ def run_rule(
 ) -> None:
     """
     执行单个提取规则。
-    
+
     Args:
         rule: 规则配置字典
         pdf_path: PDF 文件路径
@@ -92,7 +91,7 @@ def run_rule(
     if not isinstance(rule, dict):
         logger.error("规则配置必须是字典")
         return
-    
+
     name = rule.get("name", "未命名规则")
     search_cfg = rule.get("search", {})
     excel_cfg = rule.get("excel", {})
@@ -100,7 +99,7 @@ def run_rule(
     if not isinstance(search_cfg, dict):
         logger.error(f"规则 '{name}': search 配置必须是字典")
         return
-    
+
     if not isinstance(excel_cfg, dict):
         logger.error(f"规则 '{name}': excel 配置必须是字典")
         return
@@ -242,7 +241,7 @@ def main():
         if not pdf_path_str:
             print("配置文件中缺少 pdf_path")
             sys.exit(1)
-        
+
         pdf_path = resolve_path(base_dir, args.input if args.input else pdf_path_str)
         excel_path = resolve_path(
             base_dir,
@@ -382,10 +381,10 @@ def main():
                 logger.exception("规则执行失败: index=%s rule=%s pdf=%s", i, rule.get("name", "未命名规则"), pdf_path)
                 print(f"  [错误] 规则执行失败: {e}")
             print()
-        
+
         save_workbook(wb, excel_path)
         print(f"完成。成功处理 {success_count}/{len(rules)} 个规则。")
-        
+
     except KeyboardInterrupt:
         print("\n\n用户中断操作")
         sys.exit(130)

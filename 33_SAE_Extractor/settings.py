@@ -3,7 +3,7 @@ import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Dict, Any, Tuple
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -12,17 +12,17 @@ class Settings:
     input_dir: Path
     output_dir: Path
     api_base_url: str
-    api_token: Optional[str]
+    api_token: str | None
     model_id: str
-    tesseract_cmd: Optional[str]
-    poppler_path: Optional[str]
+    tesseract_cmd: str | None
+    poppler_path: str | None
 
 
 def get_project_root() -> Path:
     return Path(__file__).resolve().parent
 
 
-def _coerce_path(value: Optional[str], default: Path, *, root: Path) -> Path:
+def _coerce_path(value: str | None, default: Path, *, root: Path) -> Path:
     """
     将环境变量/参数解析为稳定的绝对 Path：
     - 支持 %VAR% 展开（由 OS 负责注入到进程环境后，这里做 expandvars）
@@ -71,7 +71,7 @@ def resolve_default_output(settings: Settings, filename: str) -> Path:
     return settings.output_dir / filename
 
 
-def _run_version_cmd(args: list[str]) -> Tuple[bool, str]:
+def _run_version_cmd(args: list[str]) -> tuple[bool, str]:
     try:
         p = subprocess.run(args, capture_output=True, text=True, timeout=10)
         first_line = (p.stdout or p.stderr or "").splitlines()[:1]
@@ -82,8 +82,8 @@ def _run_version_cmd(args: list[str]) -> Tuple[bool, str]:
         return (False, "")
 
 
-def check_environment(settings: Settings) -> Dict[str, Any]:
-    result: Dict[str, Any] = {
+def check_environment(settings: Settings) -> dict[str, Any]:
+    result: dict[str, Any] = {
         "python": {"ok": True},
         "tesseract": {"ok": False, "source": None, "detail": ""},
         "poppler": {"ok": False, "source": None, "detail": ""},

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 PDF 威胁分析与工业级安全剥离工具（模块 23）。
 
@@ -44,7 +43,7 @@ import tempfile
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # 标准日志（按 docs/logging_convention.md：action=xxx key=value）
@@ -108,7 +107,7 @@ def detect_engines() -> EngineStatus:
 # 威胁字典
 # ---------------------------------------------------------------------------
 # 高危 PDF 关键字 → 权重（命中次数 × 权重 = 风险分）
-RISK_KEYWORDS: Dict[bytes, int] = {
+RISK_KEYWORDS: dict[bytes, int] = {
     b"/JavaScript": 3,
     b"/JS": 3,
     b"/OpenAction": 2,   # 自动执行动作
@@ -129,7 +128,7 @@ MMAP_THRESHOLD_BYTES = 1 * 1024 * 1024
 # 模块级预编译正则：避免每次扫描重新编译。
 # key: 关键字 bytes；value: (权重, 编译后的 pattern)
 # pattern 在关键字后接 [^a-zA-Z0-9] 边界，避免误报 /JavaScriptable 这类带后缀的合法名。
-COMPILED_RISK_PATTERNS: Dict[bytes, Tuple[int, "re.Pattern[bytes]"]] = {
+COMPILED_RISK_PATTERNS: dict[bytes, tuple[int, re.Pattern[bytes]]] = {
     kw: (weight, re.compile(re.escape(kw) + b"[^a-zA-Z0-9]"))
     for kw, weight in RISK_KEYWORDS.items()
 }
@@ -143,7 +142,7 @@ class PDFThreatAnalyzer:
 
     def __init__(self, file_path: Path) -> None:
         self.file_path = Path(file_path)
-        self.report: Dict[str, Any] = {
+        self.report: dict[str, Any] = {
             "file_name": self.file_path.name,
             "file_size_bytes": 0,
             "is_valid_pdf": False,
@@ -210,14 +209,13 @@ class PDFThreatAnalyzer:
         - length=0 自动取整个文件
         - Windows / Linux / macOS 通用
         """
-        with open(self.file_path, "rb") as f:
-            with mmap.mmap(f.fileno(), length=0, access=mmap.ACCESS_READ) as mm:
-                for keyword, (weight, pattern) in COMPILED_RISK_PATTERNS.items():
-                    # mmap 对象直接作为 findall 的输入，零拷贝
-                    matches = pattern.findall(mm)
-                    count = len(matches)
-                    if count > 0:
-                        self._record_hit(keyword, count, weight)
+        with open(self.file_path, "rb") as f, mmap.mmap(f.fileno(), length=0, access=mmap.ACCESS_READ) as mm:
+            for keyword, (weight, pattern) in COMPILED_RISK_PATTERNS.items():
+                # mmap 对象直接作为 findall 的输入，零拷贝
+                matches = pattern.findall(mm)
+                count = len(matches)
+                if count > 0:
+                    self._record_hit(keyword, count, weight)
 
     def _record_hit(self, keyword: bytes, count: int, weight: int) -> None:
         """记录单条关键字命中到 report。"""
@@ -297,7 +295,7 @@ class PDFThreatAnalyzer:
             self.report["risk_level"] = "HIGH"
 
     # -- 入口 --------------------------------------------------------------
-    def analyze(self) -> Dict[str, Any]:
+    def analyze(self) -> dict[str, Any]:
         """执行完整分析管线，返回报告 dict。"""
         if not self.file_path.exists():
             self._log_error(f"文件不存在: {self.file_path}")
@@ -340,7 +338,7 @@ class PDFSanitizer:
     def __init__(self, engines: EngineStatus) -> None:
         self.engines = engines
 
-    def sanitize(self, src: Path, dst: Path, overwrite: bool = False) -> Tuple[bool, str]:
+    def sanitize(self, src: Path, dst: Path, overwrite: bool = False) -> tuple[bool, str]:
         """剥离 src 中的威胁，输出到 dst。返回 (success, engine_used_or_error)。"""
         if dst.exists() and not overwrite:
             return False, f"目标已存在，未覆盖: {dst}"
@@ -352,7 +350,7 @@ class PDFSanitizer:
         return False, "无可用 sanitize 引擎（需 fitz 或 pypdf）"
 
     # -- fitz 路径（mupdf 内核，参考 15_PDF_XSS） ----------------------------
-    def _sanitize_with_fitz(self, src: Path, dst: Path) -> Tuple[bool, str]:
+    def _sanitize_with_fitz(self, src: Path, dst: Path) -> tuple[bool, str]:
         try:
             import fitz  # type: ignore
         except ImportError:
@@ -366,7 +364,7 @@ class PDFSanitizer:
         removed_links = 0
         removed_embeds = 0
         removed_catalog_keys = 0
-        intermediate: Optional[Path] = None
+        intermediate: Path | None = None
         try:
             for page in doc:
                 # 1) 删注释（最常携带 JS 动作的对象）
@@ -484,7 +482,7 @@ class PDFSanitizer:
         return True, engine_used
 
     # -- pypdf 降级路径（基础结构级剥离） ------------------------------------
-    def _sanitize_with_pypdf(self, src: Path, dst: Path) -> Tuple[bool, str]:
+    def _sanitize_with_pypdf(self, src: Path, dst: Path) -> tuple[bool, str]:
         try:
             from pypdf import PdfReader, PdfWriter  # type: ignore
         except ImportError:
@@ -536,7 +534,7 @@ class PDFSanitizer:
         return True, "pypdf(基础剥离: OpenAction/AA/Names/AcroForm)"
 
     # -- qpdf 线性化校验（可选） --------------------------------------------
-    def _qpdf_linearize_check(self, pdf_path: Path) -> Tuple[bool, str]:
+    def _qpdf_linearize_check(self, pdf_path: Path) -> tuple[bool, str]:
         try:
             result = subprocess.run(
                 ["qpdf", "--check", str(pdf_path)],
@@ -552,7 +550,7 @@ class PDFSanitizer:
 # ---------------------------------------------------------------------------
 # 批量分析 + 报告聚合
 # ---------------------------------------------------------------------------
-def collect_pdfs(input_path: Path, recursive: bool = True) -> List[Path]:
+def collect_pdfs(input_path: Path, recursive: bool = True) -> list[Path]:
     if input_path.is_file() and input_path.suffix.lower() == ".pdf":
         return [input_path.resolve()]
     if input_path.is_dir():
@@ -568,7 +566,7 @@ def run_batch(
     recursive: bool = True,
     do_sanitize: bool = False,
     overwrite: bool = False,
-    engines: Optional[EngineStatus] = None,
+    engines: EngineStatus | None = None,
 ) -> int:
     """批量分析 + 可选 sanitize。返回 0/1。"""
     engines = engines or detect_engines()
@@ -582,7 +580,7 @@ def run_batch(
     success = 0
     failed = 0
     sanitizer = PDFSanitizer(engines) if do_sanitize else None
-    reports: List[Dict[str, Any]] = []
+    reports: list[dict[str, Any]] = []
     for pdf in pdfs:
         try:
             analyzer = PDFThreatAnalyzer(pdf)
@@ -621,8 +619,8 @@ def run_batch(
     return 0 if failed == 0 else 1
 
 
-def build_summary(reports: List[Dict[str, Any]], success: int, failed: int) -> str:
-    level_count: Dict[str, int] = {"LOW": 0, "MEDIUM": 0, "HIGH": 0, "UNKNOWN": 0}
+def build_summary(reports: list[dict[str, Any]], success: int, failed: int) -> str:
+    level_count: dict[str, int] = {"LOW": 0, "MEDIUM": 0, "HIGH": 0, "UNKNOWN": 0}
     for r in reports:
         lvl = r.get("risk_level", "UNKNOWN")
         level_count[lvl] = level_count.get(lvl, 0) + 1
@@ -654,7 +652,7 @@ def build_summary(reports: List[Dict[str, Any]], success: int, failed: int) -> s
 # ---------------------------------------------------------------------------
 # 自检（标准模式）
 # ---------------------------------------------------------------------------
-def self_check(output_dir: Optional[Path] = None) -> int:
+def self_check(output_dir: Path | None = None) -> int:
     """标准自检：生成测试 PDF（含 /JavaScript），跑分析 + sanitize，验证报告。
 
     返回 0 成功 / 2 失败。
@@ -681,7 +679,7 @@ def self_check(output_dir: Optional[Path] = None) -> int:
         report = analyzer.analyze()
 
         # 3) 验证关键字段
-        assertions: List[Tuple[bool, str]] = [
+        assertions: list[tuple[bool, str]] = [
             (report["is_valid_pdf"], "is_valid_pdf 应为 True"),
             ("/JavaScript" in report["raw_keyword_hits"]
              or "/JS" in report["raw_keyword_hits"],
@@ -798,7 +796,7 @@ def build_test_pdf_with_javascript() -> bytes:
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
-def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     module_dir = Path(__file__).resolve().parent
     default_input = module_dir / "input"
     default_output = module_dir / "output"
@@ -850,7 +848,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def main(argv: Optional[List[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     _configure_logging(verbose=args.verbose)
 

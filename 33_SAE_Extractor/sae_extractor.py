@@ -4,7 +4,7 @@ import re
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-from typing import Optional, Dict, Any
+from typing import Any
 
 from settings import load_settings, check_environment
 
@@ -63,7 +63,7 @@ class ClinicalDataGuard:
         """
 
     @staticmethod
-    def _extract_json_text(raw_content: str) -> Optional[str]:
+    def _extract_json_text(raw_content: str) -> str | None:
         if not raw_content:
             return None
 
@@ -89,7 +89,7 @@ class ClinicalDataGuard:
         return None
 
     @staticmethod
-    def _normalize_result(data: Dict[str, Any]) -> Dict[str, Any]:
+    def _normalize_result(data: dict[str, Any]) -> dict[str, Any]:
         required_fields = [
             "sae_term",
             "onset_date",
@@ -105,7 +105,7 @@ class ClinicalDataGuard:
                 normalized[k] = v
         return normalized
 
-    def extract(self, clinical_text: str, timeout: int = 120) -> Optional[Dict[str, Any]]:
+    def extract(self, clinical_text: str, timeout: int = 120) -> dict[str, Any] | None:
         if not isinstance(clinical_text, str) or not clinical_text.strip():
             logging.warning("输入文本为空或非字符串，跳过提取。")
             return None

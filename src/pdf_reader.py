@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 从 PDF 中按关键词/页码检索文本或表格，供写入 Excel 使用。
 """
@@ -6,14 +5,14 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Union
 
 import pdfplumber
 
 logger = logging.getLogger(__name__)
 
-Box = Tuple[float, float, float, float]  # (x0, top, x1, bottom)
-ExclusionPageData = Union[List[Box], Dict[str, Any]]
+Box = tuple[float, float, float, float]  # (x0, top, x1, bottom)
+ExclusionPageData = Union[list[Box], dict[str, Any]]
 
 
 def _intersects(a: Box, b: Box) -> bool:
@@ -44,7 +43,7 @@ def _rotation_to_int(rotation: Any) -> int:
     return 0
 
 
-def _unrotate_point_to_base(x: float, y: float, r_fitz: int, base_w: float, base_h: float) -> Tuple[float, float]:
+def _unrotate_point_to_base(x: float, y: float, r_fitz: int, base_w: float, base_h: float) -> tuple[float, float]:
     """Convert (x,y) from a rotated coordinate system into rotation-0 base system."""
     if r_fitz == 0:
         return (x, y)
@@ -63,7 +62,7 @@ def _unrotate_point_to_base(x: float, y: float, r_fitz: int, base_w: float, base
     return (x, y)
 
 
-def _rotate_base_to_target(xb: float, yb: float, r_target: int, base_w: float, base_h: float) -> Tuple[float, float]:
+def _rotate_base_to_target(xb: float, yb: float, r_target: int, base_w: float, base_h: float) -> tuple[float, float]:
     """Convert base (rotation-0) point into target rotated coordinate system."""
     if r_target == 0:
         return (xb, yb)
@@ -105,7 +104,7 @@ def _map_box_between_rotations(
     x0, top, x1, bottom = box
 
     corners = [(x0, top), (x1, top), (x0, bottom), (x1, bottom)]
-    mapped: List[Tuple[float, float]] = []
+    mapped: list[tuple[float, float]] = []
     for x, y in corners:
         xb, yb = _unrotate_point_to_base(x, y, r_fitz=r_fitz, base_w=base_w, base_h=base_h)
         xr, yr = _rotate_base_to_target(xb, yb, r_target=r_pdf, base_w=base_w, base_h=base_h)
@@ -116,7 +115,7 @@ def _map_box_between_rotations(
     return (min(xs), min(ys), max(xs), max(ys))
 
 
-def _clamp_box_to_page(box: Box, *, page_width: float, page_height: float) -> Optional[Box]:
+def _clamp_box_to_page(box: Box, *, page_width: float, page_height: float) -> Box | None:
     x0, top, x1, bottom = box
     nx0 = max(0.0, min(float(x0), page_width))
     nx1 = max(0.0, min(float(x1), page_width))
@@ -142,16 +141,16 @@ _AREA_RATIO_OK_MAX = 1.02
 
 
 def prepare_exclusion_boxes_with_audit(
-    page: "pdfplumber.page.Page",
+    page: pdfplumber.page.Page,
     exclusion_page: ExclusionPageData,
-) -> Tuple[List[Box], Dict[str, Any]]:
+) -> tuple[list[Box], dict[str, Any]]:
     """
     将排除框映射到当前 pdfplumber 页坐标系，并输出单页审计明细。
 
     Returns:
         (用于 filter 的最终 boxes, page_detail 字典)
     """
-    detail: Dict[str, Any] = {
+    detail: dict[str, Any] = {
         "original_rotation_fitz": 0,
         "pdfplumber_rotation": _rotation_to_int(getattr(page, "rotation", 0)),
         "fitz_page_width": None,
@@ -193,7 +192,7 @@ def prepare_exclusion_boxes_with_audit(
     page_h = detail["pdfplumber_page_height"]
     r_pdf = detail["pdfplumber_rotation"]
 
-    final_boxes: List[Box] = []
+    final_boxes: list[Box] = []
 
     if not exclusion_boxes_norm:
         detail["mapped_boxes_count"] = 0
@@ -208,7 +207,7 @@ def prepare_exclusion_boxes_with_audit(
 
     for idx, b in enumerate(exclusion_boxes_norm):
         area_orig = _box_area(b)
-        entry: Dict[str, Any] = {
+        entry: dict[str, Any] = {
             "index": idx,
             "original": [b[0], b[1], b[2], b[3]],
             "area_original": round(area_orig, 4),
@@ -289,8 +288,8 @@ def prepare_exclusion_boxes_with_audit(
 
 def build_mapping_audit_for_pdf(
     pdf_path: str | Path,
-    exclusion_boxes_by_page: Dict[int, ExclusionPageData],
-) -> Dict[str, Any]:
+    exclusion_boxes_by_page: dict[int, ExclusionPageData],
+) -> dict[str, Any]:
     """
     对整份 PDF 逐页计算排除框坐标映射审计（面积守恒、钳制、丢弃）。
 
@@ -303,7 +302,7 @@ def build_mapping_audit_for_pdf(
     if not pdf_path.is_file():
         raise ValueError(f"路径不是文件: {pdf_path}")
 
-    mapping_audit: Dict[str, Any] = {
+    mapping_audit: dict[str, Any] = {
         "total_pages_processed": 0,
         "pages_with_exclusion": [],
         "pages_with_rotation": [],
@@ -345,7 +344,7 @@ def build_mapping_audit_for_pdf(
 
 
 def _filter_page_by_exclusion(
-    page: "pdfplumber.page.Page",
+    page: pdfplumber.page.Page,
     exclusion_page: ExclusionPageData,
 ):
     """
@@ -392,19 +391,19 @@ def _filter_page_by_exclusion(
 
 def extract_text_from_pdf(
     pdf_path: str | Path,
-    page_numbers: Optional[list[int]] = None,
-    exclusion_boxes_by_page: Optional[Dict[int, ExclusionPageData]] = None,
+    page_numbers: list[int] | None = None,
+    exclusion_boxes_by_page: dict[int, ExclusionPageData] | None = None,
 ) -> dict[int, str]:
     """
     提取 PDF 指定页的文本。不指定页码则提取全部页。
-    
+
     Args:
         pdf_path: PDF 文件路径
         page_numbers: 要提取的页码列表（从1开始），None 表示提取全部页
-        
+
     Returns:
         { 页码: 该页全文 } 字典
-        
+
     Raises:
         FileNotFoundError: PDF 文件不存在
         ValueError: PDF 文件无法打开或读取
@@ -412,7 +411,7 @@ def extract_text_from_pdf(
     pdf_path = Path(pdf_path)
     if not pdf_path.exists():
         raise FileNotFoundError(f"PDF 不存在: {pdf_path}")
-    
+
     if not pdf_path.is_file():
         raise ValueError(f"路径不是文件: {pdf_path}")
 
@@ -422,7 +421,7 @@ def extract_text_from_pdf(
             if len(pdf.pages) == 0:
                 logger.warning(f"PDF 文件没有页面: {pdf_path}")
                 return result
-                
+
             pages = page_numbers if page_numbers is not None else range(1, len(pdf.pages) + 1)
             for pno in pages:
                 if pno < 1 or pno > len(pdf.pages):
@@ -445,37 +444,37 @@ def extract_text_from_pdf(
                     result[pno] = ""
     except Exception as e:
         raise ValueError(f"无法打开或读取 PDF 文件 {pdf_path}: {e}") from e
-        
+
     return result
 
 
 def search_by_keyword(
     pdf_path: str | Path,
     keyword: str,
-    page_number: Optional[int] = None,
+    page_number: int | None = None,
     context_chars: int = 500,
-    exclusion_boxes_by_page: Optional[Dict[int, ExclusionPageData]] = None,
+    exclusion_boxes_by_page: dict[int, ExclusionPageData] | None = None,
 ) -> list[tuple[int, str]]:
     """
     在 PDF 中按关键词检索，返回 (页码, 匹配到的段落/上下文) 列表。
-    
+
     Args:
         pdf_path: PDF 文件路径
         keyword: 要搜索的关键词
         page_number: 指定页码（从1开始），None 表示搜索全部页
         context_chars: 上下文字符数
-        
+
     Returns:
         (页码, 匹配文本) 列表
     """
     if not keyword or not keyword.strip():
         logger.warning("关键词为空，返回空结果")
         return []
-    
+
     if context_chars < 0:
         context_chars = 500
         logger.warning(f"context_chars 为负数，重置为 {context_chars}")
-    
+
     pdf_path = Path(pdf_path)
     try:
         pages_text = extract_text_from_pdf(
@@ -486,7 +485,7 @@ def search_by_keyword(
     except Exception as e:
         logger.error(f"提取 PDF 文本失败: {e}")
         return []
-    
+
     hits = []
     keyword = keyword.strip()
     for pno, text in pages_text.items():
@@ -502,34 +501,34 @@ def search_by_keyword(
             next_part = parts[i + 1][:context_chars] if i + 1 < len(parts) else ""
             segment = (part[start:] + keyword + next_part)[: context_chars * 2]
             hits.append((pno, segment.strip()))
-    
+
     if not hits:
         # 整页作为后备
         for pno, text in pages_text.items():
             if keyword in text:
                 hits.append((pno, text[: 2000]))
                 break
-    
+
     return hits
 
 
 def extract_tables_from_pdf(
     pdf_path: str | Path,
-    page_number: Optional[int] = None,
-    near_keyword: Optional[str] = None,
-    exclusion_boxes_by_page: Optional[Dict[int, ExclusionPageData]] = None,
+    page_number: int | None = None,
+    near_keyword: str | None = None,
+    exclusion_boxes_by_page: dict[int, ExclusionPageData] | None = None,
 ) -> list[list[list[str]]]:
     """
     从 PDF 中提取表格。
-    
+
     Args:
         pdf_path: PDF 文件路径
         page_number: 只在该页取表；不指定则所有页
         near_keyword: 若指定，只保留在含该关键词的页上的表格
-        
+
     Returns:
         [ 页1表格列表, 页2表格列表, ... ]，每页表格为 list[list[str]]（行→列）
-        
+
     Raises:
         FileNotFoundError: PDF 文件不存在
         ValueError: PDF 文件无法打开或读取
@@ -537,7 +536,7 @@ def extract_tables_from_pdf(
     pdf_path = Path(pdf_path)
     if not pdf_path.exists():
         raise FileNotFoundError(f"PDF 不存在: {pdf_path}")
-    
+
     if not pdf_path.is_file():
         raise ValueError(f"路径不是文件: {pdf_path}")
 
@@ -547,7 +546,7 @@ def extract_tables_from_pdf(
             if len(pdf.pages) == 0:
                 logger.warning(f"PDF 文件没有页面: {pdf_path}")
                 return all_tables
-                
+
             pages = [page_number] if page_number is not None else range(1, len(pdf.pages) + 1)
             for pno in pages:
                 if pno < 1 or pno > len(pdf.pages):
@@ -574,31 +573,31 @@ def extract_tables_from_pdf(
                     continue
     except Exception as e:
         raise ValueError(f"无法打开或读取 PDF 文件 {pdf_path}: {e}") from e
-        
+
     return all_tables
 
 
 def get_first_table_near_keyword(
     pdf_path: str | Path,
     keyword: str,
-    page_number: Optional[int] = None,
-    exclusion_boxes_by_page: Optional[Dict[int, ExclusionPageData]] = None,
-) -> Optional[list[list[str]]]:
+    page_number: int | None = None,
+    exclusion_boxes_by_page: dict[int, ExclusionPageData] | None = None,
+) -> list[list[str]] | None:
     """
     获取在关键词所在页的第一个表格；若某表内包含关键词则优先返回该表。
-    
+
     Args:
         pdf_path: PDF 文件路径
         keyword: 关键词
         page_number: 指定页码（从1开始），None 表示搜索全部页
-        
+
     Returns:
         第一个匹配的表格（list[list[str]]），未找到则返回 None
     """
     if not keyword or not keyword.strip():
         logger.warning("关键词为空，返回 None")
         return None
-    
+
     try:
         tables_by_page = extract_tables_from_pdf(
             pdf_path,
@@ -609,7 +608,7 @@ def get_first_table_near_keyword(
     except Exception as e:
         logger.error(f"提取表格失败: {e}")
         return None
-    
+
     keyword = keyword.strip()
     for page_tables in tables_by_page:
         # 优先返回包含关键词的表格

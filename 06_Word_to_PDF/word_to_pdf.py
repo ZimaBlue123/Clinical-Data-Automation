@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 批量将 Word 文档转换为 PDF。
 保留目录书签并支持子文件夹遍历。（已修复 EXE 打包兼容性问题）
@@ -8,7 +7,6 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
-from typing import List
 
 # 【修复 2】：将局部导入移至全局顶部，确保 PyInstaller 静态分析时能打包该依赖
 try:
@@ -31,19 +29,18 @@ def get_base_dir() -> Path:
     if getattr(sys, 'frozen', False):
         # 如果是被 PyInstaller 打包成了 EXE 运行
         return Path(sys.executable).parent
-    else:
-        # 如果是作为普通 .py 脚本运行
-        return Path(__file__).resolve().parent
+    # 如果是作为普通 .py 脚本运行
+    return Path(__file__).resolve().parent
 
 
 class WordPdfConverter:
     """管理 Word 应用程序生命周期和转换逻辑的类"""
-    
+
     def __init__(self) -> None:
         self._win32 = win32com.client
         self._app = None
 
-    def __enter__(self) -> "WordPdfConverter":
+    def __enter__(self) -> WordPdfConverter:
         """进入上下文管理器，启动 Word 进程"""
         self._app = self._win32.Dispatch("Word.Application")
         self._app.Visible = False  # 后台静默运行
@@ -76,16 +73,16 @@ class WordPdfConverter:
         try:
             pdf_path.parent.mkdir(parents=True, exist_ok=True)
             doc = self._app.Documents.Open(str(doc_path))
-            
+
             doc.ExportAsFixedFormat(
                 OutputFileName=str(pdf_path),
-                ExportFormat=17,        
-                OpenAfterExport=False,  
-                OptimizeFor=0,          
-                CreateBookmarks=1,      
-                DocStructureTags=True   
+                ExportFormat=17,
+                OpenAfterExport=False,
+                OptimizeFor=0,
+                CreateBookmarks=1,
+                DocStructureTags=True
             )
-            
+
             print(f"已转换：{doc_path} -> {pdf_path}")
             return True
         except Exception as exc:
@@ -99,15 +96,15 @@ class WordPdfConverter:
                     pass
 
 
-def collect_docs(input_path: Path, recursive: bool = True) -> List[Path]:
+def collect_docs(input_path: Path, recursive: bool = True) -> list[Path]:
     """收集输入路径下的所有 Word 文档。"""
     allowed = {".doc", ".docx", ".docm"}
     if input_path.is_file() and input_path.suffix.lower() in allowed:
         return [input_path.resolve()]
-        
+
     if input_path.is_dir():
         pattern = "**/*" if recursive else "*"
-        files: List[Path] = []
+        files: list[Path] = []
         for p in input_path.glob(pattern):
             if not p.is_file():
                 continue
@@ -123,7 +120,7 @@ def collect_docs(input_path: Path, recursive: bool = True) -> List[Path]:
 def main() -> None:
     ensure_windows()
 
-    # 【应用修复 1】：使用 get_base_dir() 替代 __file__ 
+    # 【应用修复 1】：使用 get_base_dir() 替代 __file__
     base_dir = get_base_dir()
     default_input = base_dir / "input"
     default_output = base_dir / "output"
@@ -156,7 +153,7 @@ def main() -> None:
     total = len(doc_files)
     success = 0
     base_input_dir = input_path.resolve() if input_path.is_dir() else None
-    
+
     try:
         with WordPdfConverter() as converter:
             for doc_path in doc_files:
@@ -165,7 +162,7 @@ def main() -> None:
                     pdf_path = (output_dir / rel).with_suffix(".pdf")
                 else:
                     pdf_path = output_dir / f"{doc_path.stem}.pdf"
-                    
+
                 if converter.export(doc_path, pdf_path, overwrite=args.overwrite):
                     success += 1
     except ImportError:

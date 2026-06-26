@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 30_DNS_Leak_Detector
 
@@ -13,7 +12,6 @@ import logging
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional, Tuple
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -90,7 +88,7 @@ class UniversalDNSLeakDetector:
             logger.error("排错: 检查代理客户端路由规则、防火墙、系统代理。")
             return False
 
-    def _fetch_data(self, url: str) -> Optional[Dict]:
+    def _fetch_data(self, url: str) -> dict | None:
         try:
             response = self.session.get(url, timeout=self.timeout_s)
             response.raise_for_status()
@@ -99,8 +97,8 @@ class UniversalDNSLeakDetector:
             logger.error("接口请求异常 [%s]: %s", url, e)
             return None
 
-    def get_routing_metrics(self) -> Tuple[Optional[str], Optional[str], Dict]:
-        diagnostics: Dict = {}
+    def get_routing_metrics(self) -> tuple[str | None, str | None, dict]:
+        diagnostics: dict = {}
         logger.info("正在获取公网出口特征...")
         ip_data = self._fetch_data("http://ip-api.com/json/")
         if not ip_data or ip_data.get("status") != "success":
@@ -137,7 +135,7 @@ class UniversalDNSLeakDetector:
         return proxy_country, dns_country, diagnostics
 
     @staticmethod
-    def _risk_assessment(proxy_country: str, dns_country: str) -> Tuple[str, str]:
+    def _risk_assessment(proxy_country: str, dns_country: str) -> tuple[str, str]:
         if "China" in dns_country and "China" not in proxy_country:
             return (
                 "high_risk_dns_leak",
@@ -147,7 +145,7 @@ class UniversalDNSLeakDetector:
             return ("possible_anycast_split", "潜在偏移: 出口区与 DNS 区不一致，可能是 Anycast 正常现象。")
         return ("healthy", "状态正常: 出口与 DNS 区域基本对齐。")
 
-    def run_diagnostic(self) -> Tuple[bool, Dict]:
+    def run_diagnostic(self) -> tuple[bool, dict]:
         logger.info("=" * 55)
         if not self.verify_core_status():
             logger.info("=" * 55)

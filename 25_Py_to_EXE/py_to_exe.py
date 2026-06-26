@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """
 25_Py_to_EXE — Python 脚本转 EXE（单文件 / 批量 / manifest 驱动）
 

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
 
 import fitz  # PyMuPDF
 
@@ -10,23 +9,23 @@ from .utils import Box
 def triage_document(
     doc: fitz.Document,
     *,
-    vector_keywords: List[str],
+    vector_keywords: list[str],
     min_vector_hit_pages: int = 1,
     max_pages_to_probe: int = 3,
-) -> Tuple[str, Dict[int, List[Box]]]:
+) -> tuple[str, dict[int, list[Box]]]:
     """
     Document triage:
     - Try fast vector keyword search using `page.search_for`.
     - If we find hits on at least `min_vector_hit_pages`, route to "vector".
     - Otherwise, route to OCR-based localization ("ocr").
     """
-    per_page_hits: Dict[int, List[Box]] = {}
+    per_page_hits: dict[int, list[Box]] = {}
     hit_pages = 0
 
     probe_pages = min(len(doc), max_pages_to_probe)
     for pno in range(probe_pages):
         page = doc[pno]
-        bboxes: List[Box] = []
+        bboxes: list[Box] = []
         for kw in vector_keywords:
             if not kw:
                 continue

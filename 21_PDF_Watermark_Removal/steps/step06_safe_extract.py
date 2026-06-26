@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Dict, List, Optional
 
 import logging
 
@@ -15,15 +14,15 @@ logger = logging.getLogger(__name__)
 
 def extract_clean_text_by_page(
     pdf_path: str | Path,
-    boxes_by_page: Dict[str, List[Box]],
+    boxes_by_page: dict[str, list[Box]],
     *,
-    page_meta_by_page: Optional[Dict[str, Dict[str, object]]] = None,
-) -> Dict[str, str]:
+    page_meta_by_page: dict[str, dict[str, object]] | None = None,
+) -> dict[str, str]:
     """
     Safe extraction: extract page text after excluding detected interference zones.
     """
     # Convert page keys to int for src.pdf_reader
-    exclusion_boxes_by_page: Dict[int, object] = {}
+    exclusion_boxes_by_page: dict[int, object] = {}
     for page_key, boxes in boxes_by_page.items():
         try:
             pn = int(page_key)
@@ -52,11 +51,11 @@ def extract_clean_text_by_page(
     )
 
     # Ensure string keys
-    out: Dict[str, str] = {str(pn): text for pn, text in text_map.items()}
+    out: dict[str, str] = {str(pn): text for pn, text in text_map.items()}
     return out
 
 
-def save_text_map_json(output_path: str | Path, text_map: Dict[str, str]) -> None:
+def save_text_map_json(output_path: str | Path, text_map: dict[str, str]) -> None:
     p = Path(output_path)
     p.parent.mkdir(parents=True, exist_ok=True)
     with p.open("w", encoding="utf-8") as f:

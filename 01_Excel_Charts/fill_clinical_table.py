@@ -85,18 +85,19 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import Optional, Tuple, Dict, List, Any, Iterable
+from typing import Any
+from collections.abc import Iterable
 
 # ====== 通用配置 ======
 
 # 详细统计表中的5个组的源列（C-G，即列3-7）
-SOURCE_GROUP_COLS: List[int] = [3, 4, 5, 6, 7]
+SOURCE_GROUP_COLS: list[int] = [3, 4, 5, 6, 7]
 
 # 表格中的目标起始列（B,E,H,K,N）
-TARGET_GROUP_BASE_COLS: List[int] = [2, 5, 8, 11, 14]
+TARGET_GROUP_BASE_COLS: list[int] = [2, 5, 8, 11, 14]
 
 # ====== GMC 配置 ======
-GMC_TIMEPOINTS: Dict[int, str] = {
+GMC_TIMEPOINTS: dict[int, str] = {
     3: '免前',
     4: '一免后1个月',
     5: '一免后2个月',
@@ -105,7 +106,7 @@ GMC_TIMEPOINTS: Dict[int, str] = {
 }
 
 # GMC源行映射：目标行 -> 源行
-GMC_SOURCE_ROW_MAP: Dict[int, int] = {
+GMC_SOURCE_ROW_MAP: dict[int, int] = {
     3: 12,   # 免前 ← 行12 (GMC)
     4: 17,   # 一免后1个月 ← 行17 (LS GMC)
     5: 22,
@@ -114,10 +115,10 @@ GMC_SOURCE_ROW_MAP: Dict[int, int] = {
 }
 
 # GMC子表关键字
-GMC_SHEET_KEYWORDS: List[str] = ['GMC']
+GMC_SHEET_KEYWORDS: list[str] = ['GMC']
 
 # ====== 阳转率 配置 ======
-YANGZHUAI_TIMEPOINTS: Dict[int, str] = {
+YANGZHUAI_TIMEPOINTS: dict[int, str] = {
     4: '一免后1个月',
     5: '一免后2个月',
     6: '全免后1个月',
@@ -125,10 +126,10 @@ YANGZHUAI_TIMEPOINTS: Dict[int, str] = {
 }
 
 # 阳转率子表关键字
-YANGZHUAI_SHEET_KEYWORDS: List[str] = ['阳转率']
+YANGZHUAI_SHEET_KEYWORDS: list[str] = ['阳转率']
 
 # ====== GMI 配置 ======
-GMI_TIMEPOINTS: Dict[int, str] = {
+GMI_TIMEPOINTS: dict[int, str] = {
     4: '一免后1个月',
     5: '一免后2个月',
     6: '全免后1个月',
@@ -136,7 +137,7 @@ GMI_TIMEPOINTS: Dict[int, str] = {
 }
 
 # GMI源行映射：默认源行（脚本动态扫描优先）
-GMI_SOURCE_ROW_MAP: Dict[int, int] = {
+GMI_SOURCE_ROW_MAP: dict[int, int] = {
     4: 18,
     5: 29,
     6: 41,
@@ -144,7 +145,7 @@ GMI_SOURCE_ROW_MAP: Dict[int, int] = {
 }
 
 # GMI子表关键字
-GMI_SHEET_KEYWORDS: List[str] = ['GMI']
+GMI_SHEET_KEYWORDS: list[str] = ['GMI']
 
 # 子表类型常量
 TABLE_TYPE_GMC = 'gmc'
@@ -178,7 +179,7 @@ def _to_str(v: Any) -> str:
     return str(v).strip()
 
 
-def _to_float(v: Any) -> Optional[float]:
+def _to_float(v: Any) -> float | None:
     """安全转换为float"""
     if v is None:
         return None
@@ -192,7 +193,7 @@ def _to_float(v: Any) -> Optional[float]:
     return None
 
 
-def parse_gmc_ci(gmc_str: Any) -> Tuple[Optional[float], Optional[float], Optional[float]]:
+def parse_gmc_ci(gmc_str: Any) -> tuple[float | None, float | None, float | None]:
     """
     解析GMC (95%CI)格式字符串，支持：
       - "768.17(507.87, 1161.89)"
@@ -226,7 +227,7 @@ def parse_gmc_ci(gmc_str: Any) -> Tuple[Optional[float], Optional[float], Option
     return None, None, None
 
 
-def parse_positive_rate(rate_str: Any) -> Optional[float]:
+def parse_positive_rate(rate_str: Any) -> float | None:
     """
     解析阳转率字符串："24 (75.00)" → 75.0
     """
@@ -258,7 +259,7 @@ def parse_positive_rate(rate_str: Any) -> Optional[float]:
     return None
 
 
-def parse_ci(ci_str: Any) -> Tuple[Optional[float], Optional[float]]:
+def parse_ci(ci_str: Any) -> tuple[float | None, float | None]:
     """
     解析95%CI字符串："56.60, 88.54" → (56.60, 88.54)
     """
@@ -367,22 +368,21 @@ def fill_gmc_sheet(ws, sheet_name: str, include_pre: bool = True, verbose: bool 
                 if verbose:
                     logger.info(f"  组{i + 1}: '{cell_value}' -> 均={mean}, 上={upper}, 下={lower}")
                 filled_count += 3
-            else:
-                if verbose:
-                    logger.info(f"  组{i + 1}: '{cell_value}' -> 无效或缺失，跳过")
+            elif verbose:
+                logger.info(f"  组{i + 1}: '{cell_value}' -> 无效或缺失，跳过")
 
     return filled_count
 
 
 # ====== 阳转率 填充逻辑 ======
 
-def _find_timepoint_blocks_yangzhuai(ws) -> Dict[int, Dict[str, Any]]:
+def _find_timepoint_blocks_yangzhuai(ws) -> dict[int, dict[str, Any]]:
     """
     扫描阳转率子表，自动定位各时间点的源数据行
     """
-    timepoint_blocks: Dict[int, Dict[str, Any]] = {}
+    timepoint_blocks: dict[int, dict[str, Any]] = {}
 
-    title_rows: List[Tuple[int, str, str]] = []
+    title_rows: list[tuple[int, str, str]] = []
     for row_idx in range(8, ws.max_row + 1):
         first_col = _to_str(_safe_sheet_get(ws, row_idx, 1))
         if not first_col:
@@ -466,18 +466,17 @@ def fill_yangzhuai_sheet(ws, sheet_name: str, verbose: bool = False) -> int:
                 if verbose:
                     logger.info(f"  组{i + 1}: 率={rate_val}%, CI=({ci_lower}, {ci_upper})")
                 filled_count += 3
-            else:
-                if verbose:
-                    rate_str = _safe_sheet_get(ws, rate_row, src_col)
-                    ci_str = _safe_sheet_get(ws, ci_row, src_col)
-                    logger.info(f"  组{i + 1}: 阳转率='{rate_str}', CI='{ci_str}' -> 数据无效，跳过")
+            elif verbose:
+                rate_str = _safe_sheet_get(ws, rate_row, src_col)
+                ci_str = _safe_sheet_get(ws, ci_row, src_col)
+                logger.info(f"  组{i + 1}: 阳转率='{rate_str}', CI='{ci_str}' -> 数据无效，跳过")
 
     return filled_count
 
 
 # ====== GMI 填充逻辑 ======
 
-def _find_gmi_source_rows(ws, verbose: bool = False) -> Dict[int, int]:
+def _find_gmi_source_rows(ws, verbose: bool = False) -> dict[int, int]:
     """
     动态扫描GMI子表，查找各时间点对应的GMI (95%CI)源行
     保证不同行号结构（如"60岁以上GMI"是51行）的子表都能正确填充
@@ -485,7 +484,7 @@ def _find_gmi_source_rows(ws, verbose: bool = False) -> Dict[int, int]:
     Returns:
         dict: {目标行号: 源行号}
     """
-    title_rows: List[Tuple[int, str, str]] = []
+    title_rows: list[tuple[int, str, str]] = []
     for r in range(8, ws.max_row + 1):
         first_col = _to_str(_safe_sheet_get(ws, r, 1))
         if not first_col:
@@ -495,7 +494,7 @@ def _find_gmi_source_rows(ws, verbose: bool = False) -> Dict[int, int]:
                 title_rows.append((r, tp_name, first_col))
                 break
 
-    result: Dict[int, int] = {}
+    result: dict[int, int] = {}
     for tgt_row, tp_name in GMI_TIMEPOINTS.items():
         title_row = None
         for tr, tn, _ in title_rows:
@@ -567,9 +566,8 @@ def fill_gmi_sheet(ws, sheet_name: str, verbose: bool = False) -> int:
                 if verbose:
                     logger.info(f"  组{i + 1}: '{cell_value}' -> 均={mean}, 上={upper}, 下={lower}")
                 filled_count += 3
-            else:
-                if verbose:
-                    logger.info(f"  组{i + 1}: '{cell_value}' -> 无效或缺失，跳过")
+            elif verbose:
+                logger.info(f"  组{i + 1}: '{cell_value}' -> 无效或缺失，跳过")
 
     return filled_count
 
@@ -578,10 +576,10 @@ def fill_gmi_sheet(ws, sheet_name: str, verbose: bool = False) -> int:
 
 def process_workbook(
     excel_path: str,
-    sheet_tasks: List[Tuple[str, str]],
+    sheet_tasks: list[tuple[str, str]],
     output_path: str,
     verbose: bool = False,
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     """
     处理工作簿
 
@@ -623,7 +621,7 @@ def process_workbook(
             logger.error("没有可处理的子表")
             return None
 
-    type_groups: Dict[str, List[str]] = {
+    type_groups: dict[str, list[str]] = {
         TABLE_TYPE_GMC: [],
         TABLE_TYPE_GMI: [],
         TABLE_TYPE_YANGZHUAI: [],
@@ -633,7 +631,7 @@ def process_workbook(
             type_groups[table_type].append(sheet_name)
 
     total_filled = 0
-    sheet_results: Dict[str, int] = {}
+    sheet_results: dict[str, int] = {}
 
     for table_type, sheets in type_groups.items():
         if not sheets:
@@ -690,8 +688,8 @@ def process_workbook(
 
 def resolve_output_path(
     excel_path: str,
-    output_dir: Optional[str] = None,
-    output_name: Optional[str] = None,
+    output_dir: str | None = None,
+    output_name: str | None = None,
 ) -> Path:
     """解析输出路径"""
     excel_path_obj = Path(excel_path).resolve()
@@ -717,8 +715,8 @@ def resolve_output_path(
 def build_sheet_tasks(
     wb,
     table_type: str,
-    explicit_sheets: Optional[Iterable[str]] = None,
-) -> List[Tuple[str, str]]:
+    explicit_sheets: Iterable[str] | None = None,
+) -> list[tuple[str, str]]:
     """
     构建要处理的子表任务列表
 
@@ -726,7 +724,7 @@ def build_sheet_tasks(
         table_type: 'gmc' | 'gmi' | 'yangzhuai' | 'all'
         explicit_sheets: 用户显式指定的子表列表 (None=自动检测)
     """
-    sheet_tasks: List[Tuple[str, str]] = []
+    sheet_tasks: list[tuple[str, str]] = []
 
     if explicit_sheets:
         for s in explicit_sheets:
@@ -750,7 +748,7 @@ def build_sheet_tasks(
     return sheet_tasks
 
 
-def main(argv: Optional[List[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     """主入口"""
     parser = argparse.ArgumentParser(
         description='临床试验表格数据填充（统一入口：GMC + GMI + 阳转率）',

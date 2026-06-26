@@ -2,18 +2,19 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any
+from collections.abc import Sequence
 
 import pytesseract
 
 
-Box = Tuple[float, float, float, float]  # (x0, top, x1, bottom)
+Box = tuple[float, float, float, float]  # (x0, top, x1, bottom)
 
 
 def tesseract_cmd_from_env_and_default(
     env_var: str = "TESSERACT_CMD_PATH",
     default_cmd: str = r"D:\Tesseract-OCR\tesseract.exe",
-) -> Optional[str]:
+) -> str | None:
     """Resolve tesseract executable path (env var -> default)."""
     env_path = os.getenv(env_var)
     if env_path and Path(env_path).exists():
@@ -52,7 +53,7 @@ def box_union(a: Box, b: Box) -> Box:
     return (min(ax0, bx0), min(atop, btop), max(ax1, bx1), max(abot, bbot))
 
 
-def merge_boxes(boxes: Sequence[Box], *, pad: float = 2.0, max_boxes: int = 200) -> List[Box]:
+def merge_boxes(boxes: Sequence[Box], *, pad: float = 2.0, max_boxes: int = 200) -> list[Box]:
     """
     Merge overlapping boxes with a small padding.
     Note: This is heuristic; tune pad if boxes are too tight/too loose.
@@ -60,7 +61,7 @@ def merge_boxes(boxes: Sequence[Box], *, pad: float = 2.0, max_boxes: int = 200)
     if not boxes:
         return []
 
-    normalized: List[Box] = []
+    normalized: list[Box] = []
     for (x0, top, x1, bottom) in boxes:
         nx0 = x0 - pad
         ntop = top - pad
@@ -69,7 +70,7 @@ def merge_boxes(boxes: Sequence[Box], *, pad: float = 2.0, max_boxes: int = 200)
         normalized.append((float(nx0), float(ntop), float(nx1), float(nbottom)))
 
     # Greedy merge
-    merged: List[Box] = []
+    merged: list[Box] = []
     for box in sorted(normalized, key=lambda x: (x[1], x[0])):  # sort by top, then x0
         cur = box
         did_merge = True
@@ -86,7 +87,7 @@ def merge_boxes(boxes: Sequence[Box], *, pad: float = 2.0, max_boxes: int = 200)
             break
 
     # Final pass: merge any remaining overlaps
-    final: List[Box] = []
+    final: list[Box] = []
     for box in merged:
         merged_into_existing = False
         for i in range(len(final)):
@@ -104,9 +105,9 @@ def clamp_boxes_to_page(
     *,
     page_width: float,
     page_height: float,
-) -> List[Box]:
+) -> list[Box]:
     """Clamp boxes into [0, page_width] x [0, page_height] coordinate space."""
-    clamped: List[Box] = []
+    clamped: list[Box] = []
     for x0, top, x1, bottom in boxes:
         nx0 = max(0.0, min(x0, page_width))
         nx1 = max(0.0, min(x1, page_width))
@@ -118,7 +119,7 @@ def clamp_boxes_to_page(
     return clamped
 
 
-def load_boxes_json(path: str | Path) -> Dict[str, List[Box]]:
+def load_boxes_json(path: str | Path) -> dict[str, list[Box]]:
     """Load boxes.json in { "1": [[x0,top,x1,bottom], ...], ... } format."""
     import json
 
@@ -126,11 +127,11 @@ def load_boxes_json(path: str | Path) -> Dict[str, List[Box]]:
     with p.open("r", encoding="utf-8") as f:
         raw = json.load(f)
 
-    out: Dict[str, List[Box]] = {}
+    out: dict[str, list[Box]] = {}
     for page_key, boxes in raw.items():
         if not isinstance(boxes, list):
             continue
-        page_boxes: List[Box] = []
+        page_boxes: list[Box] = []
         for b in boxes:
             if not isinstance(b, list) or len(b) != 4:
                 continue
@@ -139,7 +140,7 @@ def load_boxes_json(path: str | Path) -> Dict[str, List[Box]]:
     return out
 
 
-def save_boxes_json(path: str | Path, boxes_by_page: Dict[str, List[Box]]) -> None:
+def save_boxes_json(path: str | Path, boxes_by_page: dict[str, list[Box]]) -> None:
     """
     Save legacy boxes.json format:
       { "1": [[x0,top,x1,bottom], ...], "2": [...] }
@@ -150,7 +151,7 @@ def save_boxes_json(path: str | Path, boxes_by_page: Dict[str, List[Box]]) -> No
 
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
-    serializable: Dict[str, List[List[float]]] = {}
+    serializable: dict[str, list[list[float]]] = {}
     for page_key, boxes in boxes_by_page.items():
         serializable[str(page_key)] = [[b[0], b[1], b[2], b[3]] for b in boxes]
     with p.open("w", encoding="utf-8") as f:
@@ -159,9 +160,9 @@ def save_boxes_json(path: str | Path, boxes_by_page: Dict[str, List[Box]]) -> No
 
 def save_boxes_json_v2(
     path: str | Path,
-    boxes_by_page: Dict[str, List[Box]],
+    boxes_by_page: dict[str, list[Box]],
     *,
-    page_meta_by_page: Optional[Dict[str, Dict[str, Any]]] = None,
+    page_meta_by_page: dict[str, dict[str, Any]] | None = None,
 ) -> None:
     """
     Save v2 boxes.json:
@@ -174,7 +175,7 @@ def save_boxes_json_v2(
 
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
-    serializable: Dict[str, Dict[str, Any]] = {}
+    serializable: dict[str, dict[str, Any]] = {}
 
     page_meta_by_page = page_meta_by_page or {}
 
