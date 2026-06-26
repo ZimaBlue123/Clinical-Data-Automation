@@ -20,6 +20,7 @@
   - 验证：`py_compile` 全部 85 个 .py 编译通过；冒烟导入测试 65/65 成功（21 个缺第三方库的模块为预期跳过）
   - **安全基线建立**：lint 错误数 1350 → 433（剩余均为业务风格/复杂度类，下个迭代继续）
 - **17_PDF_Title_Renamer PDF Sanitizer v6.9 → v7**（Refs: 17_PDF_Title_Renamer / plans/pdf_sanitizer_v7_optimization.md）
+- **17_PDF_Title_Renamer PDF Sanitizer v6.9 → v7**（Refs: 17_PDF_Title_Renamer / plans/pdf_sanitizer_v7_optimization.md）
   - **masthead 黑名单扩展**：新增 Taylor & Francis 系（emergingmicrobesinfections / tandfonline / taylorfrancis / virulence / mabs / expertopinion / expertreviewvaccines 等 14 个）、Wiley 系（advancedscience / angewandtechemie / europeanjournalof* 等 6 个）、Springer Nature 系（scientificreports / naturebiomedicalengineering 等 5 个），出版商通用词（journalhomepage / wileyonlinelibrary / springernature / academicoup / oupcom 等）
   - **BOILERPLATE_LINE 扩展**：覆盖 www.tandfonline.com / www.wiley.com / www.springer.com / link.springer.com / taylor & francis / wiley & sons / published by ... / © <year> / ISSN: <code> / creative commons 行
   - **_is_journal_masthead_only 兜底判定放宽**：≤5 词、≤48 字符，且新增 & 出版商命名模式与 infections 后缀识别（命中 Emerging Microbes & Infections）
