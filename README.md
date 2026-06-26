@@ -109,13 +109,18 @@ Clinical Data Automation/
 │   ├── util_repair_output_by_patch.py # 辅助：图表区间 patch 回模板副本
 │   └── README.md                     # 模块说明与命令行
 │
-├── 08_Word_Tables_to_Excel/      # Word 指定表格抽取为 Excel（精准表头 + 兼容样式）
-│   ├── input/                        # 输入：Word/RTF
+├── 08_Word_Tables_to_Graphpad/  # docx 临床小结 → pzfx 模板抗体数据替换（gE ↔ VZV 等）
+│   ├── input/                        # 输入：docx + pzfx 模板
+│   ├── lib/                           # 共享库
+│   ├── tests/                         # 单元测试
+│   └── README.md
+│
+├── 09_Word_Tables_to_Excel/         # Word 表格 → Excel（指定表 / 批量 / 合并，三合一）
 │   ├── output/                       # 输出：xlsx
 │   ├── word_tables_to_excel.py       # 主程序：按表题/序号/表头关键词定位并导出
 │   └── README.md                     # 模块说明与参数
 │
-├── 09_Word_All_Tables_to_Excel/     # Word 全部表格批量转 Excel（每文档多 sheet）
+├── 09_Word_Tables_to_Excel/     # Word 全部表格批量转 Excel（每文档多 sheet）
 │   ├── input/                        # 输入：Word/RTF
 │   ├── output/                       # 输出：xlsx
 │   ├── word_all_tables_to_excel.py  # 主程序：批量导出（全部顶层表格）
@@ -397,8 +402,17 @@ python word_to_excel_to_figure.py --input-dir "input" --table-map-json "output/t
 
 ---
 
-### 08. Word 指定表格转 Excel（`08_Word_Tables_to_Excel`）
-用途：按表题/序号/表头关键词精准定位并导出目标表格。
+### 08. Word 临床小结 → pzfx 抗体数据替换（`08_Word_Tables_to_Graphpad`）🆕
+用途：把 docx 中"源抗体"的免疫原性数据（GMC / GMI / 阳转率 × 4 年龄段 × 3 时间点 × 2 组别）按 (年龄段 × 指标) 替换到 pzfx 模板中，生成目标抗体的新 pzfx。
+典型场景：gE 抗体 pzfx → 替换为 VZV 抗体 pzfx；表名/列名/Subcolumn 顺序不变，仅 `<d>` 数值替换。
+
+```bash
+cd 08_Word_Tables_to_Graphpad
+python util_probe.py --docx input/source.docx --pzfx input/template.pzfx --out output/_probe_report.md
+python poc_replicate.py --docx input/source.docx --pzfx input/template.pzfx --source-antibody gE --target-antibody VZV --out output/result.pzfx -v
+```
+
+> ⚠️ 原 `08_Word_Tables_to_Excel` 已被本模块替换。功能（按表题/序号/表头关键词精准定位并导出目标表格）整合进 `09_Word_Tables_to_Excel`，见下文 09 节。
 
 ```bash
 cd 08_Word_Tables_to_Excel
@@ -410,16 +424,19 @@ python word_tables_to_excel.py --help
 
 ---
 
-### 09. Word 所有表格批量转 Excel（`09_Word_All_Tables_to_Excel`）
-用途：批量导出每个 Word 的全部顶层表格（每表一个 sheet）。
+### 09. Word 表格 → Excel（`09_Word_Tables_to_Excel`，含原 08 + 09 全部功能）
+用途：单文件 / 批量 / 合并三合一。从 Word（.doc/.docx/.rtf）导出表格到 xlsx。
+- 单文件指定表：`word_tables_to_excel.py --input X.docx --table-indices 1,3`
+- 批量目录下所有 Word：`word_all_tables_to_excel.py`
+- 多份 Word 合并为单一份五项指标汇总表：`word_tables_merge_to_single_excel.py`
 
 ```bash
-cd 09_Word_All_Tables_to_Excel
+cd 09_Word_Tables_to_Excel
 python word_all_tables_to_excel.py
 ```
 
 支持：`--header-rows`、`--dry-run`、`--skip-existing`。  
-输出目录：`09_Word_All_Tables_to_Excel/output/`。
+输出目录：`09_Word_Tables_to_Excel/output/`。
 
 ---
 
@@ -780,7 +797,7 @@ rules:
 9. **mmap 零拷贝**：`23_PDF_Threat_Analyzer` 对 ≥ 1MB 文件自动启用 mmap 加速（节省内存，大文件不 OOM）。命中数与 read() 路径完全一致，详见该模块 README 性能段
 
 ### 血清报告对账（PDF vs Word）
-1. 生成 Word 汇总：`09_Word_All_Tables_to_Excel/output/word_tables_merged.xlsx`
+1. 生成 Word 汇总：`09_Word_Tables_to_Excel/output/word_tables_merged.xlsx`
 2. 生成 PDF 汇总并回填缺项：在 `12_PDF_Batch_to_Excel/serology_report_pdf_to_excel.py` 使用 `--reference-excel`（可选但强烈建议）
 3. 对比差异并导出明细：运行 `python scripts/compare_serology_outputs.py --pdf-excel <PDF.xlsx> --word-excel <WORD.xlsx> --out-csv <diff.csv>`
 

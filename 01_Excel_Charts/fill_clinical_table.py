@@ -339,7 +339,7 @@ def fill_gmc_sheet(ws, sheet_name: str, include_pre: bool = True, verbose: bool 
     for tgt_row, timepoint_name in GMC_TIMEPOINTS.items():
         if tgt_row == 3 and not include_pre:
             if verbose:
-                logger.info(f"\n跳过 免前 (第3行, include_pre=False)")
+                logger.info("\n跳过 免前 (第3行, include_pre=False)")
             continue
 
         src_row = GMC_SOURCE_ROW_MAP.get(tgt_row)
@@ -436,11 +436,11 @@ def fill_yangzhuai_sheet(ws, sheet_name: str, verbose: bool = False) -> int:
 
     if not timepoint_blocks:
         if verbose:
-            logger.warning(f"  未找到时间点源数据")
+            logger.warning("  未找到时间点源数据")
         return 0
 
     if verbose:
-        logger.info(f"\n识别到的时间点:")
+        logger.info("\n识别到的时间点:")
         for tgt, info in sorted(timepoint_blocks.items()):
             logger.info(f"  行{tgt} {info['title']}: 阳转率行{info['rate_row']}, CI行{info['ci_row']}")
 
@@ -533,11 +533,11 @@ def fill_gmi_sheet(ws, sheet_name: str, verbose: bool = False) -> int:
 
     if not source_rows:
         if verbose:
-            logger.warning(f"  未找到任何GMI (95%CI)源行")
+            logger.warning("  未找到任何GMI (95%CI)源行")
         return 0
 
     if verbose:
-        logger.info(f"\n动态识别的源行号:")
+        logger.info("\n动态识别的源行号:")
         for tgt_row in sorted(source_rows):
             tp_name = GMI_TIMEPOINTS.get(tgt_row, f'行{tgt_row}')
             logger.info(f"  行{tgt_row} {tp_name} <- 源行{source_rows[tgt_row]}")

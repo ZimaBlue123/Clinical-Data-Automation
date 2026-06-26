@@ -6,6 +6,7 @@
 ## 1. 项目性质
 
 - **Monorepo** 临床数据自动化工具集：34 个编号子项目（`01_Excel_Charts/` ~ `33_SAE_Extractor/`）+ 共享 `src/` + `tests/`
+  - ⚠️ 2026-06-26：原 08_Word_Tables_to_Excel 被 `08_Word_Tables_to_Graphpad` 替换；原 09_Word_All_Tables_to_Excel 改名为 `09_Word_Tables_to_Excel`
 - 单一 `requirements.txt` / `requirements.lite.txt` / `requirements-ci.txt` 覆盖全部模块
 - **不要** 跨子项目做隐式耦合（每个子项目应可独立运行）
 
