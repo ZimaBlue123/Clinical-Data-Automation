@@ -109,6 +109,17 @@ __pypackages__/
 # [Patch] direnv 配置（每个开发者本地化，不入库）
 .envrc
 
+# [Patch] VSCode 多工作区配置与 profile（可能含本地路径与扩展状态）
+*.code-workspace
+*.code-profile
+
+# [Patch] Python 类型检查工具（pyright）配置（可能含 extraPaths 本地路径）
+pyrightconfig.json
+
+# [Patch] Windows 编译产物：CPython 扩展与 PDB 调试符号
+*.pyd
+*.pdb
+
 Automation/
 Data/
 Project/
