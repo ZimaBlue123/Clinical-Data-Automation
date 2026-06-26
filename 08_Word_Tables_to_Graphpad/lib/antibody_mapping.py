@@ -72,7 +72,7 @@ class Triple:
     up: float
 
     @classmethod
-    def parse(cls, s: str) -> "Triple":
+    def parse(cls, s: str) -> Triple:
         """解析 "lo（mid, up）mIU/mL" 或 "lo%（mid%, up%）"。
 
         docx 中通常写作 "1103.5（905.2，1345.2）mIU/mL"，其中

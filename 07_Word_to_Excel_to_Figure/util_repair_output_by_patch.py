@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 快速修复版本：把“已经算对了图表数据的 output”里的 chart.series(cat/val) 区间值
 patch 回“模板 Excel”副本上，用 Excel COM 写入以保留 OLAP/数据透视结构。

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 C 盘垃圾文件/空文件/无用文件清理（安全模式默认仅扫描）。
 
@@ -26,7 +25,7 @@ import os
 import sys
 import time
 from pathlib import Path
-from typing import Iterable
+from collections.abc import Iterable
 
 
 USELESS_EXTS = {

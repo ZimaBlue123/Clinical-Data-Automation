@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 批量将 PPT/PPTX 转换为 PDF。
 

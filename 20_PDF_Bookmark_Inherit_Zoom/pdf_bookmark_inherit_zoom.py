@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 PDF 书签「承前缩放」强健版模块 - Vibe Coder Edition
 优化项：

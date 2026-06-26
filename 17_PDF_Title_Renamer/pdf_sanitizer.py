@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 本地文献重塑协议 (PDF Sanitizer v6.9 - 题目前缀剥离与缩写保留)
 Vibe: Academic Cyberpunk
@@ -739,23 +738,22 @@ class PDFSanitizer:
             if not cleaned_cjk:
                 return "未命名文献_Untitled"
             return cleaned_cjk[:max_chars]
-        else:
-            # 纯英文边缘修剪
-            cleaned_en = PDFSanitizer._smart_title_case(cleaned)
-            words = cleaned_en.split()[:max_words]
-            # 清理残留的斜杠（URL/DOI 残片）
-            words = [w.replace("/", "") for w in words]
-            # 仅修剪首尾悬挂介词；保留题目内部的 of/for（如 evaluation of CpG）
-            while len(words) > 2 and words[-1].lower() in DANGLING_TOXINS:
-                words.pop()
-            while len(words) > 2 and words[0].lower() in DANGLING_TOXINS:
-                words.pop(0)
+        # 纯英文边缘修剪
+        cleaned_en = PDFSanitizer._smart_title_case(cleaned)
+        words = cleaned_en.split()[:max_words]
+        # 清理残留的斜杠（URL/DOI 残片）
+        words = [w.replace("/", "") for w in words]
+        # 仅修剪首尾悬挂介词；保留题目内部的 of/for（如 evaluation of CpG）
+        while len(words) > 2 and words[-1].lower() in DANGLING_TOXINS:
+            words.pop()
+        while len(words) > 2 and words[0].lower() in DANGLING_TOXINS:
+            words.pop(0)
 
-            if not words:
-                fallback = cleaned_en[:50].strip().replace(" ", "_")
-                return fallback if fallback else "Untitled_Document"
+        if not words:
+            fallback = cleaned_en[:50].strip().replace(" ", "_")
+            return fallback if fallback else "Untitled_Document"
 
-            return "_".join(words)
+        return "_".join(words)
 
     def _dedupe_filename(self, target_dir: Path, base_name: str) -> str:
         """量子态文件覆盖防御"""

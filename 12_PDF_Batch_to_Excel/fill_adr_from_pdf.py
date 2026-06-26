@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 从 不同剂量组ADR分析 (TFL).pdf 与 不同剂量组ADR分析-分级 (TFL).pdf 提取数据，
 按“发热”的填写逻辑，填充 不同剂量组ADR分析 (TFL).xlsx 中所有 ADR 的 1级/2级/3级/Total。
@@ -274,31 +273,31 @@ def find_pdf_term_for_excel(excel_adr: str) -> str:
 def fill_excel():
     """
     从分级 PDF 提取数据并填充到 Excel。
-    
+
     Returns:
         填充的行数
-        
+
     Raises:
         FileNotFoundError: PDF 或 Excel 文件不存在
         ValueError: 数据格式错误
     """
     if not PDF_GRADE.exists():
         raise FileNotFoundError(f"分级 PDF 不存在: {PDF_GRADE}")
-    
+
     if not XLSX_PATH.exists():
         raise FileNotFoundError(f"Excel 文件不存在: {XLSX_PATH}")
-    
+
     try:
         adr_data = collect_graded_adr_data(PDF_GRADE)
     except Exception as e:
         raise ValueError(f"解析分级 PDF 失败: {e}") from e
-    
+
     # 若分级 PDF 中某 ADR 只有 Total 没有 1/2/3 级，可从非分级 PDF 取 Total，分级仍用分级 PDF
     try:
         wb = load_workbook(XLSX_PATH)
     except Exception as e:
         raise ValueError(f"无法加载 Excel 文件: {e}") from e
-    
+
     try:
         ws = wb.active
         # 确定数据列范围：C 到 Q（5 组 × 3）
@@ -307,7 +306,7 @@ def fill_excel():
         grade_rows = ("1级", "2级", "3级", "Total")
         row = 1
         filled = 0
-        
+
         while row <= ws.max_row:
             try:
                 grade_cell = ws.cell(row=row, column=2).value
@@ -315,7 +314,7 @@ def fill_excel():
                 if grade != "1级":
                     row += 1
                     continue
-                
+
                 # 向上找 ADR 名（A 列，仅第一行有）
                 a = row
                 while a >= 1:
@@ -323,18 +322,18 @@ def fill_excel():
                     if ac is not None and str(ac).strip():
                         break
                     a -= 1
-                
+
                 if a < 1:
                     row += 1
                     continue
-                
+
                 adr_name = (ws.cell(row=a, column=1).value or "").strip()
                 pdf_term = find_pdf_term_for_excel(adr_name)
-                
+
                 if not pdf_term or pdf_term not in adr_data:
                     row += 1
                     continue
-                
+
                 data = adr_data[pdf_term]
                 for ri, gr in enumerate(grade_rows):
                     r = row + ri
@@ -342,17 +341,17 @@ def fill_excel():
                         break
                     if gr not in data:
                         continue
-                    
+
                     vals = data[gr]
                     if len(vals) != 5:
                         continue  # 跳过格式不正确的数据
-                    
+
                     for gi, val_tuple in enumerate(vals):
                         if gi >= 5:  # 只处理5组
                             break
                         if not isinstance(val_tuple, (tuple, list)) or len(val_tuple) < 3:
                             continue
-                        
+
                         ex_count, n_subj, rate = val_tuple[0], val_tuple[1], val_tuple[2]
                         c = start_col + gi * cells_per_group
                         # Excel 列为：例数(=人数 n)、例次、发生率
@@ -363,17 +362,17 @@ def fill_excel():
                         if rate is not None:
                             ws.cell(row=r, column=c + 2, value=rate)
                     filled += 1
-                
+
                 row += 4
             except Exception as e:
                 print(f"处理第 {row} 行时出错: {e}")
                 row += 1
                 continue
-        
+
         wb.save(XLSX_PATH)
         print(f"已填充 {filled} 行数据，已保存: {XLSX_PATH}")
         return filled
-        
+
     except Exception as e:
         raise ValueError(f"填充 Excel 数据失败: {e}") from e
     finally:

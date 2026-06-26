@@ -12,7 +12,7 @@ import shutil
 import tempfile
 import zipfile
 from dataclasses import dataclass, field
-from typing import List, Sequence, Tuple
+from collections.abc import Sequence
 
 from lxml import etree
 
@@ -47,8 +47,8 @@ class ReplaceStats:
 class ReplaceRuleSet:
     """替换规则集合。"""
 
-    literals: List[Tuple[str, str]] = field(default_factory=list)
-    regexes: List[Tuple[re.Pattern[str], str]] = field(default_factory=list)
+    literals: list[tuple[str, str]] = field(default_factory=list)
+    regexes: list[tuple[re.Pattern[str], str]] = field(default_factory=list)
 
     def count_in_text(self, text: str) -> int:
         n = 0
@@ -58,7 +58,7 @@ class ReplaceRuleSet:
             n += sum(1 for _ in rx.finditer(text))
         return n
 
-    def apply(self, text: str) -> Tuple[str, int]:
+    def apply(self, text: str) -> tuple[str, int]:
         total = 0
         out = text
         for old, new in self.literals:
@@ -119,7 +119,7 @@ def build_default_rules() -> ReplaceRuleSet:
     return ReplaceRuleSet(literals=literals, regexes=d.regexes + s.regexes)
 
 
-def iter_text_nodes(container) -> List[etree._Element]:
+def iter_text_nodes(container) -> list[etree._Element]:
     """按文档顺序收集 w:t / w:delText（含修订删除线文本）。"""
     return [el for el in container.iter() if el.tag in TEXT_TAGS]
 
@@ -167,7 +167,7 @@ def replace_in_xml_tree(root, rules: ReplaceRuleSet, do_replace: bool) -> int:
     return total
 
 
-def iter_package_xml_files(extract_dir: str) -> List[str]:
+def iter_package_xml_files(extract_dir: str) -> list[str]:
     """处理 word/ 下全部 XML（正文、页眉页脚、脚注等）。"""
     word_dir = os.path.join(extract_dir, "word")
     if not os.path.isdir(word_dir):

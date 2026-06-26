@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Excel 子表 <-> Word 表格映射：数据结构、文本匹配、plan 生成与 JSON 加载。
 
@@ -11,7 +10,7 @@ import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import openpyxl
 
@@ -82,7 +81,7 @@ def subtable_id_from_cell_range(r: CellRange) -> str:
     return f"{r.sheet}|{r.min_row}|{r.max_row}|{r.min_col}|{r.max_col}"
 
 
-def load_table_mapping_json(table_map_json_path: Optional[str]) -> dict[str, list[WordTableRef]]:
+def load_table_mapping_json(table_map_json_path: str | None) -> dict[str, list[WordTableRef]]:
     """
     从 JSON 读取你确认后的 table 映射。
     若 path 为 None 或空字符串，返回空 dict。

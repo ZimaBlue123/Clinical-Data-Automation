@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """
 eCTD 合规装甲 & XSS 深度清理器（18_PDF_eCTD_Converter）
 
@@ -1204,11 +1203,10 @@ def main() -> None:
                 out_path = output_dir / rel
             else:
                 out_path = (output_dir / rel).with_name(f"{rel.stem}_ectd.pdf")
+        elif args.keep_name:
+            out_path = output_dir / pdf_path.name
         else:
-            if args.keep_name:
-                out_path = output_dir / pdf_path.name
-            else:
-                out_path = output_dir / f"{pdf_path.stem}_ectd.pdf"
+            out_path = output_dir / f"{pdf_path.stem}_ectd.pdf"
 
         if cleaner.process_pdf(pdf_path, out_path, validate_only=args.validate_only):
             success += 1

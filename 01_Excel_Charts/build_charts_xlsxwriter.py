@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 使用 pandas + XlsxWriter 生成 ADR 组合图，避免 openpyxl 绘图导致
 Microsoft Excel 报错“Removed Part: /xl/drawings/drawing1.xml”。
@@ -184,17 +183,17 @@ def _get_series_color(name: str, use_clinical: bool) -> str:
 def _read_source_data():
     """
     用 openpyxl 仅读取数据，不写入任何图表。
-    
+
     Returns:
         (sheet_name, rows, chart_data, max_col) 元组
-        
+
     Raises:
         FileNotFoundError: 源文件不存在
         ValueError: 文件格式错误或无法读取
     """
     if not TFL.exists():
         raise FileNotFoundError(f"源 Excel 文件不存在: {TFL}")
-    
+
     wb = None
     wb_data = None
     try:
@@ -263,9 +262,9 @@ def _read_source_data():
                 "group_names": group_names,
                 "values": values,
             }
-        
+
         return sheet_name, rows, chart_data, max_col
-        
+
     except Exception as e:
         raise ValueError(f"读取源文件失败: {e}") from e
     finally:
@@ -278,7 +277,7 @@ def _read_source_data():
 def build(use_clinical_colors: bool = False):
     """
     构建 Excel 图表。
-    
+
     Raises:
         FileNotFoundError: 源文件不存在
         ValueError: 数据格式错误
@@ -290,7 +289,7 @@ def build(use_clinical_colors: bool = False):
         raise
     except Exception as e:
         raise ValueError(f"读取源数据失败: {e}") from e
-    
+
     n_cat = len(chart_data.get("adr_names", []))
     if n_cat == 0:
         raise ValueError("未找到任何 ADR 数据")

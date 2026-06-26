@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 将指定文件夹下的 PDF 批量转换为 PPTX（每页一页幻灯片，以图片形式嵌入）。
 
@@ -83,18 +82,18 @@ def render_page_to_png_bytes(page):
 def pdf_to_ppt(pdf_path: Path, output_ppt_path: Path) -> None:
     """
     将单个 PDF 转为 pptx。若输出已存在且比 PDF 新则跳过。
-    
+
     Args:
         pdf_path: PDF 文件路径
         output_ppt_path: 输出 PPTX 文件路径
-        
+
     Raises:
         FileNotFoundError: PDF 文件不存在
         ValueError: PDF 文件无法打开或转换失败
     """
     if not pdf_path.exists():
         raise FileNotFoundError(f"PDF 文件不存在: {pdf_path}")
-    
+
     doc = None
     try:
         # 检查输出文件是否已存在且为最新
@@ -105,7 +104,7 @@ def pdf_to_ppt(pdf_path: Path, output_ppt_path: Path) -> None:
                     return
             except OSError as e:
                 print(f"警告: 无法比较文件时间戳: {e}")
-        
+
         doc = fitz.open(pdf_path)
         if doc.page_count == 0:
             raise ValueError(f"PDF 文件没有页面: {pdf_path}")
@@ -134,7 +133,7 @@ def pdf_to_ppt(pdf_path: Path, output_ppt_path: Path) -> None:
 
         prs.save(output_ppt_path)
         print(f"✔ 已生成: {output_ppt_path}")
-        
+
     except FileNotFoundError:
         raise
     except Exception as e:
@@ -149,7 +148,7 @@ def pdf_to_ppt(pdf_path: Path, output_ppt_path: Path) -> None:
 def main(target_dir: Path, out_dir: Path) -> None:
     """
     批量转换 PDF 文件为 PPTX。
-    
+
     Args:
         target_dir: 包含 PDF 文件的目录
         out_dir: 输出目录
@@ -157,7 +156,7 @@ def main(target_dir: Path, out_dir: Path) -> None:
     if not target_dir.exists():
         print(f"目标文件夹不存在: {target_dir}")
         return
-    
+
     if not target_dir.is_dir():
         print(f"路径不是目录: {target_dir}")
         return
@@ -192,7 +191,7 @@ def main(target_dir: Path, out_dir: Path) -> None:
         except Exception as e:  # noqa: F841
             print(f"处理文件时出现未捕捉异常: {pdf_path}")
             traceback.print_exc()
-    
+
     print(f"\n全部处理完成。成功转换 {success_count}/{len(pdf_files)} 个文件。")
 
 

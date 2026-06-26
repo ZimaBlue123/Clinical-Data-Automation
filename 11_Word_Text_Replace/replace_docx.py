@@ -11,7 +11,6 @@ import glob
 import os
 import sys
 import traceback
-from typing import List
 
 from lib.ooxml_replace import (
     build_date_rules,
@@ -60,7 +59,7 @@ def info(message: str, auto_yes: bool = False) -> None:
         print(message)
 
 
-def collect_docx(input_dir: str, recursive: bool) -> List[str]:
+def collect_docx(input_dir: str, recursive: bool) -> list[str]:
     pattern = (
         os.path.join(input_dir, "**", "*.docx")
         if recursive

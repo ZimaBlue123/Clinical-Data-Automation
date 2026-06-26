@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """
 Intelligent PPT Restructuring & Narrative Flow Automation (ppt_engine)
 
@@ -12,7 +11,6 @@ Intelligent PPT Restructuring & Narrative Flow Automation (ppt_engine)
 
 import os
 import re
-from typing import List, Dict, Tuple, Optional
 
 # 复用 merge_ppt 的合并与复制能力（input/ 读源文件，output/ 写结果）
 from merge_ppt import (
@@ -36,7 +34,7 @@ from pptx.enum.text import PP_ALIGN
 # =============================================================================
 
 # (章节ID, 章节显示名, 该章内「槽位」列表；每槽位为短语列表，任一匹配即进入该槽)
-CURATED_SCRIPT: List[Tuple[str, str, List[List[str]]]] = [
+CURATED_SCRIPT: list[tuple[str, str, list[list[str]]]] = [
     ("1", "研究背景与设计 (Context)", [
         ["研究设计与安全集分布", "Study Design", "安全集", "Enrollment", "design", "flowchart"],
     ]),
@@ -62,7 +60,7 @@ CURATED_SCRIPT: List[Tuple[str, str, List[List[str]]]] = [
 ]
 
 # 当标题/正文匹配不到时，按「原始合并顺序下的 Slide 序号」(1-based) 直接指定保留页。
-CURATED_SLIDE_NUMBERS: List[Tuple[str, List[int]]] = [
+CURATED_SLIDE_NUMBERS: list[tuple[str, list[int]]] = [
     ("1", [24]), ("2", [25]), ("3", [19, 26, 18, 27, 21]), ("4", [13, 14, 29, 30]), ("5", [31]),
 ]
 
@@ -73,7 +71,7 @@ CURATED_SLIDE_NUMBERS: List[Tuple[str, List[int]]] = [
 
 # match 键: title_all / title_any / text_all / content_any（在标题+正文中）
 # tie: first / max_shape_count / body_contains_n64_n32 / has_table / max_text_len
-SLIDE_BLUEPRINT: List[Dict] = [
+SLIDE_BLUEPRINT: list[dict] = [
     {"slot": 1, "chapter_id": "1", "chapter_title": "研究背景 (Context)",
      "match": {"title_all": ["重组带状疱疹疫苗", "阶段性分析"]}, "tie": "first"},
     {"slot": 2, "chapter_id": "1", "chapter_title": "研究背景 (Context)",
@@ -96,7 +94,7 @@ SLIDE_BLUEPRINT: List[Dict] = [
      "match": {"title_any": ["总结", "临床意义"], "content_any": ["依从性", "II期"]}, "tie": "first"},
 ]
 # 当 match 无法命中时（如标题/正文为空），按 1-based Slide 序号回退取页。每 Slot 可填多个备选序号。
-BLUEPRINT_FALLBACK_SLIDES: Dict[int, List[int]] = {
+BLUEPRINT_FALLBACK_SLIDES: dict[int, list[int]] = {
     1: [1],          # 标题页：通常为第 1 张
     2: [20, 2],      # 详细研究设计
     3: [3],
@@ -135,7 +133,7 @@ def _get_slide_title(slide) -> str:
     return first_line[:200] if first_line else ""
 
 
-def _slide_matches_blueprint_slot(s: SlideInfo, spec: Dict) -> bool:
+def _slide_matches_blueprint_slot(s: SlideInfo, spec: dict) -> bool:
     """判断 slide 是否匹配该 Slot 的 match 规则。"""
     title = (getattr(s, "slide_title", "") or "").strip()
     text = ((getattr(s, "slide_title", "") or "") + "\n" + (s.text_content or "")).strip()
@@ -169,7 +167,7 @@ def _slide_matches_blueprint_slot(s: SlideInfo, spec: Dict) -> bool:
     return True
 
 
-def _tie_break(candidates: List[SlideInfo], tie: str, slot_id: int, log: List[str]) -> Optional[SlideInfo]:
+def _tie_break(candidates: list[SlideInfo], tie: str, slot_id: int, log: list[str]) -> SlideInfo | None:
     """从候选列表中按 tie 规则选出唯一胜者，并写日志。"""
     if not candidates:
         return None
@@ -216,12 +214,12 @@ def _tie_break(candidates: List[SlideInfo], tie: str, slot_id: int, log: List[st
     return candidates[0]
 
 
-def select_slides_by_blueprint(slide_infos: List[SlideInfo], log: List[str]) -> List[Tuple[int, str, str, Optional[SlideInfo]]]:
+def select_slides_by_blueprint(slide_infos: list[SlideInfo], log: list[str]) -> list[tuple[int, str, str, SlideInfo | None]]:
     """
     按 SLIDE_BLUEPRINT 为每个 Slot 选出唯一优胜 Slide。
     返回: [(slot_id, chapter_id, chapter_title, slide_info), ...]，未匹配的 slot 对应 slide_info=None。
     """
-    result: List[Tuple[int, str, str, Optional[SlideInfo]]] = []
+    result: list[tuple[int, str, str, SlideInfo | None]] = []
     for spec in SLIDE_BLUEPRINT:
         slot_id = spec["slot"]
         ch_id = spec["chapter_id"]
@@ -233,7 +231,7 @@ def select_slides_by_blueprint(slide_infos: List[SlideInfo], log: List[str]) -> 
     return result
 
 
-def _match_slide_to_script(slide_title: str) -> Optional[Tuple[str, int, str]]:
+def _match_slide_to_script(slide_title: str) -> tuple[str, int, str] | None:
     """
     用剧本中的标题片段匹配幻灯片：标题包含该片段即视为匹配。
     返回: (chapter_id, sub_order, matched_phrase) 或 None（未入选）。
@@ -254,14 +252,14 @@ def _match_slide_to_script(slide_title: str) -> Optional[Tuple[str, int, str]]:
 
 
 def select_slides_by_curated_script(
-    slide_infos: List[SlideInfo],
-) -> List[SlideInfo]:
+    slide_infos: list[SlideInfo],
+) -> list[SlideInfo]:
     """
     按剧本精选：每页用标题（或已挂的 _match_result，含正文）匹配剧本；同槽多页保留 shape_count 最大的一页。
     返回按 (章节顺序, 剧本内顺序) 排好序的 SlideInfo 列表。
     """
     # (chapter_id, sub_order) -> [(slide_info, matched_phrase), ...]
-    slot_candidates: Dict[Tuple[str, int], List[Tuple[SlideInfo, str]]] = {}
+    slot_candidates: dict[tuple[str, int], list[tuple[SlideInfo, str]]] = {}
     for s in slide_infos:
         match = getattr(s, "_match_result", None)
         if match is None:
@@ -273,7 +271,7 @@ def select_slides_by_curated_script(
         slot_candidates.setdefault(key, []).append((s, phrase))
     # 每个 slot 只保留 shape_count 最大的一页
     chapter_order = {ch_id: i for i, (ch_id, _, _) in enumerate(CURATED_SCRIPT)}
-    selected: List[Tuple[int, int, SlideInfo]] = []
+    selected: list[tuple[int, int, SlideInfo]] = []
     for (ch_id, sub_order), candidates in slot_candidates.items():
         best = max(candidates, key=lambda x: x[0].shape_count)
         selected.append((chapter_order[ch_id], sub_order, best[0]))
@@ -285,7 +283,7 @@ def add_section_divider_slide(
     prs: Presentation,
     part_label: str,
     chapter_title: str,
-    layout_index: Optional[int] = None,
+    layout_index: int | None = None,
 ) -> None:
     """
     在 prs 末尾插入一张过渡页：深绿背景，居中大标题 "Part X: Chapter Title"。
@@ -362,13 +360,13 @@ def run_editor() -> None:
             s.slide_title = _get_slide_title(s.slide_obj)
             s.has_table = _slide_has_table(s.slide_obj)
 
-        log: List[str] = []
+        log: list[str] = []
         slot_results = select_slides_by_blueprint(slide_infos, log)
-        
+
         # 未匹配的 Slot 按序号回退；多序号时用该 Slot 的 tie_breaker 选一
         n = len(slide_infos)
         spec_by_slot = {sp["slot"]: sp for sp in SLIDE_BLUEPRINT}
-        new_results: List[Tuple[int, str, str, Optional[SlideInfo]]] = []
+        new_results: list[tuple[int, str, str, SlideInfo | None]] = []
         for slot_id, ch_id, ch_title, winner in slot_results:
             if winner is None and slot_id in BLUEPRINT_FALLBACK_SLIDES:
                 candidates = [slide_infos[num - 1] for num in BLUEPRINT_FALLBACK_SLIDES[slot_id] if 1 <= num <= n]
@@ -382,11 +380,11 @@ def run_editor() -> None:
         slot_results = new_results
 
         # 构建章节映射和移动日志
-        chapter_moves: Dict[str, List[Tuple[int, int, str]]] = {}  # chapter_id -> [(original_idx, new_idx, title)]
-        final_slide_order: List[Tuple[int, str, Optional[SlideInfo]]] = []
-        
+        chapter_moves: dict[str, list[tuple[int, int, str]]] = {}  # chapter_id -> [(original_idx, new_idx, title)]
+        final_slide_order: list[tuple[int, str, SlideInfo | None]] = []
+
         template_prs = Presentation(template_path)
-        last_chapter: Optional[str] = None
+        last_chapter: str | None = None
         slide_count = 0
         current_final_index = 0
 
@@ -400,11 +398,11 @@ def run_editor() -> None:
         print("=" * 80)
         print("章节重组详情")
         print("=" * 80)
-        
+
         for slot_id, ch_id, ch_title, winner in slot_results:
             if winner is None:
                 continue
-            
+
             # 记录章节切换
             if ch_id != last_chapter:
                 if last_chapter is not None:
@@ -414,19 +412,19 @@ def run_editor() -> None:
                 slide_count += 1
                 current_final_index += 1
                 last_chapter = ch_id
-            
+
             # 记录幻灯片移动
             original_idx = winner.source_index + 1  # 1-based for display
             slide_title = getattr(winner, "slide_title", "") or f"Slide {winner.global_id}"
             final_slide_order.append((current_final_index, ch_id, winner))
-            
+
             if ch_id not in chapter_moves:
                 chapter_moves[ch_id] = []
             chapter_moves[ch_id].append((original_idx, current_final_index + 1, slide_title))
-            
+
             print(f"  ✓ Kept Slide ID {winner.global_id} (Source: {winner.source_ppt}, Original Index: {original_idx}, Final Index: {current_final_index + 1})")
             print(f"    标题: {slide_title[:60]}{'...' if len(slide_title) > 60 else ''}")
-            
+
             new_slide = clone_slide_into_presentation(template_prs, winner.slide_obj, layout_index=0)
             standardize_fonts(new_slide, title_font_name="Arial", body_font_name="Arial",
                               title_size_pt=24, body_size_pt=14)
@@ -437,7 +435,7 @@ def run_editor() -> None:
         print("=" * 80)
         print("章节移动摘要")
         print("=" * 80)
-        
+
         chapter_names = {ch_id: ch_title for _, ch_id, ch_title, _ in slot_results}
         for ch_id in sorted(set(ch_id for _, ch_id, _, _ in slot_results if ch_id)):
             moves = chapter_moves.get(ch_id, [])
@@ -452,17 +450,17 @@ def run_editor() -> None:
 
         output_pptx = os.path.join(output_dir, "merged_presentation.pptx")
         template_prs.save(output_pptx)
-        
+
         print()
         print("=" * 80)
         print("处理完成")
         print("=" * 80)
         print(f"✓ 共生成 {slide_count} 张幻灯片（含章节分隔页）")
         print(f"✓ 成品 PPT: {output_pptx}")
-        
+
         # 自检
         _self_check(output_pptx, slide_count, len(slide_infos))
-        
+
     except Exception as e:
         print(f"\n❌ 错误: {str(e)}")
         import traceback
@@ -506,7 +504,7 @@ def run_engine() -> None:
             s.slide_title = _get_slide_title(s.slide_obj)
 
         # 匹配时用「标题 + 正文」提高命中率（如正文含「400」「非临床剂量」等）
-        def _match(s: SlideInfo) -> Optional[Tuple[str, int, str]]:
+        def _match(s: SlideInfo) -> tuple[str, int, str] | None:
             text = (getattr(s, "slide_title", "") or "") + "\n" + (s.text_content or "")
             return _match_slide_to_script(text)
 
@@ -547,10 +545,10 @@ def run_engine() -> None:
                 s.script_phrase = ""
 
         # 构建章节移动日志
-        chapter_moves: Dict[str, List[Tuple[int, int, str]]] = {}
-        
+        chapter_moves: dict[str, list[tuple[int, int, str]]] = {}
+
         template_prs = Presentation(template_path)
-        last_chapter: Optional[str] = None
+        last_chapter: str | None = None
         slide_count = 0
         current_final_index = 0
 
@@ -569,19 +567,19 @@ def run_engine() -> None:
                 slide_count += 1
                 current_final_index += 1
                 last_chapter = ch_id
-            
+
             # 记录移动
             orig_ppt, orig_idx = original_index_map.get(s.global_id, ("", 0))
             slide_title = getattr(s, "slide_title", "") or f"Slide {s.global_id}"
             final_idx = current_final_index + 1
-            
+
             if ch_id not in chapter_moves:
                 chapter_moves[ch_id] = []
             chapter_moves[ch_id].append((orig_idx, final_idx, slide_title))
-            
+
             print(f"  ✓ Kept Slide ID {s.global_id} (Source: {orig_ppt}, Original Index: {orig_idx}, Final Index: {final_idx})")
             print(f"    标题: {slide_title[:60]}{'...' if len(slide_title) > 60 else ''}")
-            
+
             new_slide = clone_slide_into_presentation(template_prs, s.slide_obj, layout_index=0)
             standardize_fonts(new_slide, title_font_name="Arial", body_font_name="Arial",
                               title_size_pt=24, body_size_pt=14)
@@ -592,7 +590,7 @@ def run_engine() -> None:
         print("=" * 80)
         print("章节移动摘要")
         print("=" * 80)
-        
+
         for ch_id in sorted(set(getattr(s, "chapter_id", "") for s in ordered if getattr(s, "chapter_id", ""))):
             moves = chapter_moves.get(ch_id, [])
             if moves:
@@ -631,17 +629,17 @@ def run_engine() -> None:
 
         n_content = len(ordered)
         n_dividers = slide_count - n_content
-        
+
         print()
         print("=" * 80)
         print("处理完成")
         print("=" * 80)
         print(f"✓ 共生成 {slide_count} 张幻灯片（含 {n_dividers} 个过渡页，{n_content} 张内容页）")
         print(f"✓ 成品 PPT: {output_pptx}")
-        
+
         # 自检
         _self_check(output_pptx, slide_count, len(slide_infos))
-        
+
     except Exception as e:
         print(f"\n❌ 错误: {str(e)}")
         import traceback
@@ -655,10 +653,10 @@ def _self_check(output_pptx: str, expected_slides: int, original_count: int) -> 
     print("=" * 80)
     print("自检报告")
     print("=" * 80)
-    
+
     checks_passed = 0
     checks_total = 0
-    
+
     # 检查1: 文件是否存在
     checks_total += 1
     if os.path.exists(output_pptx):
@@ -667,7 +665,7 @@ def _self_check(output_pptx: str, expected_slides: int, original_count: int) -> 
         checks_passed += 1
     else:
         print("❌ [检查1] 输出文件不存在")
-    
+
     # 检查2: 文件可读性
     checks_total += 1
     try:
@@ -675,7 +673,7 @@ def _self_check(output_pptx: str, expected_slides: int, original_count: int) -> 
         actual_slides = len(prs.slides)
         print("✓ [检查2] PPT文件可正常读取")
         checks_passed += 1
-        
+
         # 检查3: 幻灯片数量
         checks_total += 1
         if actual_slides == expected_slides:
@@ -683,7 +681,7 @@ def _self_check(output_pptx: str, expected_slides: int, original_count: int) -> 
             checks_passed += 1
         else:
             print(f"⚠ [检查3] 幻灯片数量不匹配: 期望 {expected_slides}，实际 {actual_slides}")
-        
+
         # 检查4: 幻灯片完整性
         checks_total += 1
         all_valid = True
@@ -696,23 +694,23 @@ def _self_check(output_pptx: str, expected_slides: int, original_count: int) -> 
             except Exception as e:
                 print(f"  ❌ 幻灯片 {i} 读取错误: {e}")
                 all_valid = False
-        
+
         if all_valid:
             print("✓ [检查4] 所有幻灯片结构完整")
             checks_passed += 1
         else:
             print("⚠ [检查4] 部分幻灯片可能存在问题")
-        
+
     except Exception as e:
         print(f"❌ [检查2] PPT文件读取失败: {e}")
-    
+
     # 检查5: 去重效果
     checks_total += 1
     reduction = original_count - expected_slides
     reduction_pct = (reduction / original_count * 100) if original_count > 0 else 0
     print(f"✓ [检查5] 去重统计: 原始 {original_count} 张 → 最终 {expected_slides} 张 (减少 {reduction} 张, {reduction_pct:.1f}%)")
     checks_passed += 1
-    
+
     print()
     print(f"自检结果: {checks_passed}/{checks_total} 项检查通过")
     if checks_passed == checks_total:

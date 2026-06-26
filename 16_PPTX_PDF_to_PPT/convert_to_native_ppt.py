@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 PPTX/PDF 转原生可编辑 PPT（全要素原位蒙版重建版）
 
@@ -84,7 +83,7 @@ class ClinicalDocConverter:
             slide = prs.slides.add_slide(blank_layout)
             # 铺设底图
             slide.shapes.add_picture(img_path, 0, 0, width=prs.slide_width, height=prs.slide_height)
-            
+
             # 解析并覆盖文字/表格
             self._analyze_and_overlay(img_path, slide, 0, 0, prs.slide_width, prs.slide_height)
 
@@ -96,7 +95,7 @@ class ClinicalDocConverter:
     def _process_pptx_inplace(self, pptx_path: Path, output_pptx: Path, temp_dir: str):
         logger.info("📊 检测到 PPTX，启动原位无损替换模式...")
         prs = Presentation(str(pptx_path))
-        
+
         # 收集所有图片对象，方便做进度条
         pic_tasks = []
         for s_idx, slide in enumerate(prs.slides):
@@ -113,14 +112,14 @@ class ClinicalDocConverter:
             img_blob = shape.image.blob
             img_ext = shape.image.ext
             img_path = os.path.join(temp_dir, f"temp_{s_idx}.{img_ext}")
-            
+
             with open(img_path, "wb") as f:
                 f.write(img_blob)
-                
+
             # 获取图片在幻灯片上的绝对坐标和尺寸
             s_left, s_top = shape.left, shape.top
             s_width, s_height = shape.width, shape.height
-            
+
             # 核心：将 AI 识别的数据直接盖在这张图片上方！
             self._analyze_and_overlay(img_path, slide, s_left, s_top, s_width, s_height)
 
@@ -133,7 +132,7 @@ class ClinicalDocConverter:
         # 1. 获取原图像素大小，用于计算缩放率
         with Image.open(img_path) as img:
             img_w_px, img_h_px = img.size
-            
+
         scale_x = base_width / img_w_px
         scale_y = base_height / img_h_px
 
@@ -142,7 +141,7 @@ class ClinicalDocConverter:
 
         for region in result:
             bbox = region['bbox'] # [x1, y1, x2, y2]
-            
+
             # 将图片的像素坐标，映射为 PPT 中的 Pt 坐标
             r_left = base_left + (bbox[0] * scale_x)
             r_top = base_top + (bbox[1] * scale_y)
@@ -177,7 +176,7 @@ class ClinicalDocConverter:
         # 填充纯白色作为蒙版，遮住原图里的字
         txBox.fill.solid()
         txBox.fill.fore_color.rgb = RGBColor(255, 255, 255)
-        
+
         tf = txBox.text_frame
         tf.word_wrap = True
         p = tf.paragraphs[0]
@@ -225,7 +224,7 @@ def main() -> None:
     base_dir = Path(__file__).resolve().parent
     input_dir = base_dir / "input"
     output_dir = base_dir / "output"
-    
+
     input_dir.mkdir(parents=True, exist_ok=True)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -233,7 +232,7 @@ def main() -> None:
     if not candidates:
         print("📭 input 目录下未找到文件！")
         return
-        
+
     input_path = sorted(candidates)[0]
     output_path = output_dir / f"{input_path.stem}_editable.pptx"
 

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-from typing import Dict, List, Tuple
 
 import fitz  # PyMuPDF
 import pytesseract
@@ -44,13 +43,13 @@ def _normalize_word(s: str) -> str:
 def detect_ocr_boxes(
     doc: fitz.Document,
     *,
-    vector_keywords: List[str],
+    vector_keywords: list[str],
     ocr_dpi: int = 200,
     conf_thresh: float = 50.0,
     lang: str = "chi_sim+eng",
     repeated_heuristic: bool = True,
     repeated_min_pages: int = 3,
-) -> Dict[str, List[Box]]:
+) -> dict[str, list[Box]]:
     """
     OCR-based exclusion box detection for scanned PDFs.
 
@@ -60,10 +59,10 @@ def detect_ocr_boxes(
        frequent OCR words across pages become candidates.
     """
     kw_lowers = [k.strip().lower() for k in vector_keywords if k and k.strip()]
-    boxes_by_page: Dict[str, List[Box]] = {}
+    boxes_by_page: dict[str, list[Box]] = {}
 
     # For repeated heuristic
-    word_page_boxes: Dict[str, List[Tuple[int, Box]]] = {}
+    word_page_boxes: dict[str, list[tuple[int, Box]]] = {}
 
     for pno in range(len(doc)):
         page = doc[pno]
@@ -78,7 +77,7 @@ def detect_ocr_boxes(
         data = pytesseract.image_to_data(img, output_type=Output.DICT, lang=lang)
         n = len(data.get("text", []))
 
-        page_boxes: List[Box] = []
+        page_boxes: list[Box] = []
 
         for i in range(n):
             text = (data["text"][i] or "").strip()
@@ -142,7 +141,7 @@ def detect_ocr_boxes(
         return boxes_by_page
 
     # Choose frequent words across pages
-    word_to_pages: Dict[str, set[int]] = {}
+    word_to_pages: dict[str, set[int]] = {}
     for word, occurrences in word_page_boxes.items():
         pages = {p for (p, _b) in occurrences}
         word_to_pages[word] = pages

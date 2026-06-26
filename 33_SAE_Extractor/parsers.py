@@ -56,7 +56,7 @@ def _perform_ocr(pdf_path: str, page_index: int, settings: Settings, lang: str) 
 def parse_txt(file_path: str) -> str:
     for encoding in ["utf-8", "utf-8-sig", "gbk", "utf-16"]:
         try:
-            with open(file_path, "r", encoding=encoding) as f:
+            with open(file_path, encoding=encoding) as f:
                 return f.read()
         except UnicodeDecodeError:
             continue

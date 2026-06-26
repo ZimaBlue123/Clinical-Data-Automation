@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Word -> Excel(表+图) 自动复刻模块
 
@@ -23,7 +22,7 @@ import json
 import os
 import shutil
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import openpyxl
 from openpyxl.worksheet.worksheet import Worksheet
@@ -59,7 +58,7 @@ def _setup_logging(verbose: bool) -> None:
 _NUM_RE = re.compile(r"[-+]?\d+(?:\.\d+)?")
 
 
-def _parse_word_number(text: str | None) -> Optional[float]:
+def _parse_word_number(text: str | None) -> float | None:
     s = _strip_word_cell_text(text)
     if not s:
         return None
@@ -76,7 +75,7 @@ def _numbers_close(a: float, b: float, *, rel_tol: float = 1e-9, abs_tol: float 
     return math.isclose(a, b, rel_tol=rel_tol, abs_tol=abs_tol)
 
 
-def _normalize_number_for_compare(word_val: float, template_val: Any) -> Optional[float]:
+def _normalize_number_for_compare(word_val: float, template_val: Any) -> float | None:
     """
     尽量把 Word 表里的数字“转到与模板一致的量纲”再比较。
     - 若模板是 0~1 小数（发生率），Word 可能写成 0~100 或带 % 形式。
@@ -211,7 +210,7 @@ def _extract_template_series_refs(template_wb: openpyxl.Workbook) -> list[ChartS
                 cat = getattr(s, "cat", None)
                 val = getattr(s, "val", None)
 
-                def f(x: Any) -> Optional[str]:
+                def f(x: Any) -> str | None:
                     if x is None:
                         return None
                     nr = getattr(x, "numRef", None)
@@ -245,7 +244,7 @@ def _extract_template_series_refs(template_wb: openpyxl.Workbook) -> list[ChartS
     for r in refs:
         uniq[(r.cat, r.val)] = None
     out: list[ChartSeriesRefs] = []
-    for cat_range, val_range in uniq.keys():
+    for cat_range, val_range in uniq:
         out.append(ChartSeriesRefs(cat=cat_range, val=val_range))
     return out
 
@@ -273,7 +272,7 @@ def _word_find_table_containing_text(doc: Any, key_text: str) -> list[Any]:
         return []
 
 
-def _extract_table_matrix(table: Any) -> tuple[list[list[str]], list[list[Optional[float]]]]:
+def _extract_table_matrix(table: Any) -> tuple[list[list[str]], list[list[float | None]]]:
     """
     将 Word table 抽成：
     - text_matrix[row][col]：清洗后的文本
@@ -282,7 +281,7 @@ def _extract_table_matrix(table: Any) -> tuple[list[list[str]], list[list[Option
     rows = table.Rows.Count
     cols = table.Columns.Count
     text_matrix: list[list[str]] = [[""] * cols for _ in range(rows)]
-    num_matrix: list[list[Optional[float]]] = [[None] * cols for _ in range(rows)]
+    num_matrix: list[list[float | None]] = [[None] * cols for _ in range(rows)]
     for i in range(1, rows + 1):
         for j in range(1, cols + 1):
             try:
@@ -297,10 +296,10 @@ def _extract_table_matrix(table: Any) -> tuple[list[list[str]], list[list[Option
 
 def _match_cat_and_val_columns(
     text_matrix: list[list[str]],
-    num_matrix: list[list[Optional[float]]],
+    num_matrix: list[list[float | None]],
     cat_values: list[str],
     val_header_keys: list[str],
-) -> Optional[tuple[list[int], int, int]]:
+) -> tuple[list[int], int, int] | None:
     """
     在一个 Word table 里找：
     - cat_col：哪个列是 cat_values 的序列
@@ -348,7 +347,7 @@ def _match_cat_and_val_columns(
             for cc in range(C):
                 col_texts.append({text_matrix[rr][cc] for rr in range(R) if text_matrix[rr][cc]})
 
-            best: Optional[tuple[int, int, int]] = None  # (header_score, numeric_non_none, val_col)
+            best: tuple[int, int, int] | None = None  # (header_score, numeric_non_none, val_col)
             for val_col in range(C):
                 numeric_non_none = 0
                 for k in range(n):
@@ -438,7 +437,7 @@ class WordComRunner:
         self.app = None
         self.docs: dict[Path, Any] = {}
 
-    def __enter__(self) -> "WordComRunner":
+    def __enter__(self) -> WordComRunner:
         self.app = self.win32.Dispatch("Word.Application")
         self.app.Visible = False
         try:
@@ -489,7 +488,7 @@ def _collect_word_parts(input_dir: Path) -> list[Path]:
         raise FileNotFoundError(f"在输入目录未找到 Word/RTF 文件: {input_dir}")
 
     # 若文件名含 part1/part2/part3，则按其对应关系排序
-    def part_num(name: str) -> Optional[int]:
+    def part_num(name: str) -> int | None:
         m = re.search(r"part\s*([123])", name, flags=re.I)
         if m:
             return int(m.group(1))
@@ -513,7 +512,7 @@ def _collect_word_parts(input_dir: Path) -> list[Path]:
     return parts_sorted + others_sorted
 
 
-def _find_skeleton_xlsx(template_xlsx_arg: Optional[str]) -> Path:
+def _find_skeleton_xlsx(template_xlsx_arg: str | None) -> Path:
     """
     不依赖用户提供模板。
     默认使用模块目录下唯一的 `.xlsx` 骨架文件（应为上一版结构文件）。
@@ -546,7 +545,7 @@ def _find_skeleton_xlsx(template_xlsx_arg: Optional[str]) -> Path:
 
 
 def _select_best_skeleton_xlsx(
-    template_xlsx_arg: Optional[str],
+    template_xlsx_arg: str | None,
     template_dir: Path,
     word_parts: list[Path],
 ) -> Path:
@@ -577,7 +576,7 @@ def _select_best_skeleton_xlsx(
         label_found_cache[key_norm] = found
         return found
 
-    best_path: Optional[Path] = None
+    best_path: Path | None = None
     best_score: float = -1.0
 
     with WordComRunner() as runner:
@@ -644,7 +643,7 @@ def _write_output_and_self_check(
     out_path: Path,
     word_parts: list[Path],
     series_refs: list[ChartSeriesRefs],
-    table_mapping: Optional[dict[str, list[WordTableRef]]] = None,
+    table_mapping: dict[str, list[WordTableRef]] | None = None,
 ) -> None:
     # 拷贝模板文件，尽量不破坏格式/图表结构
     if out_path.exists():
@@ -662,10 +661,10 @@ def _write_output_and_self_check(
             # 性能优化：缓存“label -> 命中的 tables”和“table -> matrix”，避免重复 COM 调用
             key_tables_cache: dict[str, list[Any]] = {}
             label_tables_cache_global: dict[str, list[Any]] = {}
-            table_matrix_cache: dict[int, tuple[list[list[str]], list[list[Optional[float]]]]] = {}
-            all_tables_cache: Optional[list[Any]] = None
+            table_matrix_cache: dict[int, tuple[list[list[str]], list[list[float | None]]]] = {}
+            all_tables_cache: list[Any] | None = None
 
-            def get_table_matrices_cached(t: Any) -> tuple[list[list[str]], list[list[Optional[float]]]]:
+            def get_table_matrices_cached(t: Any) -> tuple[list[list[str]], list[list[float | None]]]:
                 key = id(t)
                 if key not in table_matrix_cache:
                     table_matrix_cache[key] = _extract_table_matrix(t)

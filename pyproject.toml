@@ -1,0 +1,116 @@
+# =====================================================================
+# Ruff 静态分析配置（阶段一：代码健壮性审计基线）
+# 来源：AGENTS.md §4.1（已用规则集 E, F, W, B, UP, S, N, SIM, RET, ARG, PTH, ERA + PLR）
+# 维护：2026-06-26 chore/code-health-2026-06-26
+# =====================================================================
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+extend-exclude = [
+    ".worktrees",
+    "build",
+    "dist",
+    ".venv",
+    "venv",
+]
+
+[tool.ruff.lint]
+# 与 AGENTS.md §4.1 完全对齐
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "W",    # pycodestyle warnings
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+    "S",    # flake8-bandit (security)
+    "N",    # pep8-naming
+    "SIM",  # flake8-simplify
+    "RET",  # flake8-return
+    "ARG",  # flake8-unused-arguments
+    "PTH",  # flake8-use-pathlib
+    "ERA",  # eradicate (commented-out code)
+    "PLR",  # Pylint Refactor
+]
+ignore = [
+    "PLR0913",  # 过多参数（CLI 入口常见）
+    "PLR2004",  # magic value（项目内允许黑名单）
+]
+
+[tool.ruff.lint.per-file-ignores]
+# 公开 re-export 允许未使用导入
+"__init__.py" = ["F401"]
+# 测试代码允许 assert / magic value
+"tests/**" = ["S101", "PLR2004"]
+# 工具脚本放宽安全规则（开发者自控脚本，非服务入口）
+"scripts/**" = ["S"]
+
+# ---------------------------------------------------------------------
+# 阶段一审计：鲁棒性 S 系列风险点处置
+# ---------------------------------------------------------------------
+# 这些位置经过审计确认为合规用法或可接受风险：
+# - S110/S112/SIM105：探测库可用性 / 资源清理失败容错（AGENTS §4.2 明文允许）
+# - S603/S607/S602：subprocess 调用（开发者硬编码参数，非用户输入）
+# - S104：0.0.0.0 绑定（本地工具故意暴露所有接口）
+# - S311：random（非密码学用途，文件名/样本生成）
+# - S324：MD5/SHA1（文档指纹，非密码学）
+# - S314：xml.etree 解析（已在调用前校验来源；迁移 defusedxml 是后续单独 PR）
+# ---------------------------------------------------------------------
+
+# Excel/Office 系列：探测库 + 容错清理
+"01_Excel_Charts/*.py" = ["S110", "S112", "SIM105"]
+"02_Excel_Chart_Colors/*.py" = ["S110", "S112", "SIM105"]
+"03_PPT_Merge/*.py" = ["S110", "S112", "SIM105"]
+"04_PPT_Watermark_Removal/*.py" = ["S110", "S112", "SIM105"]
+"05_PPT_to_PDF/*.py" = ["S110", "S112", "SIM105"]
+"06_Word_to_PDF/*.py" = ["S110", "S112", "SIM105"]
+
+# Word 系列：探测 + xml.etree 解析用户上传文档（S314 待迁移 defusedxml）
+"07_Word_to_Excel_to_Figure/**/*.py" = ["S110", "S112", "SIM105"]
+"08_Word_Tables_to_Graphpad/lib/*.py" = ["S110", "S112", "SIM105", "S314"]
+"10_Word_Style_Cleaner/*.py" = ["S110", "S112", "SIM105", "S314"]
+"11_Word_Text_Replace/**/*.py" = ["S110", "S112", "SIM105"]
+
+# PDF 系列
+"12_PDF_Batch_to_Excel/*.py" = ["S110", "S112", "SIM105"]
+"13_PDF_to_Excel_Rule_Extract/*.py" = ["S110", "S112", "SIM105"]
+"14_PDF_to_PPT/*.py" = ["S110", "S112", "SIM105"]
+"15_PDF_XSS/*.py" = ["S110", "S112", "SIM105"]
+"16_PPTX_PDF_to_PPT/*.py" = ["S110", "S112", "SIM105"]
+"17_PDF_Title_Renamer/*.py" = ["S110", "S112", "SIM105"]
+"18_PDF_eCTD_Converter/*.py" = ["S110", "S112", "SIM105"]
+"19_PDF_Merge/*.py" = ["S110", "S112", "SIM105"]
+"20_PDF_Bookmark_Inherit_Zoom/*.py" = ["S110", "S112", "SIM105"]
+"21_PDF_Watermark_Removal/**/*.py" = ["S110", "S112", "SIM105"]
+
+# PDF Duplicate Analyzer：MD5 用于文档指纹（非密码学）
+"22_PDF_Duplicate_Analyzer/*.py" = ["S110", "S112", "SIM105", "S324"]
+
+# PDF Threat Analyzer：subprocess 调用 + xml.etree（待迁移 defusedxml）
+"23_PDF_Threat_Analyzer/*.py" = ["S110", "S112", "SIM105", "S603", "S607", "S314"]
+
+# Translator
+"24_File_Translator/*.py" = ["S110", "S112", "SIM105"]
+
+# Py to EXE：subprocess 打包调用（开发者硬编码）
+"25_Py_to_EXE/*.py" = ["S110", "S112", "SIM105", "S603"]
+
+# 系统工具类（subprocess 本地硬编码）
+"26_C_Drive_Cleanup/*.py" = ["S110", "S112", "SIM105"]
+"27_WiFi_Passwords/*.py" = ["S110", "S112", "SIM105", "S603"]
+"28_Folder_File_Count/*.py" = ["S110", "S112", "SIM105"]
+"29_Paper_Batch_Download/*.py" = ["S110", "S112", "SIM105", "S311"]
+"30_Proxy_Config_Export/*.py" = ["S110", "S112", "SIM105", "S603", "S607"]
+
+# 网络诊断类（subprocess + 0.0.0.0 故意绑定 + xml.etree）
+"31_DNS_Leak_Detector/*.py" = ["S110", "S112", "SIM105"]
+"32_Network_Speed_Test/*.py" = ["S110", "S112", "SIM105", "S602", "S603", "S607", "S104"]
+
+# SAE Extractor：subprocess + xml.etree
+"33_SAE_Extractor/*.py" = ["S110", "S112", "SIM105", "S603", "S314"]
+
+# 共享 src
+"src/*.py" = ["S110", "S112", "SIM105"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["src"]

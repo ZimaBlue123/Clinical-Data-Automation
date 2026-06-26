@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 文献批量下载与重塑矩阵 (Protocol V3.0 - 终极融合版)
 Vibe: Academic Cyberpunk
@@ -22,7 +21,7 @@ import shutil
 import urllib3
 from collections import defaultdict
 from pathlib import Path
-from typing import Iterable
+from collections.abc import Iterable
 from urllib.parse import urljoin, urlparse
 
 import requests
@@ -90,10 +89,10 @@ class PDFSanitizer:
 
         # 1. 阵营嗅探：检测是否包含中文字符
         is_chinese = bool(re.search(r"[\u4e00-\u9fa5]", name))
-        
+
         # 2. 物理切除：切除各类括号及内部噪点
         cleaned = re.sub(r"[\[\(（【《].*?[\]\)）】》]", "", name)
-        
+
         # 3. 抹除非法路径字符，替换为空格
         cleaned = re.sub(r"[^\w\s\-\u4e00-\u9fa5]", " ", cleaned)
         cleaned = re.sub(r"\s+", " ", cleaned).strip()
@@ -103,22 +102,21 @@ class PDFSanitizer:
             cleaned_cjk = cleaned.replace(" ", "")
             if not cleaned_cjk:
                 return "未命名文献_Untitled"
-            return cleaned_cjk[:max_chars] 
-        else:
-            # 纯英文边缘修剪
-            cleaned_en = PDFSanitizer._smart_title_case(cleaned)
-            words = cleaned_en.split()[:max_words]
-            # 切除坏死边缘
-            while words and words[-1].lower() in DANGLING_TOXINS:
-                words.pop()
-            while words and words[0].lower() in DANGLING_TOXINS:
-                words.pop(0)
+            return cleaned_cjk[:max_chars]
+        # 纯英文边缘修剪
+        cleaned_en = PDFSanitizer._smart_title_case(cleaned)
+        words = cleaned_en.split()[:max_words]
+        # 切除坏死边缘
+        while words and words[-1].lower() in DANGLING_TOXINS:
+            words.pop()
+        while words and words[0].lower() in DANGLING_TOXINS:
+            words.pop(0)
 
-            if not words:
-                fallback = cleaned_en[:50].strip().replace(" ", "_")
-                return fallback if fallback else "Untitled_Document"
-                
-            return "_".join(words)
+        if not words:
+            fallback = cleaned_en[:50].strip().replace(" ", "_")
+            return fallback if fallback else "Untitled_Document"
+
+        return "_".join(words)
 
     def _dedupe_filename(self, base_name: str) -> str:
         """量子态文件覆盖防御"""
@@ -148,7 +146,7 @@ class PDFSanitizer:
         try:
             blocks = page.get_text("dict").get("blocks", [])
             text_sizes = []
-            
+
             for b in blocks:
                 if "lines" in b:
                     for line in b["lines"]:
@@ -157,27 +155,27 @@ class PDFSanitizer:
                             size = span.get("size", 0)
                             if text:
                                 text_sizes.append((size, text))
-            
+
             if not text_sizes:
                 return ""
-            
+
             size_map = {}
             for size, text in text_sizes:
                 s = round(size, 1)
                 if s not in size_map:
                     size_map[s] = []
                 size_map[s].append(text)
-                
+
             sorted_sizes = sorted(size_map.keys(), reverse=True)
-            
+
             # 黑名单：免疫期刊页眉噪点
             blacklist = {"majorarticle", "researcharticle", "reviewarticle", "clinicalinfectiousdiseases"}
-            
+
             for s in sorted_sizes:
                 candidate = " ".join(size_map[s]).strip()
                 compressed_cand = candidate.lower().replace(" ", "")
                 is_toxic = any(noise in compressed_cand for noise in blacklist)
-                
+
                 # 若无毒且长度合理，直接将其判定为标题
                 if len(candidate) >= 8 and not is_toxic:
                     return candidate
@@ -191,15 +189,15 @@ class PDFSanitizer:
         year = "XXXX"
         text_payload = ""
         hierarchy_title = ""
-        
+
         try:
             with fitz.open(pdf_path) as doc:
                 meta_title = doc.metadata.get("title", "").strip()
-                
+
                 if len(doc) > 0:
                     text_payload = doc[0].get_text("text").strip()
                     hierarchy_title = self._extract_title_by_visual_hierarchy(doc[0])
-                
+
                 if len(text_payload) < 20:
                     text_payload = self._optical_scan(doc)
 
@@ -210,16 +208,16 @@ class PDFSanitizer:
                     title = meta_title
                 else:
                     lines = [line.strip() for line in text_payload.splitlines() if line.strip()]
-                    for line in lines[:15]: 
-                        if len(line) >= 5: 
+                    for line in lines[:15]:
+                        if len(line) >= 5:
                             title = line
                             break
-                            
+
                 # --- 时间线锚定 ---
                 text_head = text_payload[:2000]
                 pattern = r"(?:©|copyright|published|vol\.|date|年|出版|收稿).*?\b(19[5-9]\d|20[0-2]\d)\b"
                 explicit_year = re.search(pattern, text_head, re.IGNORECASE)
-                
+
                 if explicit_year:
                     year = explicit_year.group(1)
                 else:
@@ -231,10 +229,10 @@ class PDFSanitizer:
                         fallback_year = re.search(r"\b(19[5-9]\d|20[0-2]\d)\b", text_head)
                         if fallback_year:
                             year = fallback_year.group(1)
-                                
+
         except Exception:
             pass # 如果文件损坏，静默失败，使用原文件名兜底
-            
+
         return title or pdf_path.stem, year
 
     def execute(self) -> None:
@@ -245,19 +243,19 @@ class PDFSanitizer:
 
         print(f"\n[+] 物理重塑协议激活 | 扫描目标: {len(pdf_targets)}")
         print(f"[+] 视觉引擎(OCR): {'在线' if OCR_AVAILABLE else '离线'}\n")
-        
+
         for pdf_path in tqdm(pdf_targets, desc="Sanitizing & Moving", unit="file", ascii=" ▖▘▝▗▚▞█"):
             # 扫描与解析
             raw_title, year = self._scan_payload(pdf_path)
             simplified_name = self._simplify_filename(raw_title)
-            
+
             # 挂载年份
             chronological_name = f"{simplified_name}-{year}"
-            
+
             # 去重并移动
             final_safe_name = self._dedupe_filename(chronological_name)
             target_path = self.output_dir / f"{final_safe_name}.pdf"
-            
+
             try:
                 shutil.move(str(pdf_path), str(target_path))
             except Exception as e:
@@ -280,9 +278,9 @@ PMID_PATTERN = re.compile(r"^\d+$")
 
 class PaperDownloader:
     def __init__(
-        self, 
-        output_dir: Path, 
-        mailto: str | None = None, 
+        self,
+        output_dir: Path,
+        mailto: str | None = None,
         sleep_seconds: float = 1.2,
         proxy: str | None = None,
         safe_mode: bool = True,
@@ -295,7 +293,7 @@ class PaperDownloader:
         # 下载阶段先将文件放入专属缓存区
         self.temp_dir = output_dir / ".temp_downloads"
         self.temp_dir.mkdir(parents=True, exist_ok=True)
-        
+
         self.mailto = mailto
         self.sleep_seconds = max(sleep_seconds, 0.0)
         self.safe_mode = safe_mode
@@ -310,7 +308,7 @@ class PaperDownloader:
         self._cache_dirty = False
         self.cache_path = self.output_dir / ".request_cache.json"
         self.cache = self._load_cache()
-        
+
         if proxy:
             self.session.proxies = {"http": proxy, "https": proxy}
 
@@ -613,7 +611,7 @@ class PaperDownloader:
         # ---------------------------------------------
         sanitizer = PDFSanitizer(temp_dir=self.temp_dir, output_dir=self.output_dir)
         sanitizer.execute()
-        
+
         # 清理无用的临时缓存区
         try:
             shutil.rmtree(self.temp_dir)
@@ -686,7 +684,7 @@ def main() -> None:
         if not sys.stdin.isatty():
             logger.error("action=input_missing mode=non_interactive")
             sys.exit(1)
-            
+
         logger.info("action=await_stdin_queries")
         while True:
             try:
@@ -696,7 +694,7 @@ def main() -> None:
                 queries.append(line)
             except EOFError:
                 break
-                
+
         if not queries:
             logger.error("action=input_missing mode=interactive")
             sys.exit(1)

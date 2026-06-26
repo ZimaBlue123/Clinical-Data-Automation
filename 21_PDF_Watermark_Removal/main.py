@@ -5,7 +5,6 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional
 
 import fitz  # PyMuPDF
 
@@ -26,7 +25,7 @@ from steps.utils import Box, configure_tesseract, save_boxes_json_v2  # noqa: E4
 logger = logging.getLogger("watermark_exclusion")
 
 
-def iter_pdfs(input_path: Path, *, recursive: bool) -> List[Path]:
+def iter_pdfs(input_path: Path, *, recursive: bool) -> list[Path]:
     if input_path.is_file() and input_path.suffix.lower() == ".pdf":
         return [input_path.resolve()]
     if input_path.is_dir():
@@ -37,7 +36,7 @@ def iter_pdfs(input_path: Path, *, recursive: bool) -> List[Path]:
 
 
 def resolve_io_paths(
-    base_input_dir: Optional[Path],
+    base_input_dir: Path | None,
     pdf_path: Path,
     output_root: Path,
     *,
@@ -52,7 +51,7 @@ def resolve_io_paths(
     return output_root
 
 
-def parse_keywords(raw: str | None) -> List[str]:
+def parse_keywords(raw: str | None) -> list[str]:
     if not raw:
         return [r"CONFIDENTIAL", r"DRAFT", r"仅供审查", r"内部使用"]
     parts = [p.strip() for p in raw.split(",") if p.strip()]
@@ -130,8 +129,8 @@ def main() -> None:
         logger.info("action=process_start file=%s keywords=%s", pdf_path.name, ",".join(keywords))
 
         mode_used = "unknown"
-        boxes_by_page: Dict[str, List[Box]] = {}
-        page_meta_by_page: Dict[str, Dict[str, object]] = {}
+        boxes_by_page: dict[str, list[Box]] = {}
+        page_meta_by_page: dict[str, dict[str, object]] = {}
 
         doc = fitz.open(pdf_path)
         try:
@@ -198,7 +197,7 @@ def main() -> None:
                 "input_pdf": str(pdf_path),
                 "mode_used": mode_used,
                 "keywords": keywords,
-                "pages_detected": sorted([int(p) for p in page_counts.keys()]) if page_counts else [],
+                "pages_detected": sorted([int(p) for p in page_counts]) if page_counts else [],
                 "boxes_count_by_page": page_counts,
             }
             if report_json_path.exists() and args.overwrite:

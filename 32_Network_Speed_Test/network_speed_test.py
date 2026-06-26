@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 31_Network_Speed_Test
 
@@ -23,7 +22,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -54,7 +52,7 @@ def _win_no_window_flags() -> int:
     return 0
 
 
-def _run_hidden(cmd: List[str], timeout: int = 10, text: bool = True) -> subprocess.CompletedProcess:
+def _run_hidden(cmd: list[str], timeout: int = 10, text: bool = True) -> subprocess.CompletedProcess:
     return subprocess.run(
         cmd,
         capture_output=True,
@@ -66,7 +64,7 @@ def _run_hidden(cmd: List[str], timeout: int = 10, text: bool = True) -> subproc
     )
 
 
-def _check_output_hidden(cmd: List[str], timeout: int = 10) -> str:
+def _check_output_hidden(cmd: list[str], timeout: int = 10) -> str:
     return subprocess.check_output(
         cmd,
         text=True,
@@ -106,8 +104,8 @@ class SpeedSample:
     category: str
     route: str
     url: str = ""
-    latency_ms: Optional[float] = None
-    download_mbps: Optional[float] = None
+    latency_ms: float | None = None
+    download_mbps: float | None = None
     bytes_downloaded: int = 0
     duration_s: float = 0.0
     ok: bool = True
@@ -128,11 +126,11 @@ class RunReport:
     gateway: str = ""
     local_ip: str = ""
     socks_ready: bool = False
-    samples: List[SpeedSample] = field(default_factory=list)
-    vpn_summary: Dict[str, object] = field(default_factory=dict)
+    samples: list[SpeedSample] = field(default_factory=list)
+    vpn_summary: dict[str, object] = field(default_factory=dict)
 
 
-def _socks_ready() -> Tuple[bool, str]:
+def _socks_ready() -> tuple[bool, str]:
     try:
         import socks  # noqa: F401  # PySocks
 
@@ -175,7 +173,7 @@ def _default_gateway() -> str:
     return ""
 
 
-def _ping_ms(host: str, count: int = 4) -> Tuple[Optional[float], Optional[float], str]:
+def _ping_ms(host: str, count: int = 4) -> tuple[float | None, float | None, str]:
     """返回 (平均 ms, 丢包率 0~100, 错误说明)。"""
     if not host:
         return None, None, "无网关地址"
@@ -185,7 +183,7 @@ def _ping_ms(host: str, count: int = 4) -> Tuple[Optional[float], Optional[float
     except (subprocess.SubprocessError, OSError) as e:
         return None, None, str(e)
 
-    times: List[float] = []
+    times: list[float] = []
     for line in out.splitlines():
         for pat in (
             r"(?:time|时间)\s*[=<]\s*(\d+(?:\.\d+)?)\s*ms",
@@ -197,7 +195,7 @@ def _ping_ms(host: str, count: int = 4) -> Tuple[Optional[float], Optional[float
                 times.append(float(m.group(1)))
                 break
 
-    loss_pct: Optional[float] = None
+    loss_pct: float | None = None
     m_loss = re.search(r"(\d+)\s*%\s*(?:loss|丢失)", out, re.I)
     if m_loss:
         loss_pct = float(m_loss.group(1))
@@ -241,7 +239,7 @@ def _build_session(route: str, socks_port: int) -> requests.Session:
     return session
 
 
-def _request_latency(session: requests.Session, url: str, timeout_s: int) -> Optional[float]:
+def _request_latency(session: requests.Session, url: str, timeout_s: int) -> float | None:
     t0 = time.perf_counter()
     try:
         with session.get(url, timeout=timeout_s, stream=True) as resp:
@@ -259,7 +257,7 @@ def _download_speed(
     timeout_s: int,
     label: str,
     live: bool,
-) -> Tuple[int, float]:
+) -> tuple[int, float]:
     started = time.perf_counter()
     downloaded = 0
     last_print = started
@@ -291,7 +289,7 @@ def _human_bytes(n: int) -> str:
     return f"{n / 1024 ** 2:.2f} MB"
 
 
-def _mbps(byte_count: int, seconds: float) -> Optional[float]:
+def _mbps(byte_count: int, seconds: float) -> float | None:
     if seconds <= 0 or byte_count <= 0:
         return None
     return round((byte_count * 8) / seconds / 1_000_000, 2)
@@ -316,14 +314,14 @@ def _format_metric(sample: SpeedSample) -> str:
     return "—"
 
 
-def _best_download(samples: List[SpeedSample]) -> Optional[SpeedSample]:
+def _best_download(samples: list[SpeedSample]) -> SpeedSample | None:
     ok_dl = [s for s in samples if s.ok and s.download_mbps is not None]
     if not ok_dl:
         return None
     return max(ok_dl, key=lambda s: s.download_mbps or 0)
 
 
-def _avg_download_mbps(samples: List[SpeedSample]) -> Optional[float]:
+def _avg_download_mbps(samples: list[SpeedSample]) -> float | None:
     vals = [s.download_mbps for s in samples if s.ok and s.download_mbps is not None]
     if not vals:
         return None
@@ -333,13 +331,13 @@ def _avg_download_mbps(samples: List[SpeedSample]) -> Optional[float]:
 def print_summary(report: RunReport) -> None:
     """终端输出结构化汇总（测速结束后阅读此块即可）。"""
     w = 58
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("")
     lines.append("=" * w)
     lines.append("  测速结果汇总".center(w))
     lines.append("=" * w)
 
-    by_cat: Dict[str, List[SpeedSample]] = {}
+    by_cat: dict[str, list[SpeedSample]] = {}
     for s in report.samples:
         by_cat.setdefault(s.category, []).append(s)
 
@@ -518,7 +516,7 @@ class NetworkSpeedTester:
         report: RunReport,
         title: str,
         category: str,
-        probes: List[Tuple[str, str, int]],
+        probes: list[tuple[str, str, int]],
         route: str,
     ) -> None:
         logger.info("—— %s（%s）——", title, route.upper())
@@ -573,7 +571,7 @@ class NetworkSpeedTester:
 
         d_mbps = direct.download_mbps or 0.0
         s_mbps = socks.download_mbps or 0.0
-        summary: Dict[str, object] = {}
+        summary: dict[str, object] = {}
 
         if d_mbps > 0 and s_mbps > 0:
             ratio = round(s_mbps / d_mbps, 3)
@@ -668,9 +666,9 @@ def _lan_subnet_hint(gateway: str, local_ip: str) -> str:
     return "、".join(str(n) for n in nets)
 
 
-def _infer_scan_networks(gateway: str, local_ip: str) -> List[ipaddress.IPv4Network]:
+def _infer_scan_networks(gateway: str, local_ip: str) -> list[ipaddress.IPv4Network]:
     """根据网关与本机 IP 推断要扫描的私网网段（可跨多个 /24）。"""
-    nets: List[ipaddress.IPv4Network] = []
+    nets: list[ipaddress.IPv4Network] = []
     seen: set[str] = set()
 
     def add_host(ip_str: str) -> None:
@@ -699,10 +697,10 @@ def _infer_scan_networks(gateway: str, local_ip: str) -> List[ipaddress.IPv4Netw
 class LanDevice:
     ip: str
     mac: str = ""
-    ping_ms: Optional[float] = None
+    ping_ms: float | None = None
     hostname: str = ""
     role: str = ""
-    open_ports: List[int] = field(default_factory=list)
+    open_ports: list[int] = field(default_factory=list)
     notes: str = ""
 
     @property
@@ -714,8 +712,8 @@ class LanDevice:
         return "未知设备"
 
 
-def _read_arp_table() -> Dict[str, str]:
-    table: Dict[str, str] = {}
+def _read_arp_table() -> dict[str, str]:
+    table: dict[str, str] = {}
     try:
         out = _check_output_hidden(["arp", "-a"], timeout=8)
         for line in out.splitlines():
@@ -728,11 +726,11 @@ def _read_arp_table() -> Dict[str, str]:
 
 
 def _filter_arp_scope(
-    arp: Dict[str, str], networks: List[ipaddress.IPv4Network]
-) -> Dict[str, str]:
+    arp: dict[str, str], networks: list[ipaddress.IPv4Network]
+) -> dict[str, str]:
     """去掉组播/无效 MAC/网段外记录，避免对数百虚假项做探测。"""
     bad_mac = {"00:00:00:00:00:00", "ff:ff:ff:ff:ff:ff"}
-    out: Dict[str, str] = {}
+    out: dict[str, str] = {}
     for ip, mac in arp.items():
         mac = (mac or "").lower()
         if not mac or mac in bad_mac or mac.startswith("01:00:5e"):
@@ -749,7 +747,7 @@ def _filter_arp_scope(
     return out
 
 
-def _ping_once(ip: str) -> Optional[float]:
+def _ping_once(ip: str) -> float | None:
     if platform.system() == "Windows":
         cmd = ["ping", "-n", "1", "-w", str(PING_TIMEOUT_MS_WIN), ip]
     else:
@@ -785,15 +783,15 @@ def _resolve_hostname_quick(ip: str) -> str:
     return ""
 
 
-def _scan_ports(ip: str, ports: Tuple[int, ...] = PORTS_QUICK) -> List[int]:
+def _scan_ports(ip: str, ports: tuple[int, ...] = PORTS_QUICK) -> list[int]:
     return [p for p in ports if _tcp_port_open(ip, p)]
 
 
-def _batch_port_scan(ips: List[str]) -> Dict[str, List[int]]:
+def _batch_port_scan(ips: list[str]) -> dict[str, list[int]]:
     """并行端口探测，避免对每台设备串行等待超时。"""
     if not ips:
         return {}
-    result: Dict[str, List[int]] = {ip: [] for ip in ips}
+    result: dict[str, list[int]] = {ip: [] for ip in ips}
     workers = min(16, max(4, len(ips)))
     with ThreadPoolExecutor(max_workers=workers) as pool:
         fut_map = {pool.submit(_scan_ports, ip): ip for ip in ips}
@@ -806,8 +804,8 @@ def _batch_port_scan(ips: List[str]) -> Dict[str, List[int]]:
     return result
 
 
-def _batch_resolve_hostnames(ips: List[str]) -> Dict[str, str]:
-    out: Dict[str, str] = {}
+def _batch_resolve_hostnames(ips: list[str]) -> dict[str, str]:
+    out: dict[str, str] = {}
     if not ips:
         return out
     with ThreadPoolExecutor(max_workers=min(8, len(ips))) as pool:
@@ -831,7 +829,7 @@ def _tcp_port_open(ip: str, port: int) -> bool:
         return False
 
 
-def _guess_device_role(ip: str, gateway: str, local_ip: str, ports: List[int]) -> str:
+def _guess_device_role(ip: str, gateway: str, local_ip: str, ports: list[int]) -> str:
     if gateway and ip == gateway:
         return "网关/路由器"
     if local_ip and ip == local_ip:
@@ -847,11 +845,11 @@ def _guess_device_role(ip: str, gateway: str, local_ip: str, ports: List[int]) -
     return "局域网终端"
 
 
-def _hosts_in_network(net: ipaddress.IPv4Network) -> List[str]:
+def _hosts_in_network(net: ipaddress.IPv4Network) -> list[str]:
     return [str(h) for h in net.hosts()]
 
 
-def scan_lan_devices(gateway: str, local_ip: str, deep_scan: bool = False) -> List[LanDevice]:
+def scan_lan_devices(gateway: str, local_ip: str, deep_scan: bool = False) -> list[LanDevice]:
     """
     快速模式（默认）：只 Ping「ARP 表里已有 + 网关/本机」，通常十秒内完成。
     深度模式：对全部 /24 地址 Ping（慢，508+ 地址，仅必要时使用）。
@@ -875,24 +873,23 @@ def scan_lan_devices(gateway: str, local_ip: str, deep_scan: bool = False) -> Li
         for net in networks:
             ping_targets.update(_hosts_in_network(net))
         print(f"  深度扫描：Ping {len(ping_targets)} 个地址（约 1–3 分钟）…", flush=True)
+    elif len(ping_targets) > FAST_PING_CAP:
+        must = {x for x in (gateway, local_ip) if x}
+        rest = sorted(ping_targets - must)[: max(0, FAST_PING_CAP - len(must))]
+        ping_targets = must | set(rest)
+        print(
+            f"  快速扫描：ARP 邻居 {len(arp)} 台，仅 Ping 其中 {len(ping_targets)} 台"
+            f"（其余仍列出 IP/MAC，不测延迟）…",
+            flush=True,
+        )
     else:
-        if len(ping_targets) > FAST_PING_CAP:
-            must = {x for x in (gateway, local_ip) if x}
-            rest = sorted(ping_targets - must)[: max(0, FAST_PING_CAP - len(must))]
-            ping_targets = must | set(rest)
-            print(
-                f"  快速扫描：ARP 邻居 {len(arp)} 台，仅 Ping 其中 {len(ping_targets)} 台"
-                f"（其余仍列出 IP/MAC，不测延迟）…",
-                flush=True,
-            )
-        else:
-            print(
-                f"  快速扫描：Ping {len(ping_targets)} 个邻居"
-                f"（ARP {len(arp)} 条）…",
-                flush=True,
-            )
+        print(
+            f"  快速扫描：Ping {len(ping_targets)} 个邻居"
+            f"（ARP {len(arp)} 条）…",
+            flush=True,
+        )
 
-    responsive: Dict[str, float] = {}
+    responsive: dict[str, float] = {}
     targets = sorted(ping_targets)
     with ThreadPoolExecutor(max_workers=SCAN_PING_WORKERS) as pool:
         future_map = {pool.submit(_ping_once, ip): ip for ip in targets}
@@ -910,7 +907,7 @@ def scan_lan_devices(gateway: str, local_ip: str, deep_scan: bool = False) -> Li
                 responsive[ip] = ms
 
     candidate_ips = sorted(set(arp.keys()) | set(responsive.keys()))
-    devices: List[LanDevice] = []
+    devices: list[LanDevice] = []
 
     print(f"  Ping 通 {len(responsive)} 台，待列出设备 {len(candidate_ips)} 台。", flush=True)
 
@@ -966,7 +963,7 @@ def scan_lan_devices(gateway: str, local_ip: str, deep_scan: bool = False) -> Li
 
     print(f"  完成，共 {len(devices)} 条记录。", flush=True)
 
-    def sort_key(d: LanDevice) -> Tuple[int, str]:
+    def sort_key(d: LanDevice) -> tuple[int, str]:
         if d.ip == gateway:
             return (0, d.ip)
         if d.ip == local_ip:
@@ -977,9 +974,9 @@ def scan_lan_devices(gateway: str, local_ip: str, deep_scan: bool = False) -> Li
     return devices
 
 
-def _local_connection_stats() -> List[Tuple[str, int]]:
+def _local_connection_stats() -> list[tuple[str, int]]:
     """本机当前外联 IP 连接数（无法直接代表「别人占带宽」，仅供本机排查）。"""
-    counts: Dict[str, int] = {}
+    counts: dict[str, int] = {}
     try:
         if platform.system() == "Windows":
             out = _check_output_hidden(["netstat", "-n"], timeout=10)
@@ -1012,17 +1009,17 @@ def _local_connection_stats() -> List[Tuple[str, int]]:
     return sorted(counts.items(), key=lambda x: -x[1])[:15]
 
 
-def _probe_router_admin_ports(gateway: str) -> List[int]:
+def _probe_router_admin_ports(gateway: str) -> list[int]:
     if not gateway:
         return []
-    open_ports: List[int] = []
+    open_ports: list[int] = []
     for p in (443, 80, 8080, 8443):
         if _tcp_port_open(gateway, p):
             open_ports.append(p)
     return open_ports
 
 
-def _router_admin_url(gateway: str, open_ports: List[int]) -> str:
+def _router_admin_url(gateway: str, open_ports: list[int]) -> str:
     if not gateway or not open_ports:
         return f"http://{gateway}/" if gateway else ""
     if 443 in open_ports:
@@ -1034,7 +1031,7 @@ def _router_admin_url(gateway: str, open_ports: List[int]) -> str:
     return f"http://{gateway}/"
 
 
-def run_lan_occupancy_survey(save_json: bool = False, deep_scan: bool = False) -> Dict[str, object]:
+def run_lan_occupancy_survey(save_json: bool = False, deep_scan: bool = False) -> dict[str, object]:
     """
     排查「局域网里有哪些设备在线」及本机连接情况，并给出按 IP/MAC 限速的操作指引。
     说明：单台电脑无法直接测量「其他设备占了多少 Mbps」，需结合路由器流量统计。
@@ -1118,7 +1115,7 @@ def run_lan_occupancy_survey(save_json: bool = False, deep_scan: bool = False) -
     print("=" * w)
     print()
 
-    payload: Dict[str, object] = {
+    payload: dict[str, object] = {
         "timestamp": datetime.now().isoformat(timespec="seconds"),
         "gateway": gateway,
         "local_ip": local_ip,

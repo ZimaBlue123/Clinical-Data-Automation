@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 PPT 内嵌图直接去水印 (Vibe Ultimate Edition)
 
@@ -51,15 +50,15 @@ def _sample_background_color(img: Image.Image, patch_w: int, patch_h: int) -> tu
     动态安全区采样：基于最终计算的覆盖区大小，向左侧推移提取背景色
     """
     w, h = img.size
-    
+
     # 采样点：覆盖区正左侧 30 像素，底部向上偏移一点点避免最底边的黑边
     # 这是一个 10x10 的采样块
     sample_x = max(0, w - patch_w - 30)
     sample_y = max(0, h - patch_h // 2)
-    
+
     box = (sample_x - 5, max(0, sample_y - 5), sample_x + 5, min(h, sample_y + 5))
     region = img.crop(box).convert("RGBA")
-    
+
     # 使用中位数 (Median) 而不是平均值 (Mean)，能有效忽略个别噪点，提取出最纯粹的背景底色
     stat = ImageStat.Stat(region)
     return tuple(int(c) for c in stat.median)
@@ -72,14 +71,14 @@ def patch_image_pillow(blob: bytes, content_type: str) -> bytes:
     # 计算覆盖范围
     patch_w = min(max(1, int(w * PATCH_WIDTH_RATIO)), PATCH_MAX_WIDTH_PX)
     patch_h = min(max(1, int(h * PATCH_HEIGHT_RATIO)), PATCH_MAX_HEIGHT_PX)
-    
+
     x0 = max(0, w - patch_w)
     y0 = max(0, h - patch_h)
     box = [x0, y0, w, h]
 
     # 先算尺寸，再向外延展安全区进行取色
     color = _sample_background_color(img, patch_w, patch_h)
-    
+
     draw = ImageDraw.Draw(img)
     draw.rectangle(box, fill=color)
 
@@ -91,7 +90,7 @@ def patch_image_pillow(blob: bytes, content_type: str) -> bytes:
     else:
         # JPEG 不支持 RGBA，转回 RGB
         img.convert("RGB").save(buf, format="JPEG", quality=100, subsampling=0)
-    
+
     buf.seek(0)
     return buf.read()
 
@@ -110,7 +109,7 @@ def process_presentation(input_path: Path, output_path: Path) -> int:
         for shape in slide.shapes:
             if shape.shape_type != MSO_SHAPE_TYPE.PICTURE:
                 continue
-            
+
             try:
                 rId = shape._pic.blip_rId
             except Exception:

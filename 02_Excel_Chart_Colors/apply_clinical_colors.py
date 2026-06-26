@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Apply Clinical Publication Color Scheme to ADR charts（仅改配色）.
 
