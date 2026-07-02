@@ -42,6 +42,8 @@ CLI
 """
 from __future__ import annotations
 
+# ruff: noqa: S110, S112  —— os.walk / stat 在系统扫描中遇到 OSError 跳过的合理场景
+
 import argparse
 import csv
 import ctypes
@@ -94,29 +96,6 @@ _ORPHAN_ROOT_NAMES: dict[str, str] = {
     "Enthought": "enthought_root",
     "PyCharm": "pycharm_root",
 }
-
-
-@dataclass(frozen=True)
-class DirRule:
-    """目录候选匹配规则。
-
-    pattern:  Path.glob 模式（基于 C:\\ 根）
-    name_re:  或匹配 —— Path.name 正则
-    min_size_bytes: 至少占用多少字节才计入（避免误伤小目录）
-    risk:     safe / review / dangerous
-    reason:   报告里展示的原因标识
-    """
-
-    pattern: str = ""
-    name_re: re.Pattern[str] | None = None
-    min_size_bytes: int = 0
-    risk: str = "review"
-    reason: str = ""
-
-    def matches(self, path: Path) -> bool:
-        if self.name_re is not None and self.name_re.match(path.name):
-            return True
-        return False
 
 
 @dataclass
