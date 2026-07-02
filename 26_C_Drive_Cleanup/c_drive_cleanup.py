@@ -345,35 +345,86 @@ _DEEP_HIT_NAMES: set[str] = {
 }
 
 
-def _iter_candidate_dirs() -> list[Path]:
-    """遍历"可能藏有孤儿"的高价值根目录，产出候选目录集合。
+# 根级硬命中名字（大小写不敏感）：出现在 C:\ 根上就直接走 review 判定
+_HARD_HIT_BASENAMES: tuple[str, ...] = (
+    "anaconda3", "miniconda3", "miniforge3", "enthought",
+    "python314", "python313", "python312", "python311", "python310",
+    "python39", "python38", "python37", "python36",
+)
 
-    两档深度:
-    - level 1: 5 个根目录的第一层（孤儿 Python / Node / Conda / IDE / 用户缓存）
-    - level N: 关键系统子目录额外递归到第 3 层，避免漏过 SoftwareDistribution/Download
+
+def default_roots() -> list[Path]:
+    """默认扫描根目录：尽量多覆盖，但不包含 Windows 自身关键系统路径。
+
+    包含:
+      - C:\\（为了抓 C:\\Python314\\ 这种根级孤儿）
+      - D:\\、E:\\（常见数据盘）
+      - %USERPROFILE% 与 %LOCALAPPDATA%
+      - C:\\Program Files / (x86) / ProgramData
+      - %USERPROFILE%\\AppData\\Local\\Programs（Microsoft Store Python、pipx 等）
     """
-    candidates: list[Path] = []
-    roots_to_scan: list[Path] = [Path("C:/")]
+    roots: list[Path] = [Path("C:/")]
+
+    for letter in ("D", "E", "F", "G"):
+        candidate = Path(f"{letter}:/")
+        if candidate.exists():
+            roots.append(candidate)
 
     user = get_user_profile()
     if user.exists():
-        roots_to_scan.append(user)
+        roots.append(user)
     lad = get_local_appdata()
     if lad.exists() and lad != user:
-        roots_to_scan.append(lad)
+        roots.append(lad)
 
-    prog = Path("C:/Program Files")
-    if prog.exists():
-        roots_to_scan.append(prog)
-    prog86 = Path("C:/Program Files (x86)")
-    if prog86.exists():
-        roots_to_scan.append(prog86)
-    prog_data = Path("C:/ProgramData")
-    if prog_data.exists():
-        roots_to_scan.append(prog_data)
+    user_programs = user / "AppData" / "Local" / "Programs"
+    if user_programs.exists():
+        roots.append(user_programs)
 
-    for root in roots_to_scan:
-        if not root.exists():
+    for p in (Path("C:/Program Files"), Path("C:/Program Files (x86)"), Path("C:/ProgramData")):
+        if p.exists():
+            roots.append(p)
+    return roots
+
+
+def _hard_hit_roots(roots: Iterable[Path]) -> list[Path]:
+    """枚举根级 "C:\\Python*" / "C:\\node-v*" / "C:\\Anaconda*" 等硬命中。"""
+    out: list[Path] = []
+    for root in roots:
+        if not root.exists() or not root.is_dir():
+            continue
+        try:
+            for child in root.iterdir():
+                if not child.is_dir():
+                    continue
+                nlow = child.name.lower()
+                if nlow in _HARD_HIT_BASENAMES:
+                    out.append(child)
+                    continue
+                # 匹配 Python<digits>[-32] 变体
+                if _PYTHON_DIR_RE.match(child.name):
+                    out.append(child)
+                    continue
+                # 匹配 node-v* 安装目录
+                if _NODE_DIR_RE.match(child.name):
+                    out.append(child)
+                    continue
+        except OSError as e:
+            logger.warning("hard-hit scan fail: %s | %s", root, e)
+    return out
+
+
+def _iter_candidate_dirs(roots: Iterable[Path]) -> list[Path]:
+    """遍历扫描根，产出候选目录集合。
+
+    两档:
+    - level 1: 每个根的第一层
+    - level N: 关键系统子目录额外递归到第 3 层
+    """
+    candidates: list[Path] = []
+
+    for root in roots:
+        if not root.exists() or not root.is_dir():
             continue
         try:
             for child in root.iterdir():
@@ -523,7 +574,9 @@ def _is_windows_update_cache(path: Path) -> tuple[bool, list[str]]:
 
 def collect_dir_candidates(
     *,
+    roots: Iterable[Path] | None = None,
     python_only: bool = False,
+    min_size_bytes: int = 0,
     registered_python: set[Path] | None = None,
 ) -> list[DirCandidate]:
     """按分级规则识别目录级候选。
@@ -532,12 +585,38 @@ def collect_dir_candidates(
       - dangerous : Windows 更新缓存（绝不自动删）
       - review    : 孤儿 Python / Node / Conda / 大型 IDE / 用户包缓存
       - safe      : 暂不直接产出"safe 目录候选"（空目录由 remove_empty_dirs 处理）
+
+    参数:
+      roots           : 扫描根，默认 default_roots()
+      python_only     : 仅匹配 Python 孤儿
+      min_size_bytes  : review 级最小字节阈值；dangerous / 硬命中绕过该阈值
+      registered_python: 已注册 Python 安装根集合（来自注册表）
     """
     registered = registered_python if registered_python is not None else list_installed_python_roots()
+    roots_list = list(roots) if roots is not None else default_roots()
+
     found: list[DirCandidate] = []
     seen: set[Path] = set()
 
-    for path in _iter_candidate_dirs():
+    # 阶段 1: 硬命中（根级 C:\\Python314 等）——不走阈值
+    for path in _hard_hit_roots(roots_list):
+        if path in seen:
+            continue
+        seen.add(path)
+        reasons: list[str] = ["hard_hit:basename"]
+        risk = "review"
+        hit, why = _is_orphan_python(path, registered)
+        if hit:
+            reasons.extend(why)
+        elif _NODE_DIR_RE.match(path.name):
+            reasons = ["hard_hit:node"]
+        elif path.name.lower() in _ORPHAN_ROOT_NAMES:
+            reasons = [f"hard_hit:{_ORPHAN_ROOT_NAMES[path.name.lower()]}"]
+        size, latest = dir_size(path)
+        found.append(DirCandidate(path, size, latest, risk, reasons))
+
+    # 阶段 2: 全面扫描
+    for path in _iter_candidate_dirs(roots_list):
         if path in seen:
             continue
         seen.add(path)
@@ -582,8 +661,8 @@ def collect_dir_candidates(
                     reasons = why
                     matched = True
 
-        if not matched and python_only or (not matched and not python_only):
-            # Python 检测单独走一遍（python_only 时也走）
+        # Python 检测始终走一遍（不管 python_only）
+        if not matched:
             hit, why = _is_orphan_python(path, registered)
             if hit:
                 reasons = why
@@ -593,8 +672,9 @@ def collect_dir_candidates(
             continue
 
         size, latest = dir_size(path)
-        # 极小目录（< 50MB）不值得作为 review 候选；safe/dangerous 保留
-        if risk == "review" and size < 50 * 1024 * 1024:
+        # 极小目录按阈值过滤；dangerous / 硬命中绕过该阈值
+        is_hard_hit = any(r.startswith("hard_hit:") for r in reasons)
+        if risk == "review" and min_size_bytes > 0 and size < min_size_bytes and not is_hard_hit:
             continue
         found.append(DirCandidate(path, size, latest, risk, reasons))
     return found
@@ -734,8 +814,12 @@ def parse_args() -> argparse.Namespace:
                    help="允许处理 dangerous 级（Windows 更新缓存，强烈不建议；保留仅用于审计）")
     p.add_argument("--days", type=int, default=7,
                    help="文件级仅处理修改时间早于 N 天的文件（默认 7）")
-    p.add_argument("--min-dir-age-days", type=int, default=30,
-                   help="目录级候选须最近 N 天内有修改（默认 30）；0 表示不限")
+    p.add_argument("--min-dir-age-days", type=int, default=0,
+                   help="目录级候选须最近 N 天内有修改（默认 0 = 不限）；仅用于过滤 review/dangerous")
+    p.add_argument("--min-dir-size-mb", type=int, default=10,
+                   help="review 级目录最小字节阈值（MB，默认 10；硬命中总是绕过该阈值）")
+    p.add_argument("--roots", nargs="*", default=None,
+                   help="目录级扫描根（覆盖默认；多个用空格分隔，例如 --roots C:\\ D:\\ E:\\）")
     p.add_argument("--targets", nargs="*", default=None,
                    help="自定义文件级扫描根目录（覆盖默认）")
     p.add_argument("--remove-empty-dirs", action="store_true",
@@ -796,7 +880,14 @@ def main() -> None:
 
     # ---------- 目录级 ----------
     registered = list_installed_python_roots()
-    dirs = collect_dir_candidates(python_only=args.python_only, registered_python=registered)
+    roots = [Path(p) for p in args.roots] if args.roots else None
+    min_size_bytes = max(0, args.min_dir_size_mb) * 1024 * 1024
+    dirs = collect_dir_candidates(
+        roots=roots,
+        python_only=args.python_only,
+        min_size_bytes=min_size_bytes,
+        registered_python=registered,
+    )
     if args.min_dir_age_days > 0:
         threshold = time.time() - args.min_dir_age_days * 86400
         dirs = [c for c in dirs if c.last_mtime <= threshold or c.risk == "dangerous"]
