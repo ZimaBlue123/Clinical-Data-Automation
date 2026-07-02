@@ -345,6 +345,16 @@ _DEEP_HIT_NAMES: set[str] = {
 }
 
 
+# 默认白名单：这些名字的目录永远不会被识别为 review 候选
+_WHITELIST_BASENAMES: set[str] = {
+    "windows", "boot", "recovery", "system volume information",
+    "msocache", "intel", "nvidia", "amd", "drivers",
+    "$recycle.bin", "found.000", "found.001",
+    "program files", "program files (x86)",
+    "programdata", "users",
+    "perflogs",
+}
+
 # 根级硬命中名字（大小写不敏感）：出现在 C:\ 根上就直接走 review 判定
 _HARD_HIT_BASENAMES: tuple[str, ...] = (
     "anaconda3", "miniconda3", "miniforge3", "enthought",
@@ -414,13 +424,20 @@ def _hard_hit_roots(roots: Iterable[Path]) -> list[Path]:
     return out
 
 
-def _iter_candidate_dirs(roots: Iterable[Path]) -> list[Path]:
+def _iter_candidate_dirs(
+    roots: Iterable[Path],
+    *,
+    keep_basenames: set[str] | None = None,
+) -> list[Path]:
     """遍历扫描根，产出候选目录集合。
 
     两档:
     - level 1: 每个根的第一层
     - level N: 关键系统子目录额外递归到第 3 层
+
+    keep_basenames: 这些 basenames 不会被产出为顶层候选（包括 review）。
     """
+    keep = {n.lower() for n in (keep_basenames or set())} | _WHITELIST_BASENAMES
     candidates: list[Path] = []
 
     for root in roots:
@@ -429,6 +446,8 @@ def _iter_candidate_dirs(roots: Iterable[Path]) -> list[Path]:
         try:
             for child in root.iterdir():
                 if not child.is_dir():
+                    continue
+                if child.name.lower() in keep:
                     continue
                 candidates.append(child)
                 # 关键系统目录额外深扫 3 层
@@ -531,23 +550,112 @@ def _is_large_user_cache(path: Path) -> tuple[bool, list[str]]:
     return True, [cache_names[name]]
 
 
+# 常见 IDE 产品名 -> 该产品的主可执行文件
+_IDE_MAIN_EXES: dict[str, tuple[str, ...]] = {
+    "cursor": ("Cursor.exe",),
+    "code - insiders": ("Code - Insiders.exe",),
+    "code": ("Code.exe",),
+    "pycharm": ("pycharm64.exe", "pycharm.exe"),
+    "intellij": ("idea64.exe", "idea.exe"),
+    "clion": ("clion64.exe", "clion.exe"),
+    "rider": ("rider64.exe", "rider.exe"),
+    "webstorm": ("webstorm64.exe", "webstorm.exe"),
+    "goland": ("goland64.exe", "goland.exe"),
+    "rubymine": ("rubymine64.exe", "rubymine.exe"),
+    "datagrip": ("datagrip64.exe", "datagrip.exe"),
+    "phpstorm": ("phpstorm64.exe", "phpstorm.exe"),
+}
+
+# 在 "Program Files" 下的产品主目录——这里的主目录名与上面别名不一致时也覆盖
+_PROGRAM_FILES_DIR_SKIP: set[str] = {
+    "microsoft visual studio",
+    "windows kits",
+    "dotnet",
+    "microsoft",
+}
+
+
+def _is_ide_main_install(path: Path) -> bool:
+    """如果 path 看起来是某个 IDE 的主安装根，返回 True（不删）。
+
+    启发：
+      - 主目录中有产品的主可执行（pycharm64.exe / Cursor.exe 等）
+      - 或 path 位于 Program Files/Program Files (x86) 下且含 uninstall 卸载器
+    """
+    name_low = path.name.lower()
+    if name_low in _PROGRAM_FILES_DIR_SKIP:
+        return True
+    for exe in _IDE_MAIN_EXES.get(name_low, ()):
+        if (path / exe).exists():
+            return True
+    # 退化：以主 exe 名压制同名目录
+    exe_hint = _IDE_MAIN_EXES.get(name_low)
+    if exe_hint:
+        return True
+    return False
+
+
 def _is_ide_junk(path: Path) -> tuple[bool, list[str]]:
-    """IDE 临时 / 升级残留。"""
-    name = path.name.lower()
-    lad = get_local_appdata()
-    in_lad = lad.as_posix().lower() in str(path).lower()
+    """IDE 临时 / 升级残留识别——以 "明确不是主安装根" 为前提。
 
-    # VS Code/Cursor 旧版本目录
-    if name.startswith("code - insiders") and (path / "resources").exists():
-        return True, ["ide:code_insiders_dir"]
-    if name.startswith("cursor") and (path / "resources").exists():
-        return True, ["ide:cursor_dir"]
+    只匹配以下模式:
+      - VS Code/Cursor 升级产生的老版本目录: <product>-<version>（含 app.old/）
+      - %LocalAppData%\\vscode\\CachedData
+      - %LocalAppData%\\<IDE>\\Cache\\ / Local Cache / log
+      - %LocalAppData%\\JetBrains\\<product><ver>\\log\\ / tmp\\ / cache\\
+      - 完整卸载后残留但可运行微 P 工具的 <dir>.old/
+      - CrashDumps
 
-    # JetBrains 体系下 *.tmp / cache / log
-    if in_lad and name in {"jetbrains", "pycharm", "intellij", "clion", "rider", "webstorm"}:
-        return True, ["ide:jetbrains_root"]
+    保护原则：路径命名启发——能明确判断为 IDE 主安装根（如含 Cursor.exe）一律不删。
+    """
+    full_low = str(path).lower()
+    in_prog = ("program files" in full_low) or ("program files (x86)" in full_low)
+    name = path.name
+    name_low = name.lower()
+    parent_low = path.parent.name.lower()
+
+    # 主安装根保护：任何含主 exe 的目录（含 Program Files 下）跳过
+    if _is_ide_main_install(path):
+        return False, []
+    if in_prog and _is_ide_main_install(path):
+        return False, []
+
+    # 1) 升级残留: <product>.old 整目录
+    if path.suffix.lower() == ".old" or name_low.endswith(".old"):
+        return True, ["ide:upgrade_old_dir"]
+
+    # 2) 已知 IDE 产品名 + 子目录名为 cache/log/tmp
+    known_ide_prods = {
+        "cursor", "code", "code - insiders",
+        "pycharm", "intellij", "clion", "rider", "webstorm",
+        "goland", "datagrip", "phpstorm", "rubymine",
+    }
+    cache_subdirs = {
+        "cache", "cacheddata", "gpucache", "log", "logs", "tmp",
+        "crashdumps", "sharedb", "code cache", "blob_storage",
+        "webpack-cache", "local cache",
+    }
+    if parent_low in known_ide_prods and name_low in cache_subdirs:
+        return True, [f"ide:{parent_low}_{name_low}"]
+
+    # 3) JetBrains/<Product><Version>/log|tmp|cache
+    if parent_endswith(path, "JetBrains") and name_low in {"log", "logs", "tmp", "cache"}:
+        return True, ["ide:jetbrains_subdir"]
+
+    # 4) VS Code / Cursor 升级产生的独立产品目录
+    if name_low.startswith(("code - insiders -", "cursor -")):
+        return True, ["ide:code_installer_dir"]
+
+    # 5) JetBrains 全代用户资料根下的部分子目录（如 .pydevd_tmp）
+    if name_low in {"_pydevd_tmp", "python_console_history"}:
+        return True, [f"ide:{name_low}"]
 
     return False, []
+
+
+def parent_endswith(path: Path, suffix: str) -> bool:
+    """判断 path.parent.name 是否（忽略大小写）等于 suffix。"""
+    return path.parent.name.lower() == suffix.lower()
 
 
 def _is_windows_update_cache(path: Path) -> tuple[bool, list[str]]:
@@ -578,6 +686,7 @@ def collect_dir_candidates(
     python_only: bool = False,
     min_size_bytes: int = 0,
     registered_python: set[Path] | None = None,
+    keep_basenames: set[str] | None = None,
 ) -> list[DirCandidate]:
     """按分级规则识别目录级候选。
 
@@ -616,7 +725,7 @@ def collect_dir_candidates(
         found.append(DirCandidate(path, size, latest, risk, reasons))
 
     # 阶段 2: 全面扫描
-    for path in _iter_candidate_dirs(roots_list):
+    for path in _iter_candidate_dirs(roots_list, keep_basenames=keep_basenames):
         if path in seen:
             continue
         seen.add(path)
@@ -820,6 +929,8 @@ def parse_args() -> argparse.Namespace:
                    help="review 级目录最小字节阈值（MB，默认 10；硬命中总是绕过该阈值）")
     p.add_argument("--roots", nargs="*", default=None,
                    help="目录级扫描根（覆盖默认；多个用空格分隔，例如 --roots C:\\ D:\\ E:\\）")
+    p.add_argument("--keep", nargs="*", default=None,
+                   help="额外加白的 basename 列表（不会被识别为 review 候选）")
     p.add_argument("--targets", nargs="*", default=None,
                    help="自定义文件级扫描根目录（覆盖默认）")
     p.add_argument("--remove-empty-dirs", action="store_true",
@@ -881,12 +992,14 @@ def main() -> None:
     # ---------- 目录级 ----------
     registered = list_installed_python_roots()
     roots = [Path(p) for p in args.roots] if args.roots else None
+    keep = set(args.keep) if args.keep else set()
     min_size_bytes = max(0, args.min_dir_size_mb) * 1024 * 1024
     dirs = collect_dir_candidates(
         roots=roots,
         python_only=args.python_only,
         min_size_bytes=min_size_bytes,
         registered_python=registered,
+        keep_basenames=keep,
     )
     if args.min_dir_age_days > 0:
         threshold = time.time() - args.min_dir_age_days * 86400
