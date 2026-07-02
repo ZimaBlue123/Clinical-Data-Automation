@@ -135,6 +135,9 @@ class DirCandidate:
     risk: str
     reasons: list[str] = field(default_factory=list)
 
+    def risk_prior(self) -> int:
+        return {"dangerous": 0, "review": 1, "safe": 2}.get(self.risk, 3)
+
 
 # ----------------------------------------------------------------------------
 # 工具函数
@@ -743,6 +746,8 @@ def parse_args() -> argparse.Namespace:
                    help="控制台展示 Top N 大候选目录（默认 15）")
     p.add_argument("--no-quarantine", action="store_true",
                    help="review 级候选直接 rmtree 而非移动到隔离目录（不可恢复）")
+    p.add_argument("--explain", action="store_true",
+                   help="在控制台额外打印每个候选的命中原因")
     return p.parse_args()
 
 
@@ -838,14 +843,27 @@ def main() -> None:
     print("=" * 70)
 
     top_n = max(0, args.top)
-    if top_n and dirs:
+    if top_n:
         show = sorted(
             [c for c in dirs if c.risk != "dangerous"],
             key=lambda x: -x.size,
         )[:top_n]
-        print(f"\nTop {len(show)} 目录候选（按大小降序）:")
-        for c in show:
+        if show:
+            print(f"\nTop {len(show)} 目录候选（按大小降序）:")
+            for c in show:
+                print(f"  [{c.risk:8s}] {format_size(c.size):>10s}  {c.path}")
+        else:
+            print("\n（无可显示的 safe/review 目录候选；dangerous 仅出现在报告中。）")
+
+    if args.explain and dirs:
+        print("\n入选原因解释（最多 20 条）:")
+        for c in sorted(dirs, key=lambda x: (x.risk_prior(), -x.size))[:top_n or 20]:
             print(f"  [{c.risk:8s}] {format_size(c.size):>10s}  {c.path}")
+            for r in c.reasons:
+                print(f"      - {r}")
+
+    print("\n[done] 脚本正常退出。")
+    return 0
 
 
 if __name__ == "__main__":
