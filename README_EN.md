@@ -81,7 +81,7 @@ Clinical Data Automation/
 ├── 14_PDF_to_PPT/                 # PDF → PPT
 ├── 15_PDF_XSS/                    # PDF XSS/script/link sanitization
 ├── 16_PPTX_PDF_to_PPT/            # PDF/PPTX → native editable PPTX (table reconstruction)
-├── 17_PDF_Title_Renamer/          # PDF title-driven rename (Sanitizer v6.9, move not copy)
+├── 17_PDF_Title_Renamer/          # PDF title-driven rename (Sanitizer v7.1, MDPI/Frontiers publisher-role robustness, move not copy)
 │   ├── pdf_sanitizer.py           # Visual hierarchy + academic first-page + optional OCR
 │   └── README.md                  # Module docs, noise filters, CLI
 ├── 18_PDF_eCTD_Converter/         # eCTD sanitize: 6.26 fonts, bookmark repair, audit Excel (see module README)
@@ -340,7 +340,7 @@ python convert_to_native_ppt.py
 ---
 
 ### 17. PDF title-driven rename (`17_PDF_Title_Renamer`)
-Purpose: extract the **article title** and **year** from the first page, write `Title-Words-YYYY.pdf`, and **move** (not copy) PDFs from `input/` to `output/` (engine v6.9).
+Purpose: extract the **article title** and **year** from the first page, write `Title-Words-YYYY.pdf`, and **move** (not copy) PDFs from `input/` to `output/` (engine v7.1; robust against MDPI / Frontiers publisher-role blocks).
 
 **Pipeline**: font-size visual hierarchy → academic first-page line merge → metadata/first lines → optional OCR (`pytesseract` + Tesseract).
 
