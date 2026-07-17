@@ -1,0 +1,12 @@
+# 本子项目工作目录清单
+# 顶层 .gitignore 已经拦截了 input/** / output/**，
+# 这里仅保留可自动重建/可重现的产物（如 __pycache__），
+# 避免 `git clean -fdX` 误伤用户的工作数据。
+__pycache__/
+*.py[cod]
+*$py.class
+# 运行期产生的临时占位（可被 fitter/补全工具重建）
+.tmp/
+# 罕见的平台调试痕迹
+Thumbs.db
+Desktop.ini

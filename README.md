@@ -194,7 +194,7 @@ Clinical Data Automation/
 │   ├── output/                       # 输出：可编辑 PPTX
 │   └── convert_to_native_ppt.py      # 主程序：表格识别重建
 │
-├── 17_PDF_Title_Renamer/     # PDF 标题驱动重命名（Sanitizer v6.9，剪切模式）
+├── 17_PDF_Title_Renamer/     # PDF 标题驱动重命名（Sanitizer v7.1，MDPI/Frontiers 出版商角色鲁棒识别，剪切模式）
 │   ├── input/                        # 输入：待重命名 PDF
 │   ├── output/                       # 输出：重命名后 PDF（Title-年份.pdf）
 │   ├── pdf_sanitizer.py              # 主程序：视觉层级 + 学术首屏 + OCR 后备
@@ -559,7 +559,7 @@ python convert_to_native_ppt.py
 ---
 
 ### 17. PDF 标题驱动重命名（`16_PDF_Title_Renamer`）
-用途：从 PDF 首页提取**正文标题**与**年份**，生成 `标题-年份.pdf` 并从 `input/` **剪切**到 `output/`（引擎 v6.9）。
+用途：从 PDF 首页提取**正文标题**与**年份**，生成 `标题-年份.pdf` 并从 `input/` **剪切**到 `output/`（引擎 v7.1；MDPI/Frontiers 出版商角色鲁棒识别）。
 
 **提取链路**：视觉字号层级 → 学术首屏多行合并 → 元数据/首行 → OCR 后备（`pytesseract` + Tesseract，可选）。
 
