@@ -627,7 +627,7 @@ class PDFSanitizer:
             )
         ):
             return True
-            
+
         return (
             bool(_CITATION_INSTRUCTION_IN_TEXT.search(norm))
             or PDFSanitizer._is_publisher_status_line(s)
@@ -679,10 +679,10 @@ class PDFSanitizer:
                 "",
                 t,
             ).strip()
-            
+
         # Strip trailing noise like " - PMC", " | PubMed", etc.
         t = re.sub(r"(?i)(?:\s*[-|]\s*(?:PMC|PubMed|Europe\s+PMC|NCBI|NIH|medRxiv|bioRxiv))+$", "", t).strip()
-        
+
         return t
 
     @staticmethod
