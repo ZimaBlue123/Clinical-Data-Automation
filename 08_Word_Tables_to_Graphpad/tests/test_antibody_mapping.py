@@ -80,7 +80,7 @@ class TestExtractDataset(unittest.TestCase):
         paragraphs = [
             "第2剂接种后30天",
             "40-49岁",
-            "试验组和阳性对照组1 gE抗原血清抗体SCR（95%CI）分别为100.00%（94.73%，100.00%）、20.00%（11.39%，31.27%），组间SCR率差。",
+            "试验组和阳性对照组1 gE抗原血清抗体SCR（95%CI）分别为100.00%（94.73%，100.00%）、20.00%（11.39%，31.27%），组间SCR率差。",  # noqa: E501
         ]
         ds = extract_antibody_dataset(paragraphs, "gE")
         dp = ds.get("40-49岁", "阳转率", "全免后1个月")

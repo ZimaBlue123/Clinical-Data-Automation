@@ -56,25 +56,28 @@ _NS_REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 # 数据结构
 # =========================
 
+
 @dataclass
 class SlideInfo:
     """用于保存单个幻灯片的结构化信息"""
-    global_id: int                    # 全局 ID（跨所有文件连续编号）
-    source_ppt: str                   # 源文件名
-    source_path: str                  # 源文件完整路径
-    source_index: int                 # 源文件中的 slide 序号（从 0 开始）
-    text_content: str                 # 文本内容指纹的原始语料
-    shape_count: int                  # 形状数量，用作版式复杂度指标
-    slide_obj: object                 # python-pptx 的 slide 对象
+
+    global_id: int  # 全局 ID（跨所有文件连续编号）
+    source_ppt: str  # 源文件名
+    source_path: str  # 源文件完整路径
+    source_index: int  # 源文件中的 slide 序号（从 0 开始）
+    text_content: str  # 文本内容指纹的原始语料
+    shape_count: int  # 形状数量，用作版式复杂度指标
+    slide_obj: object  # python-pptx 的 slide 对象
     cluster_id: int | None = None  # 连通分量 ID
-    max_similarity: float = 0.0       # 与任意其他页的最大相似度
-    decision: str = "undecided"       # keep_unique / keep_partial_overlap / drop_conflict
+    max_similarity: float = 0.0  # 与任意其他页的最大相似度
+    decision: str = "undecided"  # keep_unique / keep_partial_overlap / drop_conflict
     notes_flags: list[str] = field(default_factory=list)  # 备注中需要写入的标记
 
 
 # =========================
 # 文本与形状提取
 # =========================
+
 
 def extract_text_from_shape(shape) -> str:
     """从单个 shape 中提取尽可能多的文本信息（文本框、表格、图表标题、alt text 等）。"""
@@ -192,9 +195,7 @@ def _replace_rids_in_element(element, rid_map: dict[str, str]) -> None:
                 el.attrib[key] = rid_map[el.attrib[key]]
 
 
-def _copy_image_part_to_package(
-    source_part: Part, target_package
-) -> Part | None:
+def _copy_image_part_to_package(source_part: Part, target_package) -> Part | None:
     """将源包中的图片 part 复制到目标包，返回新 part（供 relate_to 使用）。"""
     try:
         blob = source_part.blob
@@ -202,13 +203,12 @@ def _copy_image_part_to_package(
         if ext not in ("png", "jpg", "jpeg", "gif", "bmp", "tiff", "emf", "wmf"):
             ext = "png"
         partname = target_package.next_image_partname(ext)
-        new_part = Part(
+        return Part(
             partname,
             source_part.content_type,
             target_package,
             blob=blob,
         )
-        return new_part
     except Exception:
         return None
 
@@ -241,9 +241,7 @@ def _copy_chart_part_to_package(
         if xlsx_rId:
             try:
                 xlsx_part = source_chart_part.related_part(xlsx_rId)
-                partname_xlsx = target_package.next_partname(
-                    "/ppt/embeddings/Microsoft_Excel_Sheet%d.xlsx"
-                )
+                partname_xlsx = target_package.next_partname("/ppt/embeddings/Microsoft_Excel_Sheet%d.xlsx")
                 new_xlsx_part = Part(
                     partname_xlsx,
                     CT.SML_SHEET,
@@ -254,9 +252,7 @@ def _copy_chart_part_to_package(
                 pass
 
         partname_chart = target_package.next_partname("/ppt/charts/chart%d.xml")
-        new_chart_part = XmlPart.load(
-            partname_chart, CT.DML_CHART, target_package, blob
-        )
+        new_chart_part = XmlPart.load(partname_chart, CT.DML_CHART, target_package, blob)
         if new_xlsx_part is not None:
             new_xlsx_rId = new_chart_part.relate_to(new_xlsx_part, RT.PACKAGE)
             try:
@@ -271,7 +267,7 @@ def _copy_chart_part_to_package(
         return None
 
 
-def _copy_part_to_target_and_get_new_rid(
+def _copy_part_to_target_and_get_new_rid(  # noqa: PLR0912 - TODO: 下个迭代重构 # noqa: PLR0911 - TODO: 下个迭代重构
     source_slide_part,
     target_slide_part,
     target_package,
@@ -302,9 +298,7 @@ def _copy_part_to_target_and_get_new_rid(
                 rid_map[rId] = new_rId
                 return new_rId
         elif reltype == RT.CHART:
-            result = _copy_chart_part_to_package(
-                source_part, source_slide_part, target_package, target_slide_part
-            )
+            result = _copy_chart_part_to_package(source_part, source_slide_part, target_package, target_slide_part)
             if result is not None:
                 _, new_rId = result
                 rid_map[rId] = new_rId
@@ -396,8 +390,7 @@ def clone_slide_into_presentation(template_prs: Presentation, source_slide, layo
     return new_slide
 
 
-def standardize_fonts(slide, title_font_name="Arial", body_font_name="Arial",
-                      title_size_pt=24, body_size_pt=14):
+def standardize_fonts(slide, title_font_name="Arial", body_font_name="Arial", title_size_pt=24, body_size_pt=14):
     """
     对复制后的幻灯片统一字体：
     - 标题：优先识别 slide.shapes.title 所在 shape，设为标题字体和较大字号；
@@ -443,6 +436,7 @@ def add_notes_to_slide(slide, extra_notes: list[str]):
 # 相似度与聚类决策
 # =========================
 
+
 def build_slide_infos(ppt_paths: list[str]) -> list[SlideInfo]:
     """从多个 PPT 文件中构造 SlideInfo 列表。"""
     slide_infos: list[SlideInfo] = []
@@ -482,8 +476,7 @@ def compute_similarity(slide_infos: list[SlideInfo]) -> np.ndarray:
         stop_words=None,
     )
     tfidf = vectorizer.fit_transform(corpus)
-    sim = cosine_similarity(tfidf)
-    return sim
+    return cosine_similarity(tfidf)
 
 
 def build_clusters(sim_matrix: np.ndarray, low: float = 0.6) -> dict[int, int]:
@@ -565,19 +558,16 @@ def decide_keep_drop(
                 si, sj = slide_infos[i], slide_infos[j]
                 if si.decision != "drop_conflict":
                     si.decision = "keep_partial_overlap"
-                    si.notes_flags.append(
-                        f"部分重叠：与全局ID {sj.global_id} 相似度 {sim_ij:.3f}"
-                    )
+                    si.notes_flags.append(f"部分重叠：与全局ID {sj.global_id} 相似度 {sim_ij:.3f}")
                 if sj.decision != "drop_conflict":
                     sj.decision = "keep_partial_overlap"
-                    sj.notes_flags.append(
-                        f"部分重叠：与全局ID {si.global_id} 相似度 {sim_ij:.3f}"
-                    )
+                    sj.notes_flags.append(f"部分重叠：与全局ID {si.global_id} 相似度 {sim_ij:.3f}")
 
 
 # =========================
 # 报表生成
 # =========================
+
 
 def generate_report(slide_infos: list[SlideInfo], out_xlsx: str):
     """输出 merge_report.xlsx，便于后续人工审阅与追溯。"""
@@ -741,4 +731,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

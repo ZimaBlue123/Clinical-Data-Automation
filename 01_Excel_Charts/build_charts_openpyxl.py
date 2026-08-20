@@ -41,7 +41,7 @@ def _adr_total_rows(ws):
     return adr_rows, total_rows
 
 
-def build():
+def build():  # noqa: PLR0915 - TODO: 下个迭代重构
     wb = load_workbook(TFL)
     ws = wb.active
 
@@ -70,7 +70,7 @@ def build():
     cds["K1"] = "安慰剂组-发生率"
 
     # 填充数据（使用公式 link 回原表，而不是静态数值）
-    for idx, (ar, tr) in enumerate(zip(adr_rows, total_rows), start=2):
+    for idx, (ar, tr) in enumerate(zip(adr_rows, total_rows, strict=False), start=2):
         # ADR 名称直接引用原表 A 行
         cds[f"A{idx}"] = f"={sheet_ref}!A{ar}"
         # 例数(n)：C,F,I,L,O
@@ -149,4 +149,3 @@ def build():
 
 if __name__ == "__main__":
     build()
-

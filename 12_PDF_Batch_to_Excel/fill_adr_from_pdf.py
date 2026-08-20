@@ -3,10 +3,12 @@
 按“发热”的填写逻辑，填充 不同剂量组ADR分析 (TFL).xlsx 中所有 ADR 的 1级/2级/3级/Total。
 Excel 列顺序：低剂量试验组(例数/人数/发生率)、高剂量试验组、低剂量佐剂组、高剂量佐剂组、安慰剂组。
 """
+
 import re
 from pathlib import Path
 from openpyxl import load_workbook
 from src.pdf_reader import extract_tables_from_pdf
+import sys
 
 BASE = Path(__file__).resolve().parent
 PDF_TFL = BASE / "不同剂量组ADR分析 (TFL).pdf"
@@ -17,10 +19,10 @@ XLSX_PATH = BASE / "不同剂量组ADR分析 (TFL).xlsx"
 # 即 0=术语, 1-2=低剂量佐, 3-4=高剂量佐, 5-6=低剂量试, 7-8=高剂量试, 9-10=安慰剂
 # Excel 列顺序：低剂量试验, 高剂量试验, 低剂量佐剂, 高剂量佐剂, 安慰剂
 PDF_GROUP_ORDER = [
-    (5, 6),   # 低剂量试验组 -> Excel 第1组
-    (7, 8),   # 高剂量试验组 -> Excel 第2组
-    (1, 2),   # 低剂量佐剂组 -> Excel 第3组
-    (3, 4),   # 高剂量佐剂组 -> Excel 第4组
+    (5, 6),  # 低剂量试验组 -> Excel 第1组
+    (7, 8),  # 高剂量试验组 -> Excel 第2组
+    (1, 2),  # 低剂量佐剂组 -> Excel 第3组
+    (3, 4),  # 高剂量佐剂组 -> Excel 第4组
     (9, 10),  # 安慰剂组 -> Excel 第5组
 ]
 
@@ -106,7 +108,13 @@ def parse_row_to_groups(row: list, group_order=None):
         if n_subj is None and ex_count is None:
             result.append((None, None, None))
         else:
-            result.append((ex_count if ex_count is not None else 0, n_subj if n_subj is not None else 0, rate if rate is not None else 0.0))
+            result.append(
+                (
+                    ex_count if ex_count is not None else 0,
+                    n_subj if n_subj is not None else 0,
+                    rate if rate is not None else 0.0,
+                )
+            )  # noqa: E501
     return result
 
 
@@ -143,9 +151,7 @@ def is_adr_or_soc(first_cell: str):
         return False
     if s in ("1级", "2级", "3级", "4级", "5级", "≥3级", "Total"):
         return False
-    if re.match(r"^[\d\s.()%]+$", s):
-        return False
-    return True
+    return not re.match(r"^[\d\s.()%]+$", s)
 
 
 def is_likely_soc(first_cell: str) -> bool:
@@ -155,9 +161,7 @@ def is_likely_soc(first_cell: str) -> bool:
     s = str(first_cell).strip()
     if "系统" in s or "疾病" in s or s.endswith("反应") or s.endswith("检查"):
         return True
-    if "及" in s and ("组织" in s or "器官" in s):
-        return True
-    return False
+    return bool("及" in s and ("组织" in s or "器官" in s))
 
 
 def is_footer_or_header(first_cell: str) -> bool:
@@ -165,13 +169,28 @@ def is_footer_or_header(first_cell: str) -> bool:
     if not first_cell:
         return True
     fc = str(first_cell).strip()
-    skip = ("使用MedDRA", "数据来源", "百分比", "合同研究", "方案编号", "年龄组", "系统器官", "首选术语",
-            "低剂量佐剂组", "高剂量佐剂组", "低剂量试验组", "高剂量试验组", "安慰剂组", "合计",
-            "若受试者", "远大赛威信")
+    skip = (
+        "使用MedDRA",
+        "数据来源",
+        "百分比",
+        "合同研究",
+        "方案编号",
+        "年龄组",
+        "系统器官",
+        "首选术语",
+        "低剂量佐剂组",
+        "高剂量佐剂组",
+        "低剂量试验组",
+        "高剂量试验组",
+        "安慰剂组",
+        "合计",
+        "若受试者",
+        "远大赛威信",
+    )
     return any(fc.startswith(s) or s in fc for s in skip)
 
 
-def collect_graded_adr_data(pdf_path: Path):
+def collect_graded_adr_data(pdf_path: Path):  # noqa: PLR0915 - TODO: 下个迭代重构 # noqa: PLR0912 - TODO: 下个迭代重构
     """
     从分级 PDF 中收集：每个 ADR 的 Total 行 + 1级/2级/3级 行对应的 5 组数据。
     分级表可能跨页，1级/2级/3级 在下一页，故用“当前 ADR”关联后续遇到的 1级/2级/3级。
@@ -226,6 +245,7 @@ def collect_graded_adr_data(pdf_path: Path):
                 adr_data[last_pt] = {}
             adr_data[last_pt]["1级"] = parse_row_to_groups(row)
             i += 1
+
             # 跨页时 2级/3级 可能不在紧邻的下一行（中间有 4级、5级、≥3级 或换页表头），向前扫描
             # 仅当遇到“带数字的另一条首选术语行”时才停止；表头/页脚不打断
             def is_new_adr_row(r):
@@ -236,6 +256,7 @@ def collect_graded_adr_data(pdf_path: Path):
                     return False
                 p = parse_row_to_groups(r)
                 return any(x[0] is not None or x[1] is not None for x in p)
+
             j = i
             while j < len(all_rows):
                 fc = first_nonempty_cell(all_rows[j])
@@ -270,7 +291,7 @@ def find_pdf_term_for_excel(excel_adr: str) -> str:
     return EXCEL_TO_PDF_TERM.get(excel_adr, excel_adr)
 
 
-def fill_excel():
+def fill_excel():  # noqa: PLR0915 - TODO: 下个迭代重构 # noqa: PLR0912 - TODO: 下个迭代重构
     """
     从分级 PDF 提取数据并填充到 Excel。
 
@@ -384,12 +405,13 @@ if __name__ == "__main__":
         fill_excel()
     except FileNotFoundError as e:
         print(f"文件未找到: {e}")
-        exit(1)
+        sys.exit(1)
     except ValueError as e:
         print(f"数据错误: {e}")
-        exit(1)
+        sys.exit(1)
     except Exception as e:
         print(f"未知错误: {e}")
         import traceback
+
         traceback.print_exc()
-        exit(1)
+        sys.exit(1)

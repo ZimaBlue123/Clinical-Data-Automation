@@ -35,33 +35,57 @@ from pptx.enum.text import PP_ALIGN
 
 # (章节ID, 章节显示名, 该章内「槽位」列表；每槽位为短语列表，任一匹配即进入该槽)
 CURATED_SCRIPT: list[tuple[str, str, list[list[str]]]] = [
-    ("1", "研究背景与设计 (Context)", [
-        ["研究设计与安全集分布", "Study Design", "安全集", "Enrollment", "design", "flowchart"],
-    ]),
-    ("2", "核心安全性结论 (Top-line Conclusion)", [
-        ["总体安全性概览", "Overall Safety", "Top-line", "400", "非临床剂量", "Safety Summary"],
-    ]),
-    ("3", "详细安全性特征 (Detailed Safety Profile)", [
-        ["0-30天相关AE", "0-30", "30-day", "TEAE"],
-        ["MedDRA PT", "PT分类", "发热", "肌痛", "MedDRA", "preferred term"],
-        ["0-14天严重程度", "Grade 3", "严重程度", "severity", "0-14"],
-        ["持续时间", "Duration", "≥8天", "1.0%", "8 days", "duration"],
-        ["佐剂剂量反应", "佐剂", "dose response", "adjuvant"],
-    ]),
-    ("4", "竞品横向对标 (Benchmark vs Shingrix)", [
-        ["Shingrix 临床", "Shingrix", "GSK", "clinical"],
-        ["反应原性痛点", "reactogenicity", "GSK", "pain"],
-        ["接种部位疼痛", "疼痛对比", "injection site", "pain at injection"],
-        ["总体耐受性优势", "耐受性", "benchmark", "tolerability"],
-    ]),
-    ("5", "总结 (Conclusion)", [
-        ["总结与临床价值", "Conclusion", "依从性", "临床价值", "compliance", "Summary"],
-    ]),
+    (
+        "1",
+        "研究背景与设计 (Context)",
+        [
+            ["研究设计与安全集分布", "Study Design", "安全集", "Enrollment", "design", "flowchart"],
+        ],
+    ),
+    (
+        "2",
+        "核心安全性结论 (Top-line Conclusion)",
+        [
+            ["总体安全性概览", "Overall Safety", "Top-line", "400", "非临床剂量", "Safety Summary"],
+        ],
+    ),
+    (
+        "3",
+        "详细安全性特征 (Detailed Safety Profile)",
+        [
+            ["0-30天相关AE", "0-30", "30-day", "TEAE"],
+            ["MedDRA PT", "PT分类", "发热", "肌痛", "MedDRA", "preferred term"],
+            ["0-14天严重程度", "Grade 3", "严重程度", "severity", "0-14"],
+            ["持续时间", "Duration", "≥8天", "1.0%", "8 days", "duration"],
+            ["佐剂剂量反应", "佐剂", "dose response", "adjuvant"],
+        ],
+    ),
+    (
+        "4",
+        "竞品横向对标 (Benchmark vs Shingrix)",
+        [
+            ["Shingrix 临床", "Shingrix", "GSK", "clinical"],
+            ["反应原性痛点", "reactogenicity", "GSK", "pain"],
+            ["接种部位疼痛", "疼痛对比", "injection site", "pain at injection"],
+            ["总体耐受性优势", "耐受性", "benchmark", "tolerability"],
+        ],
+    ),
+    (
+        "5",
+        "总结 (Conclusion)",
+        [
+            ["总结与临床价值", "Conclusion", "依从性", "临床价值", "compliance", "Summary"],
+        ],
+    ),
 ]
 
 # 当标题/正文匹配不到时，按「原始合并顺序下的 Slide 序号」(1-based) 直接指定保留页。
 CURATED_SLIDE_NUMBERS: list[tuple[str, list[int]]] = [
-    ("1", [24]), ("2", [25]), ("3", [19, 26, 18, 27, 21]), ("4", [13, 14, 29, 30]), ("5", [31]),
+    ("1", [24]),
+    ("2", [25]),
+    ("3", [19, 26, 18, 27, 21]),
+    ("4", [13, 14, 29, 30]),
+    ("5", [31]),
 ]
 
 # =============================================================================
@@ -72,31 +96,81 @@ CURATED_SLIDE_NUMBERS: list[tuple[str, list[int]]] = [
 # match 键: title_all / title_any / text_all / content_any（在标题+正文中）
 # tie: first / max_shape_count / body_contains_n64_n32 / has_table / max_text_len
 SLIDE_BLUEPRINT: list[dict] = [
-    {"slot": 1, "chapter_id": "1", "chapter_title": "研究背景 (Context)",
-     "match": {"title_all": ["重组带状疱疹疫苗", "阶段性分析"]}, "tie": "first"},
-    {"slot": 2, "chapter_id": "1", "chapter_title": "研究背景 (Context)",
-     "match": {"title_any": ["设计", "Safety Set", "安全集"]}, "tie": "body_contains_n64_n32"},
-    {"slot": 3, "chapter_id": "2", "chapter_title": "核心结论 (Top-line Safety)",
-     "match": {"text_all": ["0", "98%", "61%"]}, "tie": "first"},
-    {"slot": 4, "chapter_id": "3", "chapter_title": "安全性特征详述 (Detailed Profile)",
-     "match": {"title_all": ["0-30天", "相关"]}, "tie": "max_shape_count"},
-    {"slot": 5, "chapter_id": "3", "chapter_title": "安全性特征详述 (Detailed Profile)",
-     "match": {"title_any": ["MedDRA", "分类"]}, "tie": "has_table"},
-    {"slot": 6, "chapter_id": "3", "chapter_title": "安全性特征详述 (Detailed Profile)",
-     "match": {"title_any": ["持续时间", "Duration"]}, "tie": "first"},
-    {"slot": 7, "chapter_id": "3", "chapter_title": "安全性特征详述 (Detailed Profile)",
-     "match": {"title_any": ["佐剂", "Adjuvant"]}, "tie": "first"},
-    {"slot": 8, "chapter_id": "4", "chapter_title": "竞品对标 (Benchmark vs Shingrix)",
-     "match": {"title_any": ["疼痛"], "title_also_any": ["Shingrix", "对比"]}, "tie": "max_shape_count"},
-    {"slot": 9, "chapter_id": "4", "chapter_title": "竞品对标 (Benchmark vs Shingrix)",
-     "match": {"title_any": ["优势", "分析"]}, "tie": "has_table"},
-    {"slot": 10, "chapter_id": "5", "chapter_title": "总结 (Conclusion)",
-     "match": {"title_any": ["总结", "临床意义"], "content_any": ["依从性", "II期"]}, "tie": "first"},
+    {
+        "slot": 1,
+        "chapter_id": "1",
+        "chapter_title": "研究背景 (Context)",
+        "match": {"title_all": ["重组带状疱疹疫苗", "阶段性分析"]},
+        "tie": "first",
+    },
+    {
+        "slot": 2,
+        "chapter_id": "1",
+        "chapter_title": "研究背景 (Context)",
+        "match": {"title_any": ["设计", "Safety Set", "安全集"]},
+        "tie": "body_contains_n64_n32",
+    },
+    {
+        "slot": 3,
+        "chapter_id": "2",
+        "chapter_title": "核心结论 (Top-line Safety)",
+        "match": {"text_all": ["0", "98%", "61%"]},
+        "tie": "first",
+    },
+    {
+        "slot": 4,
+        "chapter_id": "3",
+        "chapter_title": "安全性特征详述 (Detailed Profile)",
+        "match": {"title_all": ["0-30天", "相关"]},
+        "tie": "max_shape_count",
+    },
+    {
+        "slot": 5,
+        "chapter_id": "3",
+        "chapter_title": "安全性特征详述 (Detailed Profile)",
+        "match": {"title_any": ["MedDRA", "分类"]},
+        "tie": "has_table",
+    },
+    {
+        "slot": 6,
+        "chapter_id": "3",
+        "chapter_title": "安全性特征详述 (Detailed Profile)",
+        "match": {"title_any": ["持续时间", "Duration"]},
+        "tie": "first",
+    },
+    {
+        "slot": 7,
+        "chapter_id": "3",
+        "chapter_title": "安全性特征详述 (Detailed Profile)",
+        "match": {"title_any": ["佐剂", "Adjuvant"]},
+        "tie": "first",
+    },
+    {
+        "slot": 8,
+        "chapter_id": "4",
+        "chapter_title": "竞品对标 (Benchmark vs Shingrix)",
+        "match": {"title_any": ["疼痛"], "title_also_any": ["Shingrix", "对比"]},
+        "tie": "max_shape_count",
+    },
+    {
+        "slot": 9,
+        "chapter_id": "4",
+        "chapter_title": "竞品对标 (Benchmark vs Shingrix)",
+        "match": {"title_any": ["优势", "分析"]},
+        "tie": "has_table",
+    },
+    {
+        "slot": 10,
+        "chapter_id": "5",
+        "chapter_title": "总结 (Conclusion)",
+        "match": {"title_any": ["总结", "临床意义"], "content_any": ["依从性", "II期"]},
+        "tie": "first",
+    },
 ]
 # 当 match 无法命中时（如标题/正文为空），按 1-based Slide 序号回退取页。每 Slot 可填多个备选序号。
 BLUEPRINT_FALLBACK_SLIDES: dict[int, list[int]] = {
-    1: [1],          # 标题页：通常为第 1 张
-    2: [20, 2],      # 详细研究设计
+    1: [1],  # 标题页：通常为第 1 张
+    2: [20, 2],  # 详细研究设计
     3: [3],
     4: [4, 15],
     5: [9, 18],
@@ -148,26 +222,21 @@ def _slide_matches_blueprint_slot(s: SlideInfo, spec: dict) -> bool:
             if phrase.strip() not in title:
                 return False
     # title_any: 标题中包含任一
-    if "title_any" in m:
-        if not any(p.strip() in title for p in m["title_any"] if p.strip()):
-            return False
+    if "title_any" in m and not any(p.strip() in title for p in m["title_any"] if p.strip()):
+        return False
     # title_also_any: 标题中还需包含另一组任一（与 title_any 同时满足）
-    if "title_also_any" in m:
-        if not any(p.strip() in title for p in m["title_also_any"] if p.strip()):
-            return False
+    if "title_also_any" in m and not any(p.strip() in title for p in m["title_also_any"] if p.strip()):
+        return False
     # text_all: 全文（标题+正文）包含全部
     if "text_all" in m:
         for phrase in m["text_all"]:
             if phrase.strip() not in text:
                 return False
     # content_any: 全文包含任一
-    if "content_any" in m:
-        if not any(p.strip() in text for p in m["content_any"] if p.strip()):
-            return False
-    return True
+    return not ("content_any" in m and not any(p.strip() in text for p in m["content_any"] if p.strip()))
 
 
-def _tie_break(candidates: list[SlideInfo], tie: str, slot_id: int, log: list[str]) -> SlideInfo | None:
+def _tie_break(candidates: list[SlideInfo], tie: str, slot_id: int, log: list[str]) -> SlideInfo | None:  # noqa: PLR0912 - TODO: 下个迭代重构 # noqa: PLR0911 - TODO: 下个迭代重构
     """从候选列表中按 tie 规则选出唯一胜者，并写日志。"""
     if not candidates:
         return None
@@ -178,7 +247,9 @@ def _tie_break(candidates: list[SlideInfo], tie: str, slot_id: int, log: list[st
         best = max(candidates, key=lambda x: x.shape_count)
         if len(candidates) > 1:
             others = [c.global_id for c in candidates if c is not best]
-            log.append(f"Slot {slot_id}: Conflict. Kept slide global_id={best.global_id} (shape_count={best.shape_count}), discarded {others}.")
+            log.append(
+                f"Slot {slot_id}: Conflict. Kept slide global_id={best.global_id} (shape_count={best.shape_count}), discarded {others}."
+            )  # noqa: E501
         else:
             log.append(f"Slot {slot_id}: Kept global_id={best.global_id}.")
         return best
@@ -187,7 +258,9 @@ def _tie_break(candidates: list[SlideInfo], tie: str, slot_id: int, log: list[st
         if with_n:
             chosen = with_n[0]
             discarded = [c.global_id for c in candidates if c is not chosen]
-            log.append(f"Slot {slot_id} (Design): Conflict. Kept slide with 'N=64'/'N=32' (global_id={chosen.global_id}), discarded {discarded}.")
+            log.append(
+                f"Slot {slot_id} (Design): Conflict. Kept slide with 'N=64'/'N=32' (global_id={chosen.global_id}), discarded {discarded}."
+            )  # noqa: E501
             return chosen
         best = max(candidates, key=lambda x: x.shape_count)
         log.append(f"Slot {slot_id}: No 'N=64'/'N=32' found. Kept global_id={best.global_id} by shape_count.")
@@ -197,7 +270,9 @@ def _tie_break(candidates: list[SlideInfo], tie: str, slot_id: int, log: list[st
         if with_table:
             chosen = with_table[0]
             if len(candidates) > 1:
-                log.append(f"Slot {slot_id}: Conflict. Kept slide with table (global_id={chosen.global_id}), discarded others (no table).")
+                log.append(
+                    f"Slot {slot_id}: Conflict. Kept slide with table (global_id={chosen.global_id}), discarded others (no table)."
+                )  # noqa: E501
             else:
                 log.append(f"Slot {slot_id}: Kept global_id={chosen.global_id} (has table).")
             return chosen
@@ -214,7 +289,9 @@ def _tie_break(candidates: list[SlideInfo], tie: str, slot_id: int, log: list[st
     return candidates[0]
 
 
-def select_slides_by_blueprint(slide_infos: list[SlideInfo], log: list[str]) -> list[tuple[int, str, str, SlideInfo | None]]:
+def select_slides_by_blueprint(
+    slide_infos: list[SlideInfo], log: list[str]
+) -> list[tuple[int, str, str, SlideInfo | None]]:  # noqa: E501
     """
     按 SLIDE_BLUEPRINT 为每个 Slot 选出唯一优胜 Slide。
     返回: [(slot_id, chapter_id, chapter_title, slide_info), ...]，未匹配的 slot 对应 slide_info=None。
@@ -325,7 +402,7 @@ def add_section_divider_slide(
         pass
 
 
-def run_editor() -> None:
+def run_editor() -> None:  # noqa: PLR0915 - TODO: 下个迭代重构 # noqa: PLR0912 - TODO: 下个迭代重构
     """
     「编辑」逻辑：严格按 SLIDE_BLUEPRINT 去重与排序。
     指纹扫描 -> 每 Slot 匹配 -> Tie-Breaker 选唯一胜者 -> 按 Slot 1..10 重组并插入过渡页。
@@ -355,7 +432,6 @@ def run_editor() -> None:
         print(f"✓ 成功加载 {len(slide_infos)} 张幻灯片")
         print()
 
-
         for s in slide_infos:
             s.slide_title = _get_slide_title(s.slide_obj)
             s.has_table = _slide_has_table(s.slide_obj)
@@ -375,7 +451,9 @@ def run_editor() -> None:
                     tie = spec.get("tie", "first")
                     winner = _tie_break(candidates, tie, slot_id, log)
                     if winner:
-                        log.append(f"Slot {slot_id}: No match, fallback to Slide(s) {BLUEPRINT_FALLBACK_SLIDES[slot_id]} -> kept global_id={winner.global_id}.")
+                        log.append(
+                            f"Slot {slot_id}: No match, fallback to Slide(s) {BLUEPRINT_FALLBACK_SLIDES[slot_id]} -> kept global_id={winner.global_id}."
+                        )  # noqa: E501
             new_results.append((slot_id, ch_id, ch_title, winner))
         slot_results = new_results
 
@@ -422,12 +500,15 @@ def run_editor() -> None:
                 chapter_moves[ch_id] = []
             chapter_moves[ch_id].append((original_idx, current_final_index + 1, slide_title))
 
-            print(f"  ✓ Kept Slide ID {winner.global_id} (Source: {winner.source_ppt}, Original Index: {original_idx}, Final Index: {current_final_index + 1})")
+            print(
+                f"  ✓ Kept Slide ID {winner.global_id} (Source: {winner.source_ppt}, Original Index: {original_idx}, Final Index: {current_final_index + 1})"
+            )  # noqa: E501
             print(f"    标题: {slide_title[:60]}{'...' if len(slide_title) > 60 else ''}")
 
             new_slide = clone_slide_into_presentation(template_prs, winner.slide_obj, layout_index=0)
-            standardize_fonts(new_slide, title_font_name="Arial", body_font_name="Arial",
-                              title_size_pt=24, body_size_pt=14)
+            standardize_fonts(
+                new_slide, title_font_name="Arial", body_font_name="Arial", title_size_pt=24, body_size_pt=14
+            )
             slide_count += 1
             current_final_index += 1
 
@@ -444,7 +525,9 @@ def run_editor() -> None:
                 print(f"\nChapter {ch_id}: {ch_name}")
                 for orig_idx, final_idx, title in moves:
                     if orig_idx != final_idx:
-                        print(f"  → Moved Slide '{title[:50]}{'...' if len(title) > 50 else ''}' from Index {orig_idx} to Index {final_idx}")
+                        print(
+                            f"  → Moved Slide '{title[:50]}{'...' if len(title) > 50 else ''}' from Index {orig_idx} to Index {final_idx}"
+                        )  # noqa: E501
                     else:
                         print(f"  ✓ Kept Slide '{title[:50]}{'...' if len(title) > 50 else ''}' at Index {orig_idx}")
 
@@ -464,11 +547,12 @@ def run_editor() -> None:
     except Exception as e:
         print(f"\n❌ 错误: {str(e)}")
         import traceback
+
         traceback.print_exc()
         raise
 
 
-def run_engine() -> None:
+def run_engine() -> None:  # noqa: PLR0915 - TODO: 下个迭代重构 # noqa: PLR0912 - TODO: 下个迭代重构
     """
     主流程：发现源 PPT -> 提取标题 -> 按剧本精选 -> 按章节+顺序重排 -> 插入过渡页 -> 输出。
     """
@@ -529,7 +613,7 @@ def run_engine() -> None:
             for i, s in enumerate(slide_infos[:10]):
                 tit = getattr(s, "slide_title", "") or ""
                 body = (s.text_content or "")[:80].replace("\n", " ")
-                print(f"  [{i+1}] 标题: {tit!r}")
+                print(f"  [{i + 1}] 标题: {tit!r}")
                 print(f"       正文: {body!r}...")
             return
 
@@ -577,12 +661,15 @@ def run_engine() -> None:
                 chapter_moves[ch_id] = []
             chapter_moves[ch_id].append((orig_idx, final_idx, slide_title))
 
-            print(f"  ✓ Kept Slide ID {s.global_id} (Source: {orig_ppt}, Original Index: {orig_idx}, Final Index: {final_idx})")
+            print(
+                f"  ✓ Kept Slide ID {s.global_id} (Source: {orig_ppt}, Original Index: {orig_idx}, Final Index: {final_idx})"
+            )  # noqa: E501
             print(f"    标题: {slide_title[:60]}{'...' if len(slide_title) > 60 else ''}")
 
             new_slide = clone_slide_into_presentation(template_prs, s.slide_obj, layout_index=0)
-            standardize_fonts(new_slide, title_font_name="Arial", body_font_name="Arial",
-                              title_size_pt=24, body_size_pt=14)
+            standardize_fonts(
+                new_slide, title_font_name="Arial", body_font_name="Arial", title_size_pt=24, body_size_pt=14
+            )
             slide_count += 1
             current_final_index += 1
 
@@ -598,7 +685,9 @@ def run_engine() -> None:
                 print(f"\nChapter {ch_id}: {ch_title}")
                 for orig_idx, final_idx, title in moves:
                     if orig_idx != final_idx:
-                        print(f"  → Moved Slide '{title[:50]}{'...' if len(title) > 50 else ''}' from Index {orig_idx} to Index {final_idx}")
+                        print(
+                            f"  → Moved Slide '{title[:50]}{'...' if len(title) > 50 else ''}' from Index {orig_idx} to Index {final_idx}"
+                        )  # noqa: E501
                     else:
                         print(f"  ✓ Kept Slide '{title[:50]}{'...' if len(title) > 50 else ''}' at Index {orig_idx}")
 
@@ -608,18 +697,21 @@ def run_engine() -> None:
         # 导出叙事报告：所有源页 + 是否入选 + 剧本条目
         try:
             import pandas as pd
+
             rows = []
             for s in slide_infos:
                 in_script = "是" if s in ordered else "否"
-                rows.append({
-                    "global_id": s.global_id,
-                    "source_ppt": s.source_ppt,
-                    "slide_title": getattr(s, "slide_title", ""),
-                    "chapter_id": getattr(s, "chapter_id", ""),
-                    "script_phrase": getattr(s, "script_phrase", ""),
-                    "shape_count": s.shape_count,
-                    "in_final_deck": in_script,
-                })
+                rows.append(
+                    {
+                        "global_id": s.global_id,
+                        "source_ppt": s.source_ppt,
+                        "slide_title": getattr(s, "slide_title", ""),
+                        "chapter_id": getattr(s, "chapter_id", ""),
+                        "script_phrase": getattr(s, "script_phrase", ""),
+                        "shape_count": s.shape_count,
+                        "in_final_deck": in_script,
+                    }
+                )
             df = pd.DataFrame(rows)
             report_path = os.path.join(output_dir, "narrative_report.xlsx")
             df.to_excel(report_path, index=False)
@@ -643,11 +735,12 @@ def run_engine() -> None:
     except Exception as e:
         print(f"\n❌ 错误: {str(e)}")
         import traceback
+
         traceback.print_exc()
         raise
 
 
-def _self_check(output_pptx: str, expected_slides: int, original_count: int) -> None:
+def _self_check(output_pptx: str, expected_slides: int, original_count: int) -> None:  # noqa: PLR0915 - TODO: 下个迭代重构
     """自检功能：验证输出文件完整性"""
     print()
     print("=" * 80)
@@ -708,7 +801,9 @@ def _self_check(output_pptx: str, expected_slides: int, original_count: int) -> 
     checks_total += 1
     reduction = original_count - expected_slides
     reduction_pct = (reduction / original_count * 100) if original_count > 0 else 0
-    print(f"✓ [检查5] 去重统计: 原始 {original_count} 张 → 最终 {expected_slides} 张 (减少 {reduction} 张, {reduction_pct:.1f}%)")
+    print(
+        f"✓ [检查5] 去重统计: 原始 {original_count} 张 → 最终 {expected_slides} 张 (减少 {reduction} 张, {reduction_pct:.1f}%)"
+    )  # noqa: E501
     checks_passed += 1
 
     print()

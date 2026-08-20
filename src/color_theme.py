@@ -91,7 +91,7 @@ _GROUP_NAME_OVERRIDE: dict[str, str] = {
 }
 
 
-def _canonical_category(name: str) -> str | None:
+def _canonical_category(name: str) -> str | None:  # noqa: PLR0911 - TODO: 下个迭代重构
     """将任意类别名称映射到规范 key，若无法识别则返回 None。"""
     if not name:
         return None
@@ -159,4 +159,3 @@ __all__ = [
     "ColorTheme",
     "get_series_color",
 ]
-

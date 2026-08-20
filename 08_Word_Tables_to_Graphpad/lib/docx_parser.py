@@ -66,9 +66,7 @@ def _cell_text(tc: ET.Element) -> str:
 
 
 def _table_to_rows(tbl: ET.Element) -> list[list[str]]:
-    return [
-        [_cell_text(tc) for tc in tr.findall(W + "tc")] for tr in tbl.findall(W + "tr")
-    ]
+    return [[_cell_text(tc) for tc in tr.findall(W + "tc")] for tr in tbl.findall(W + "tr")]
 
 
 def parse_docx(docx_path: Path | str) -> DocxContent:

@@ -98,42 +98,42 @@ TARGET_GROUP_BASE_COLS: list[int] = [2, 5, 8, 11, 14]
 
 # ====== GMC 配置 ======
 GMC_TIMEPOINTS: dict[int, str] = {
-    3: '免前',
-    4: '一免后1个月',
-    5: '一免后2个月',
-    6: '全免后1个月',
-    7: '全免后6个月',
+    3: "免前",
+    4: "一免后1个月",
+    5: "一免后2个月",
+    6: "全免后1个月",
+    7: "全免后6个月",
 }
 
 # GMC源行映射：目标行 -> 源行
 GMC_SOURCE_ROW_MAP: dict[int, int] = {
-    3: 12,   # 免前 ← 行12 (GMC)
-    4: 17,   # 一免后1个月 ← 行17 (LS GMC)
+    3: 12,  # 免前 ← 行12 (GMC)
+    4: 17,  # 一免后1个月 ← 行17 (LS GMC)
     5: 22,
     6: 27,
     7: 32,
 }
 
 # GMC子表关键字
-GMC_SHEET_KEYWORDS: list[str] = ['GMC']
+GMC_SHEET_KEYWORDS: list[str] = ["GMC"]
 
 # ====== 阳转率 配置 ======
 YANGZHUAI_TIMEPOINTS: dict[int, str] = {
-    4: '一免后1个月',
-    5: '一免后2个月',
-    6: '全免后1个月',
-    7: '全免后6个月',
+    4: "一免后1个月",
+    5: "一免后2个月",
+    6: "全免后1个月",
+    7: "全免后6个月",
 }
 
 # 阳转率子表关键字
-YANGZHUAI_SHEET_KEYWORDS: list[str] = ['阳转率']
+YANGZHUAI_SHEET_KEYWORDS: list[str] = ["阳转率"]
 
 # ====== GMI 配置 ======
 GMI_TIMEPOINTS: dict[int, str] = {
-    4: '一免后1个月',
-    5: '一免后2个月',
-    6: '全免后1个月',
-    7: '全免后6个月',
+    4: "一免后1个月",
+    5: "一免后2个月",
+    6: "全免后1个月",
+    7: "全免后6个月",
 }
 
 # GMI源行映射：默认源行（脚本动态扫描优先）
@@ -145,26 +145,28 @@ GMI_SOURCE_ROW_MAP: dict[int, int] = {
 }
 
 # GMI子表关键字
-GMI_SHEET_KEYWORDS: list[str] = ['GMI']
+GMI_SHEET_KEYWORDS: list[str] = ["GMI"]
 
 # 子表类型常量
-TABLE_TYPE_GMC = 'gmc'
-TABLE_TYPE_GMI = 'gmi'
-TABLE_TYPE_YANGZHUAI = 'yangzhuai'
-TABLE_TYPE_ALL = 'all'
+TABLE_TYPE_GMC = "gmc"
+TABLE_TYPE_GMI = "gmi"
+TABLE_TYPE_YANGZHUAI = "yangzhuai"
+TABLE_TYPE_ALL = "all"
 
 # ====== 日志配置 ======
 
-logger = logging.getLogger('fill_clinical_table')
+logger = logging.getLogger("fill_clinical_table")
 
 
 def _setup_logging(verbose: bool = False) -> None:
     """配置日志"""
     level = logging.DEBUG if verbose else logging.INFO
     handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(logging.Formatter(
-        fmt='%(message)s',
-    ))
+    handler.setFormatter(
+        logging.Formatter(
+            fmt="%(message)s",
+        )
+    )
     logger.handlers.clear()
     logger.addHandler(handler)
     logger.setLevel(level)
@@ -172,10 +174,11 @@ def _setup_logging(verbose: bool = False) -> None:
 
 # ====== 通用工具函数 ======
 
+
 def _to_str(v: Any) -> str:
     """安全转换为字符串"""
     if v is None:
-        return ''
+        return ""
     return str(v).strip()
 
 
@@ -193,7 +196,7 @@ def _to_float(v: Any) -> float | None:
     return None
 
 
-def parse_gmc_ci(gmc_str: Any) -> tuple[float | None, float | None, float | None]:
+def parse_gmc_ci(gmc_str: Any) -> tuple[float | None, float | None, float | None]:  # noqa: PLR0911 - TODO: 下个迭代重构
     """
     解析GMC (95%CI)格式字符串，支持：
       - "768.17(507.87, 1161.89)"
@@ -213,7 +216,7 @@ def parse_gmc_ci(gmc_str: Any) -> tuple[float | None, float | None, float | None
     if not s:
         return None, None, None
 
-    pattern = r'([\d.]+)\s*\(\s*([\d.]+)\s*,\s*([\d.]+)\s*\)'
+    pattern = r"([\d.]+)\s*\(\s*([\d.]+)\s*,\s*([\d.]+)\s*\)"
     match = re.search(pattern, s)
     if match:
         try:
@@ -227,7 +230,7 @@ def parse_gmc_ci(gmc_str: Any) -> tuple[float | None, float | None, float | None
     return None, None, None
 
 
-def parse_positive_rate(rate_str: Any) -> float | None:
+def parse_positive_rate(rate_str: Any) -> float | None:  # noqa: PLR0911 - TODO: 下个迭代重构
     """
     解析阳转率字符串："24 (75.00)" → 75.0
     """
@@ -242,7 +245,7 @@ def parse_positive_rate(rate_str: Any) -> float | None:
     if not s:
         return None
 
-    pattern = r'\d+\s*\(\s*([\d.]+)\s*\)'
+    pattern = r"\d+\s*\(\s*([\d.]+)\s*\)"
     match = re.search(pattern, s)
     if match:
         try:
@@ -250,7 +253,7 @@ def parse_positive_rate(rate_str: Any) -> float | None:
         except ValueError:
             return None
 
-    if re.match(r'^\d+(\.\d+)?$', s):
+    if re.match(r"^\d+(\.\d+)?$", s):
         try:
             return float(s)
         except ValueError:
@@ -272,7 +275,7 @@ def parse_ci(ci_str: Any) -> tuple[float | None, float | None]:
     if not s:
         return None, None
 
-    pattern = r'([\d.]+)\s*,\s*([\d.]+)'
+    pattern = r"([\d.]+)\s*,\s*([\d.]+)"
     match = re.search(pattern, s)
     if match:
         try:
@@ -291,7 +294,7 @@ def detect_sheet_type(sheet_name: str) -> str:
         str: 'gmc' | 'gmi' | 'yangzhuai' | 'unknown'
     """
     if not isinstance(sheet_name, str):
-        return 'unknown'
+        return "unknown"
     # GMI需优先于GMC检查（避免"GMI"被"GMC"匹配）
     for kw in GMI_SHEET_KEYWORDS:
         if kw in sheet_name:
@@ -302,7 +305,7 @@ def detect_sheet_type(sheet_name: str) -> str:
     for kw in YANGZHUAI_SHEET_KEYWORDS:
         if kw in sheet_name:
             return TABLE_TYPE_YANGZHUAI
-    return 'unknown'
+    return "unknown"
 
 
 def _safe_sheet_get(ws, row: int, col: int) -> Any:
@@ -320,6 +323,7 @@ def _safe_sheet_get(ws, row: int, col: int) -> Any:
 
 # ====== GMC 填充逻辑 ======
 
+
 def fill_gmc_sheet(ws, sheet_name: str, include_pre: bool = True, verbose: bool = False) -> int:
     """
     填充GMC子表
@@ -333,7 +337,7 @@ def fill_gmc_sheet(ws, sheet_name: str, include_pre: bool = True, verbose: bool 
     if verbose:
         logger.info(f"\n{'=' * 80}")
         logger.info(f"[GMC] 处理子表: {sheet_name} (行数: {ws.max_row}, 列数: {ws.max_column})")
-        logger.info('=' * 80)
+        logger.info("=" * 80)
 
     filled_count = 0
 
@@ -350,7 +354,9 @@ def fill_gmc_sheet(ws, sheet_name: str, include_pre: bool = True, verbose: bool 
         # 边界检查
         if src_row > ws.max_row:
             if verbose:
-                logger.warning(f"\n跳过 {timepoint_name} (目标行{tgt_row}): 源行{src_row}不存在于工作表(最大行={ws.max_row})")
+                logger.warning(
+                    f"\n跳过 {timepoint_name} (目标行{tgt_row}): 源行{src_row}不存在于工作表(最大行={ws.max_row})"
+                )  # noqa: E501
             continue
 
         if verbose:
@@ -376,7 +382,8 @@ def fill_gmc_sheet(ws, sheet_name: str, include_pre: bool = True, verbose: bool 
 
 # ====== 阳转率 填充逻辑 ======
 
-def _find_timepoint_blocks_yangzhuai(ws) -> dict[int, dict[str, Any]]:
+
+def _find_timepoint_blocks_yangzhuai(ws) -> dict[int, dict[str, Any]]:  # noqa: PLR0912 - TODO: 下个迭代重构
     """
     扫描阳转率子表，自动定位各时间点的源数据行
     """
@@ -408,16 +415,16 @@ def _find_timepoint_blocks_yangzhuai(ws) -> dict[int, dict[str, Any]]:
             second_col = _to_str(_safe_sheet_get(ws, r, 2))
             if not second_col:
                 continue
-            if '阳转例数' in second_col:
+            if "阳转例数" in second_col:
                 rate_row = r
-            if '95%CI' in second_col or '95% CI' in second_col:
+            if "95%CI" in second_col or "95% CI" in second_col:
                 ci_row = r
 
         if rate_row and ci_row:
             timepoint_blocks[tgt_row] = {
-                'rate_row': rate_row,
-                'ci_row': ci_row,
-                'title': tp_name,
+                "rate_row": rate_row,
+                "ci_row": ci_row,
+                "title": tp_name,
             }
 
     return timepoint_blocks
@@ -430,7 +437,7 @@ def fill_yangzhuai_sheet(ws, sheet_name: str, verbose: bool = False) -> int:
     if verbose:
         logger.info(f"\n{'=' * 80}")
         logger.info(f"[阳转率] 处理子表: {sheet_name} (行数: {ws.max_row}, 列数: {ws.max_column})")
-        logger.info('=' * 80)
+        logger.info("=" * 80)
 
     timepoint_blocks = _find_timepoint_blocks_yangzhuai(ws)
 
@@ -447,9 +454,9 @@ def fill_yangzhuai_sheet(ws, sheet_name: str, verbose: bool = False) -> int:
     filled_count = 0
 
     for tgt_row, info in sorted(timepoint_blocks.items()):
-        rate_row = info['rate_row']
-        ci_row = info['ci_row']
-        title = info['title']
+        rate_row = info["rate_row"]
+        ci_row = info["ci_row"]
+        title = info["title"]
 
         if verbose:
             logger.info(f"\n填充 {title} (目标行{tgt_row}):")
@@ -475,6 +482,7 @@ def fill_yangzhuai_sheet(ws, sheet_name: str, verbose: bool = False) -> int:
 
 
 # ====== GMI 填充逻辑 ======
+
 
 def _find_gmi_source_rows(ws, verbose: bool = False) -> dict[int, int]:
     """
@@ -507,7 +515,7 @@ def _find_gmi_source_rows(ws, verbose: bool = False) -> dict[int, int]:
         gmi_row = None
         for r in range(title_row, min(title_row + 12, ws.max_row + 1)):
             second_col = _to_str(_safe_sheet_get(ws, r, 2))
-            if 'GMI (95%CI)' in second_col or 'GMI(95%CI)' in second_col:
+            if "GMI (95%CI)" in second_col or "GMI(95%CI)" in second_col:
                 gmi_row = r
                 break
 
@@ -517,7 +525,7 @@ def _find_gmi_source_rows(ws, verbose: bool = False) -> dict[int, int]:
     return result
 
 
-def fill_gmi_sheet(ws, sheet_name: str, verbose: bool = False) -> int:
+def fill_gmi_sheet(ws, sheet_name: str, verbose: bool = False) -> int:  # noqa: PLR0912 - TODO: 下个迭代重构
     """
     填充GMI子表
     复用parse_gmc_ci解析器（格式与GMC一致）
@@ -526,7 +534,7 @@ def fill_gmi_sheet(ws, sheet_name: str, verbose: bool = False) -> int:
     if verbose:
         logger.info(f"\n{'=' * 80}")
         logger.info(f"[GMI] 处理子表: {sheet_name} (行数: {ws.max_row}, 列数: {ws.max_column})")
-        logger.info('=' * 80)
+        logger.info("=" * 80)
 
     source_rows = _find_gmi_source_rows(ws, verbose)
 
@@ -538,7 +546,7 @@ def fill_gmi_sheet(ws, sheet_name: str, verbose: bool = False) -> int:
     if verbose:
         logger.info("\n动态识别的源行号:")
         for tgt_row in sorted(source_rows):
-            tp_name = GMI_TIMEPOINTS.get(tgt_row, f'行{tgt_row}')
+            tp_name = GMI_TIMEPOINTS.get(tgt_row, f"行{tgt_row}")
             logger.info(f"  行{tgt_row} {tp_name} <- 源行{source_rows[tgt_row]}")
 
     filled_count = 0
@@ -574,7 +582,8 @@ def fill_gmi_sheet(ws, sheet_name: str, verbose: bool = False) -> int:
 
 # ====== 工作簿处理 ======
 
-def process_workbook(
+
+def process_workbook(  # noqa: PLR0915 - TODO: 下个迭代重构 # noqa: PLR0912 - TODO: 下个迭代重构 # noqa: PLR0911 - TODO: 下个迭代重构
     excel_path: str,
     sheet_tasks: list[tuple[str, str]],
     output_path: str,
@@ -680,9 +689,9 @@ def process_workbook(
     logger.info(f"\n总计: 处理 {len(sheet_tasks)} 个子表，填充 {total_filled} 个单元格")
 
     return {
-        'sheets': sheet_results,
-        'total_filled': total_filled,
-        'output_path': output_path,
+        "sheets": sheet_results,
+        "total_filled": total_filled,
+        "output_path": output_path,
     }
 
 
@@ -698,7 +707,7 @@ def resolve_output_path(
     input_suffix = excel_path_obj.suffix
 
     if output_dir is None:
-        output_dir = str(input_dir / 'output')
+        output_dir = str(input_dir / "output")
 
     output_dir_obj = Path(output_dir)
 
@@ -729,60 +738,65 @@ def build_sheet_tasks(
     if explicit_sheets:
         for s in explicit_sheets:
             t = detect_sheet_type(s)
-            if t == 'unknown':
+            if t == "unknown":
                 logger.warning(f"无法识别子表类型 '{s}'，跳过")
                 continue
-            if table_type != TABLE_TYPE_ALL and t != table_type:
+            if table_type not in (TABLE_TYPE_ALL, t):
                 logger.warning(f"子表 '{s}' (类型={t}) 与 --type={table_type} 不匹配，跳过")
                 continue
             sheet_tasks.append((s, t))
     else:
         for s in wb.sheetnames:
             t = detect_sheet_type(s)
-            if t == 'unknown':
+            if t == "unknown":
                 continue
-            if table_type != TABLE_TYPE_ALL and t != table_type:
+            if table_type not in (TABLE_TYPE_ALL, t):
                 continue
             sheet_tasks.append((s, t))
 
     return sheet_tasks
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None) -> int:  # noqa: PLR0911 - TODO: 下个迭代重构
     """主入口"""
     parser = argparse.ArgumentParser(
-        description='临床试验表格数据填充（统一入口：GMC + GMI + 阳转率）',
+        description="临床试验表格数据填充（统一入口：GMC + GMI + 阳转率）",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    parser.add_argument('excel_file', nargs='?', help='Excel文件路径')
+    parser.add_argument("excel_file", nargs="?", help="Excel文件路径")
     parser.add_argument(
-        '--type', '-t',
+        "--type",
+        "-t",
         choices=[TABLE_TYPE_GMC, TABLE_TYPE_GMI, TABLE_TYPE_YANGZHUAI, TABLE_TYPE_ALL],
         default=TABLE_TYPE_ALL,
-        help='表格类型 (默认: all 自动检测所有)',
+        help="表格类型 (默认: all 自动检测所有)",
     )
     parser.add_argument(
-        '--sheets', '-s',
-        help='指定子表（逗号分隔），优先级高于--type',
+        "--sheets",
+        "-s",
+        help="指定子表（逗号分隔），优先级高于--type",
     )
     parser.add_argument(
-        '--output-dir', '-o',
-        help='输出目录 (默认: 同级output目录)',
+        "--output-dir",
+        "-o",
+        help="输出目录 (默认: 同级output目录)",
     )
     parser.add_argument(
-        '--output-name', '-n',
-        help='输出文件名 (默认: 输入文件名)',
+        "--output-name",
+        "-n",
+        help="输出文件名 (默认: 输入文件名)",
     )
     parser.add_argument(
-        '--no-include-pre',
-        action='store_true',
-        help='GMC表格不填充免前(第3行)',
+        "--no-include-pre",
+        action="store_true",
+        help="GMC表格不填充免前(第3行)",
     )
     parser.add_argument(
-        '--verbose', '-v',
-        action='store_true',
-        help='显示详细日志',
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="显示详细日志",
     )
 
     args = parser.parse_args(argv)
@@ -816,7 +830,7 @@ def main(argv: list[str] | None = None) -> int:
         logger.error(f"无法读取Excel文件: {e}")
         return 1
 
-    explicit = [s.strip() for s in args.sheets.split(',')] if args.sheets else None
+    explicit = [s.strip() for s in args.sheets.split(",")] if args.sheets else None
     sheet_tasks = build_sheet_tasks(wb, args.type, explicit)
     wb.close()
 
@@ -845,5 +859,5 @@ def main(argv: list[str] | None = None) -> int:
     return 0 if result else 1
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())

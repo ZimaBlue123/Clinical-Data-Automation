@@ -76,7 +76,9 @@ def main() -> int:
     if args.cmd == "pdf-batch":
         io = PipelineIO(
             input_dir=Path(args.input_dir) if args.input_dir else settings.input_dir,
-            output_file=Path(args.output) if args.output else resolve_default_output(settings, "SAE_Structured_Listing_PDF.xlsx"),
+            output_file=Path(args.output)
+            if args.output
+            else resolve_default_output(settings, "SAE_Structured_Listing_PDF.xlsx"),  # noqa: E501
         )
         run_pdf_batch(engine=engine, io=io, settings=settings)
         return 0

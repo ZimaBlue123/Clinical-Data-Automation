@@ -7,6 +7,7 @@
 Excel 版式与报告一致：样品 ID + 五项（每项 2 列：数值、说明），列顺序为
 Anti-HBs → HBsAg → Anti-HBc → Anti-HBe → HBeAg；缺项留空。
 """
+
 from __future__ import annotations
 
 import argparse
@@ -91,9 +92,7 @@ def _marker_column_starts(header_row: list[Any]) -> dict[int, str]:
     return out
 
 
-def _build_column_groups(
-    header_row: list[Any], sub_row: list[Any] | None
-) -> list[tuple[str, int, int]]:
+def _build_column_groups(header_row: list[Any], sub_row: list[Any] | None) -> list[tuple[str, int, int]]:
     """
     返回 [(指标名, 起始列, 结束列开区间), ...] 按从左到右顺序。
     结束列为下一指标起始或表宽。
@@ -115,12 +114,10 @@ def _is_note_cell(text: str) -> bool:
         return False
     if t in ("阴性", "阳性", "反应", "可疑", "待查"):
         return True
-    if len(t) <= 4 and re.match(r"^[\u4e00-\u9fff]+$", t):
-        return True
-    return False
+    return bool(len(t) <= 4 and re.match(r"^[\u4e00-\u9fff]+$", t))
 
 
-def _extract_group_value_and_note(
+def _extract_group_value_and_note(  # noqa: PLR0912 - TODO: 下个迭代重构
     row: list[str],
     c0: int,
     c1: int,
@@ -184,7 +181,7 @@ def _iter_body_rows(table: list[list[Any]], start_i: int) -> Iterable[list[str]]
         yield row
 
 
-def parse_digital_table(table: list[list[Any]]) -> list[dict[str, Any]]:
+def parse_digital_table(table: list[list[Any]]) -> list[dict[str, Any]]:  # noqa: PLR0912 - TODO: 下个迭代重构
     if not table or len(table) < 2:
         return []
     header_idx = None
@@ -274,7 +271,6 @@ def _normalize_sample_id(raw: str) -> str:
     return s
 
 
-
 def _is_empty_marker(block: dict[str, Any]) -> bool:
     return not ((block.get("value") or "").strip() or (block.get("note") or "").strip())
 
@@ -334,7 +330,7 @@ def _backfill_from_reference(
     return touched_samples, filled_cells
 
 
-def parse_ocr_line(line: str) -> dict[str, Any] | None:
+def parse_ocr_line(line: str) -> dict[str, Any] | None:  # noqa: PLR0915 - TODO: 下个迭代重构 # noqa: PLR0912 - TODO: 下个迭代重构 # noqa: PLR0911 - TODO: 下个迭代重构
     """
     OCR 行解析（尽量鲁棒）。
 
@@ -500,17 +496,15 @@ def merge_records(
                     continue
                 nv = (src.get("value") or "").strip()
                 nn = (src.get("note") or "").strip()
-                if nv:
-                    if prefer_last or not (str(cur[m].get("value", "")).strip()):
-                        cur[m]["value"] = nv
-                if nn:
-                    if prefer_last or not (str(cur[m].get("note", "")).strip()):
-                        cur[m]["note"] = nn
+                if nv and (prefer_last or not (str(cur[m].get("value", "")).strip())):
+                    cur[m]["value"] = nv
+                if nn and (prefer_last or not (str(cur[m].get("note", "")).strip())):
+                    cur[m]["note"] = nn
         logger.info("文件 %s 解析 %s 行", path.name, len(rows))
     return merged
 
 
-def write_excel(merged: OrderedDict[str, dict[str, Any]], out_path: Path) -> None:
+def write_excel(merged: OrderedDict[str, dict[str, Any]], out_path: Path) -> None:  # noqa: PLR0915 - TODO: 下个迭代重构
     out_path.parent.mkdir(parents=True, exist_ok=True)
     wb = Workbook()
     ws = wb.active
@@ -670,7 +664,7 @@ def main() -> None:
         "--reference-excel",
         type=Path,
         default=None,
-        help="可选：参考 Excel（如 09_Word_All_Tables_to_Excel/output/word_tables_merged.xlsx），用于回填 PDF 侧空缺指标",
+        help="可选：参考 Excel（如 09_Word_All_Tables_to_Excel/output/word_tables_merged.xlsx），用于回填 PDF 侧空缺指标",  # noqa: E501
     )
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()

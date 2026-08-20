@@ -42,7 +42,14 @@ class PipelineIO:
     output_file: Path
 
 
-def truncate_by_keywords(raw_text: str, *, keywords: Iterable[str] = DEFAULT_KEYWORDS, min_len: int = 2000, window: int = 900, hard_cap: int = 6000) -> str:
+def truncate_by_keywords(
+    raw_text: str,
+    *,
+    keywords: Iterable[str] = DEFAULT_KEYWORDS,
+    min_len: int = 2000,
+    window: int = 900,
+    hard_cap: int = 6000,
+) -> str:  # noqa: E501
     total_len = len(raw_text)
     if total_len < min_len:
         return raw_text
@@ -97,9 +104,7 @@ def _list_files(input_dir: Path, exts: tuple[str, ...]) -> list[Path]:
     files = [
         input_dir / name
         for name in os.listdir(input_dir)
-        if name.lower().endswith(exts)
-        and not name.startswith("~$")
-        and (input_dir / name).is_file()
+        if name.lower().endswith(exts) and not name.startswith("~$") and (input_dir / name).is_file()
     ]
     files.sort(key=lambda p: p.name.lower())
     return files

@@ -43,4 +43,3 @@ def triage_document(
     if hit_pages >= min_vector_hit_pages:
         return "vector", per_page_hits
     return "ocr", {}
-

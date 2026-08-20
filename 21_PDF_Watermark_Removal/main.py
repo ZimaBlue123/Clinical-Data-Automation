@@ -58,26 +58,41 @@ def parse_keywords(raw: str | None) -> list[str]:
     return parts or [r"CONFIDENTIAL", r"DRAFT", r"仅供审查", r"内部使用"]
 
 
-def main() -> None:
+def main() -> None:  # noqa: PLR0915 - TODO: 下个迭代重构 # noqa: PLR0912 - TODO: 下个迭代重构
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(levelname)s - %(message)s",
     )
 
-    parser = argparse.ArgumentParser(description="21_PDF_Watermark_Removal: detect interference zones + audit masks + clean extracted text.")
+    parser = argparse.ArgumentParser(
+        description="21_PDF_Watermark_Removal: detect interference zones + audit masks + clean extracted text."
+    )  # noqa: E501
     parser.add_argument("--input", "-i", default="input", help="输入 PDF（文件或目录，默认相对当前模块目录）")
     parser.add_argument("--output", "-o", default="output", help="输出目录（默认相对当前模块目录）")
-    parser.add_argument("--recursive", action=argparse.BooleanOptionalAction, default=True, help="递归遍历子文件夹（默认开启）")
-    parser.add_argument("--keep-structure", action=argparse.BooleanOptionalAction, default=True, help="保留相对目录结构（默认开启）")
+    parser.add_argument(
+        "--recursive", action=argparse.BooleanOptionalAction, default=True, help="递归遍历子文件夹（默认开启）"
+    )  # noqa: E501
+    parser.add_argument(
+        "--keep-structure", action=argparse.BooleanOptionalAction, default=True, help="保留相对目录结构（默认开启）"
+    )  # noqa: E501
     parser.add_argument("--overwrite", action="store_true", help="覆盖已存在输出")
 
-    parser.add_argument("--keywords", default=None, help="逗号分隔的关键词列表（用于 vector/OCR 命中；用于定位疑似水印/页眉页脚）")
-    parser.add_argument("--vector-min-hit-pages", type=int, default=1, help="vector 命中页面数达到该阈值则优先使用矢量定位（默认 1）")
+    parser.add_argument(
+        "--keywords", default=None, help="逗号分隔的关键词列表（用于 vector/OCR 命中；用于定位疑似水印/页眉页脚）"
+    )  # noqa: E501
+    parser.add_argument(
+        "--vector-min-hit-pages", type=int, default=1, help="vector 命中页面数达到该阈值则优先使用矢量定位（默认 1）"
+    )  # noqa: E501
 
     parser.add_argument("--ocr-dpi", type=int, default=200, help="OCR 渲染分辨率（dpi，默认 200）")
     parser.add_argument("--ocr-conf-thresh", type=float, default=50.0, help="OCR 词置信度阈值（默认 50）")
     parser.add_argument("--ocr-lang", default="chi_sim+eng", help="tesseract 语言（默认 chi_sim+eng）")
-    parser.add_argument("--ocr-repeated-heuristic", action=argparse.BooleanOptionalAction, default=True, help="若关键词命中失败，启用重复词启发式（默认开启）")
+    parser.add_argument(
+        "--ocr-repeated-heuristic",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="若关键词命中失败，启用重复词启发式（默认开启）",
+    )  # noqa: E501
     parser.add_argument("--ocr-repeated-min-pages", type=int, default=3, help="重复词启发式最少跨页数（默认 3）")
 
     args = parser.parse_args()
@@ -220,4 +235,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

@@ -90,7 +90,7 @@ def _translate_unique(
         time.sleep(sleep_s)
 
 
-def translate_pdf_overlay() -> Path:
+def translate_pdf_overlay() -> Path:  # noqa: PLR0912 - TODO: 下个迭代重构
     fontfile = _resolve_cjk_fontfile()
     sleep_s = float(os.environ.get("TRANSLATE_SLEEP", "0.45"))
 
@@ -210,7 +210,7 @@ def self_check_pixmap_diff(src_pdf: Path, out_pdf: Path, max_pages: int = 2) -> 
         b = np.frombuffer(y.samples, dtype=np.uint8).reshape(y.height, y.width, y.n)
         mean_abs = float(np.mean(np.abs(a.astype(np.int16) - b.astype(np.int16))))
         changed_ratio = float(np.mean(np.any(np.abs(a.astype(np.int16) - b.astype(np.int16)) > 10, axis=2)))
-        print(f"[diff] page {i+1}: mean_abs={mean_abs:.4f}, changed_ratio={changed_ratio:.6f}", flush=True)
+        print(f"[diff] page {i + 1}: mean_abs={mean_abs:.4f}, changed_ratio={changed_ratio:.6f}", flush=True)
     sa.close()
     sb.close()
 
@@ -227,4 +227,3 @@ if __name__ == "__main__":
     print(f"OUTPUT={out}")
     print(f"CJK_COUNT={cjk}, TEXT_LEN={total}")
     self_check_pixmap_diff(INPUT_PDF, out, max_pages=2)
-

@@ -19,6 +19,7 @@
   python merge_pdf.py --input "D:\\PDFS" --output "D:\\OUT" --output-name all.pdf
   python merge_pdf.py --overwrite
 """
+
 from __future__ import annotations
 
 import argparse
@@ -147,4 +148,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

@@ -14,7 +14,9 @@ def main() -> int:
     print(f"Input dir    : {env['paths']['input_dir']}")
     print(f"Output dir   : {env['paths']['output_dir']}")
     print("-" * 60)
-    print(f"Tesseract OK : {env['tesseract']['ok']} | source={env['tesseract']['source']} | {env['tesseract']['detail']}")
+    print(
+        f"Tesseract OK : {env['tesseract']['ok']} | source={env['tesseract']['source']} | {env['tesseract']['detail']}"
+    )  # noqa: E501
     print(f"Poppler  OK  : {env['poppler']['ok']} | source={env['poppler']['source']} | {env['poppler']['detail']}")
     print(f"API base_url : {env['api']['base_url']}")
     print(f"API token set: {env['api']['token_set']}")

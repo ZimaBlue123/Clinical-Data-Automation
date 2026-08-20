@@ -7,6 +7,7 @@ PPT 内嵌图直接去水印 (Vibe Ultimate Edition)
 2. 动态采样算法，严格在水印外侧安全区提取背景色，防止“采样污染”导致色差。
 3. 采用中位数值提取颜色，免疫噪点。
 """
+
 from __future__ import annotations
 
 import argparse
@@ -23,14 +24,16 @@ from pptx.enum.shapes import MSO_SHAPE_TYPE
 AREA_RATIO_THRESHOLD = 0.8
 
 # 覆盖矩形（比例 + 像素上限）- 已大幅扩大火力覆盖范围
-PATCH_WIDTH_RATIO = 0.1    # 覆盖最后 10% 宽度（解决长条文字 Logo）
-PATCH_HEIGHT_RATIO = 0.04   # 覆盖最后 4% 高度
-PATCH_MAX_WIDTH_PX = 400    # 最大宽度放宽至 400 像素
-PATCH_MAX_HEIGHT_PX = 100   # 最大高度放宽至 100 像素
+PATCH_WIDTH_RATIO = 0.1  # 覆盖最后 10% 宽度（解决长条文字 Logo）
+PATCH_HEIGHT_RATIO = 0.04  # 覆盖最后 4% 高度
+PATCH_MAX_WIDTH_PX = 400  # 最大宽度放宽至 400 像素
+PATCH_MAX_HEIGHT_PX = 100  # 最大高度放宽至 100 像素
 # ================================================
+
 
 def get_script_dir() -> Path:
     return Path(__file__).resolve().parent
+
 
 def slide_is_editable(slide) -> bool:
     """判定是否为可编辑页面：忽略图片及空占位符。"""
@@ -44,6 +47,7 @@ def slide_is_editable(slide) -> bool:
         # 遇到其他实质性元素，跳过
         return True
     return False
+
 
 def _sample_background_color(img: Image.Image, patch_w: int, patch_h: int) -> tuple:
     """
@@ -62,6 +66,7 @@ def _sample_background_color(img: Image.Image, patch_w: int, patch_h: int) -> tu
     # 使用中位数 (Median) 而不是平均值 (Mean)，能有效忽略个别噪点，提取出最纯粹的背景底色
     stat = ImageStat.Stat(region)
     return tuple(int(c) for c in stat.median)
+
 
 def patch_image_pillow(blob: bytes, content_type: str) -> bytes:
     """执行物理覆盖"""
@@ -93,6 +98,7 @@ def patch_image_pillow(blob: bytes, content_type: str) -> bytes:
 
     buf.seek(0)
     return buf.read()
+
 
 def process_presentation(input_path: Path, output_path: Path) -> int:
     """遍历 PPT 执行重构"""
@@ -147,6 +153,7 @@ def process_presentation(input_path: Path, output_path: Path) -> int:
     prs.save(str(output_path))
     return patched_count
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="PPT 去水印 - Vibe Ultimate 版")
     parser.add_argument("input_pptx", type=str, nargs="?", default=None, help="输入 PPT 路径")
@@ -184,6 +191,7 @@ def main() -> None:
     print("[*] 正在执行深度覆盖...")
     n = process_presentation(input_path, output_path)
     print(f"[+] 任务完成！已输出：{output_path}（共拔除 {n} 个 Logo）")
+
 
 if __name__ == "__main__":
     main()

@@ -1,6 +1,7 @@
 """
 从 PDF 中按关键词/页码检索文本或表格，供写入 Excel 使用。
 """
+
 from __future__ import annotations
 
 import logging
@@ -12,7 +13,7 @@ import pdfplumber
 logger = logging.getLogger(__name__)
 
 Box = tuple[float, float, float, float]  # (x0, top, x1, bottom)
-ExclusionPageData = Union[list[Box], dict[str, Any]]
+ExclusionPageData = list[Box] | dict[str, Any]
 
 
 def _intersects(a: Box, b: Box) -> bool:
@@ -20,9 +21,7 @@ def _intersects(a: Box, b: Box) -> bool:
     bx0, btop, bx1, bbot = b
     if ax1 < bx0 or ax0 > bx1:
         return False
-    if abot < btop or atop > bbot:
-        return False
-    return True
+    return not (abot < btop or atop > bbot)
 
 
 def _rotation_to_int(rotation: Any) -> int:
@@ -140,7 +139,7 @@ _AREA_RATIO_OK_MIN = 0.98
 _AREA_RATIO_OK_MAX = 1.02
 
 
-def prepare_exclusion_boxes_with_audit(
+def prepare_exclusion_boxes_with_audit(  # noqa: PLR0915 - TODO: 下个迭代重构 # noqa: PLR0912 - TODO: 下个迭代重构
     page: pdfplumber.page.Page,
     exclusion_page: ExclusionPageData,
 ) -> tuple[list[Box], dict[str, Any]]:
@@ -199,11 +198,7 @@ def prepare_exclusion_boxes_with_audit(
         return [], detail
 
     # 无旋转元数据或旋转一致：不做 fitz→pdfplumber 映射，直接使用原框（仍可做 clamp 防越界）
-    need_map = (
-        (fitz_page_width is not None)
-        and (fitz_page_height is not None)
-        and (r_fitz != r_pdf)
-    )
+    need_map = (fitz_page_width is not None) and (fitz_page_height is not None) and (r_fitz != r_pdf)
 
     for idx, b in enumerate(exclusion_boxes_norm):
         area_orig = _box_area(b)
@@ -377,10 +372,7 @@ def _filter_page_by_exclusion(
             return True
 
         obj_box: Box = (x0, top, x1, bottom)
-        for ex_box in exclusion_boxes_norm:
-            if _intersects(obj_box, ex_box):
-                return False
-        return True
+        return all(not _intersects(obj_box, ex_box) for ex_box in exclusion_boxes_norm)
 
     try:
         return page.filter(predicate)
@@ -429,10 +421,7 @@ def extract_text_from_pdf(
                     continue
                 try:
                     page = pdf.pages[pno - 1]
-                    if exclusion_boxes_by_page:
-                        page_excl = exclusion_boxes_by_page.get(pno)
-                    else:
-                        page_excl = None
+                    page_excl = exclusion_boxes_by_page.get(pno) if exclusion_boxes_by_page else None
 
                     if page_excl:
                         page = _filter_page_by_exclusion(page, page_excl)
@@ -506,7 +495,7 @@ def search_by_keyword(
         # 整页作为后备
         for pno, text in pages_text.items():
             if keyword in text:
-                hits.append((pno, text[: 2000]))
+                hits.append((pno, text[:2000]))
                 break
 
     return hits
@@ -554,10 +543,7 @@ def extract_tables_from_pdf(
                     continue
                 try:
                     page = pdf.pages[pno - 1]
-                    if exclusion_boxes_by_page:
-                        page_excl = exclusion_boxes_by_page.get(pno)
-                    else:
-                        page_excl = None
+                    page_excl = exclusion_boxes_by_page.get(pno) if exclusion_boxes_by_page else None
                     if page_excl:
                         page = _filter_page_by_exclusion(page, page_excl)
 

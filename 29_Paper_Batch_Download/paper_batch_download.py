@@ -7,6 +7,7 @@ Vibe: Academic Cyberpunk
  2. 下载落地后，自动调用 PyMuPDF 与 OCR 引擎扫描 PDF 内容。
  3. 提取真实标题、切除副标题、挂载出版年份，完成物理重命名与归档。
 """
+
 from __future__ import annotations
 
 import argparse
@@ -36,6 +37,7 @@ logger = logging.getLogger(__name__)
 # --- 视觉矩阵依赖 (容错加载) ---
 try:
     import pytesseract
+
     # [!] Windows 用户如果未配置环境变量，请修改这里的路径
     # pytesseract.pytesseract.tesseract_cmd = r'D:\Tesseract-OCR\tesseract.exe'
     OCR_AVAILABLE = True
@@ -45,13 +47,50 @@ except ImportError:
 
 # 标题中默认保持小写的功能词（首词/尾词除外）
 LOWERCASE_TITLE_WORDS = {
-    "a", "an", "the", "and", "but", "or", "nor", "so", "yet",
-    "as", "at", "by", "for", "in", "of", "on", "per", "to", "via", "vs", "v",
+    "a",
+    "an",
+    "the",
+    "and",
+    "but",
+    "or",
+    "nor",
+    "so",
+    "yet",
+    "as",
+    "at",
+    "by",
+    "for",
+    "in",
+    "of",
+    "on",
+    "per",
+    "to",
+    "via",
+    "vs",
+    "v",
 }
 
 DANGLING_TOXINS = {
-    "and", "or", "of", "for", "to", "in", "on", "with", "by", "from",
-    "the", "a", "an", "at", "as", "what", "which", "that", "is", "are",
+    "and",
+    "or",
+    "of",
+    "for",
+    "to",
+    "in",
+    "on",
+    "with",
+    "by",
+    "from",
+    "the",
+    "a",
+    "an",
+    "at",
+    "as",
+    "what",
+    "which",
+    "that",
+    "is",
+    "are",
 }
 
 
@@ -123,9 +162,7 @@ class PDFSanitizer:
         t = re.sub(r"-(?:XXXX|19[5-9]\d|20[0-2]\d)(?:_\d+)?$", "", t)
 
         # 去除 PMC 等无意义后缀
-        t = re.sub(r"(?i)(?:_[-|]_(?:PMC|PubMed|Europe_PMC|NCBI|NIH|medRxiv|bioRxiv))+$", "", t)
-
-        return t
+        return re.sub(r"(?i)(?:_[-|]_(?:PMC|PubMed|Europe_PMC|NCBI|NIH|medRxiv|bioRxiv))+$", "", t)
 
     def _dedupe_filename(self, base_name: str) -> str:
         """量子态文件覆盖防御"""
@@ -179,9 +216,16 @@ class PDFSanitizer:
 
             # 黑名单：免疫期刊页眉噪点与反爬垃圾
             blacklist = {
-                "majorarticle", "researcharticle", "reviewarticle", "clinicalinfectiousdiseases",
-                "javascriptisdisabled", "redirecting", "verifythatyourenotarobot",
-                "weneedtoverify", "skiptomaincontent", "officialwebsiteoftheunitedstates"
+                "majorarticle",
+                "researcharticle",
+                "reviewarticle",
+                "clinicalinfectiousdiseases",
+                "javascriptisdisabled",
+                "redirecting",
+                "verifythatyourenotarobot",
+                "weneedtoverify",
+                "skiptomaincontent",
+                "officialwebsiteoftheunitedstates",
             }
 
             for s in sorted_sizes:
@@ -196,7 +240,7 @@ class PDFSanitizer:
             pass
         return ""
 
-    def _scan_payload(self, pdf_path: Path) -> tuple[str, str]:
+    def _scan_payload(self, pdf_path: Path) -> tuple[str, str]:  # noqa: PLR0912 - TODO: 下个迭代重构
         """神经元探针：融合元数据、拓扑探测与 OCR 后备能源"""
         title = ""
         year = "XXXX"
@@ -244,7 +288,7 @@ class PDFSanitizer:
                             year = fallback_year.group(1)
 
         except Exception:
-            pass # 如果文件损坏，静默失败，使用原文件名兜底
+            pass  # 如果文件损坏，静默失败，使用原文件名兜底
 
         return title or pdf_path.stem, year
 
@@ -291,6 +335,7 @@ HEADERS_REQ = {
 DOI_PATTERN = re.compile(r"^10\.\d{4,9}/[-._;()/:A-Z0-9]+$", re.I)
 PMID_PATTERN = re.compile(r"^\d+$")
 
+
 class PaperDownloader:
     def __init__(
         self,
@@ -328,9 +373,14 @@ class PaperDownloader:
             self.session.proxies = {"http": proxy, "https": proxy}
 
         self.scihub_mirrors = [
-            "https://sci-hub.se", "https://sci-hub.ru", "https://sci-hub.st",
-            "https://sci-hub.red", "https://sci-hub.box", "https://sci-hub.ee",
-            "https://sci-hub.mk", "https://sci-hub.al"
+            "https://sci-hub.se",
+            "https://sci-hub.ru",
+            "https://sci-hub.st",
+            "https://sci-hub.red",
+            "https://sci-hub.box",
+            "https://sci-hub.ee",
+            "https://sci-hub.mk",
+            "https://sci-hub.al",
         ]
 
     def _load_cache(self) -> dict[str, dict[str, str]]:
@@ -457,7 +507,9 @@ class PaperDownloader:
         if cached:
             return cached
         try:
-            res = self._request("GET", "https://api.crossref.org/works", params={"query.title": title, "rows": 1}, timeout=12)
+            res = self._request(
+                "GET", "https://api.crossref.org/works", params={"query.title": title, "rows": 1}, timeout=12
+            )  # noqa: E501
             res.raise_for_status()
             items = res.json().get("message", {}).get("items", [])
             if items:
@@ -513,7 +565,15 @@ class PaperDownloader:
         match = re.search(r"10\.1371/journal\.([a-z]+)\.", doi, re.I)
         if not match:
             return None
-        journal_map = {"pone": "plosone", "pbio": "plosbiology", "pmed": "plosmedicine", "pcbi": "ploscompbiol", "pgen": "plosgenetics", "pntd": "plosntds", "ppat": "plospathogens"}
+        journal_map = {
+            "pone": "plosone",
+            "pbio": "plosbiology",
+            "pmed": "plosmedicine",
+            "pcbi": "ploscompbiol",
+            "pgen": "plosgenetics",
+            "pntd": "plosntds",
+            "ppat": "plospathogens",
+        }  # noqa: E501
         journal = journal_map.get(match.group(1).lower())
         if not journal:
             return None
@@ -542,16 +602,20 @@ class PaperDownloader:
                     continue
                 res = self._request("GET", f"{mirror}/{doi}", timeout=12)
                 res.raise_for_status()
-                match = re.search(r'(?:iframe|embed|object)[^>]+(?:id=["\']pdf["\']|type=["\']application/pdf["\'])[^>]*src=["\'](.*?)["\']', res.text, re.I)
+                match = re.search(
+                    r'(?:iframe|embed|object)[^>]+(?:id=["\']pdf["\']|type=["\']application/pdf["\'])[^>]*src=["\'](.*?)["\']',
+                    res.text,
+                    re.I,
+                )  # noqa: E501
                 if not match:
                     match = re.search(r"location\.href=['\"](.*?)['\"]", res.text, re.I)
                 if match:
                     pdf_url = match.group(1)
-                    if pdf_url.startswith('//'):
-                        pdf_url = 'https:' + pdf_url
-                    elif pdf_url.startswith('/'):
+                    if pdf_url.startswith("//"):
+                        pdf_url = "https:" + pdf_url
+                    elif pdf_url.startswith("/"):
                         pdf_url = f"{mirror}{pdf_url}"
-                    elif not pdf_url.startswith('http'):
+                    elif not pdf_url.startswith("http"):
                         pdf_url = f"{mirror}/{pdf_url}"
                     self.scihub_mirrors.remove(mirror)
                     self.scihub_mirrors.insert(0, mirror)
@@ -565,8 +629,8 @@ class PaperDownloader:
     def _url_to_pdf(self, url: str) -> str | None:
         try:
             with self._request("GET", url, timeout=15, stream=True, allow_redirects=True) as res:
-                content_type = res.headers.get('Content-Type', '').lower()
-                if 'application/pdf' in content_type:
+                content_type = res.headers.get("Content-Type", "").lower()
+                if "application/pdf" in content_type:
                     return res.url
                 return self._find_pdf_in_html(res.text, res.url)
         except Exception:
@@ -582,11 +646,11 @@ class PaperDownloader:
                     if chunk:
                         f.write(chunk)
 
-    def download(self, queries: Iterable[str]) -> dict[str, list[tuple[str, str]]]:
+    def download(self, queries: Iterable[str]) -> dict[str, list[tuple[str, str]]]:  # noqa: PLR0912 - TODO: 下个迭代重构
         results = {"success": [], "failed": []}
         query_list = [q.strip() for q in queries if q.strip()]
 
-        proxy_status = self.session.proxies.get('http', '未使用 (直接连接)')
+        proxy_status = self.session.proxies.get("http", "未使用 (直接连接)")
         logger.info("action=download_start targets=%s proxy=%s", len(query_list), proxy_status)
 
         for query in tqdm(query_list, desc="Downloading", unit="paper"):
@@ -616,7 +680,12 @@ class PaperDownloader:
             if q_type == "url":
                 pdf_url = self._url_to_pdf(target)
             elif q_type == "doi":
-                pdf_url = (self._unpaywall_pdf(target) or self._plos_pdf_from_doi(target) or self._doi_landing_pdf(target) or self._scihub_pdf(target))
+                pdf_url = (
+                    self._unpaywall_pdf(target)
+                    or self._plos_pdf_from_doi(target)
+                    or self._doi_landing_pdf(target)
+                    or self._scihub_pdf(target)
+                )  # noqa: E501
                 if pdf_url:
                     self.cache["doi_to_pdf"][target] = pdf_url
                     self._cache_dirty = True
@@ -669,7 +738,8 @@ class PaperDownloader:
 def normalize_path(value: str) -> Path:
     return Path(value.strip().strip('"').strip("'"))
 
-def load_queries_from_file(path: Path) -> list[str]:
+
+def load_queries_from_file(path: Path) -> list[str]:  # noqa: PLR0912 - TODO: 下个迭代重构
     if not path.exists():
         raise FileNotFoundError(f"未找到文件: {path}")
 
@@ -698,7 +768,12 @@ def load_queries_from_file(path: Path) -> list[str]:
                                         links.add(run.hyperlink.address)
         return list(links)
 
-    return [line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip() and not line.strip().startswith("#")]
+    return [
+        line.strip()
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    ]  # noqa: E501
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="终极文献下载与重塑装配线")
@@ -717,8 +792,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--min-interval", type=float, default=2.0, help="同一主机请求最小间隔秒数（safe-mode 下生效）")
     parser.add_argument("--max-retries", type=int, default=4, help="单请求最大重试次数（safe-mode 下生效）")
     parser.add_argument("--backoff-base", type=float, default=1.0, help="指数退避基础秒数（safe-mode 下生效）")
-    parser.add_argument("--mirror-cooldown", type=float, default=120.0, help="Sci-Hub 镜像失败冷却秒数（safe-mode 下生效）")
+    parser.add_argument(
+        "--mirror-cooldown", type=float, default=120.0, help="Sci-Hub 镜像失败冷却秒数（safe-mode 下生效）"
+    )  # noqa: E501
     return parser.parse_args()
+
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
@@ -771,6 +849,7 @@ def main() -> None:
     )
     results = downloader.download(queries)
     raise SystemExit(0 if not results["failed"] else 1)
+
 
 if __name__ == "__main__":
     main()

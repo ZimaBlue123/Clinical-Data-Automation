@@ -2,6 +2,7 @@
 批量将 Word 文档转换为 PDF。
 保留目录书签并支持子文件夹遍历。（已修复 EXE 打包兼容性问题）
 """
+
 from __future__ import annotations
 
 import argparse
@@ -26,7 +27,7 @@ def ensure_windows() -> None:
 # 【修复 1】：增加一个专门用于获取绝对路径的函数，完美兼容 .py 和 .exe 模式
 def get_base_dir() -> Path:
     """获取脚本或 EXE 运行所在的真实绝对路径"""
-    if getattr(sys, 'frozen', False):
+    if getattr(sys, "frozen", False):
         # 如果是被 PyInstaller 打包成了 EXE 运行
         return Path(sys.executable).parent
     # 如果是作为普通 .py 脚本运行
@@ -80,7 +81,7 @@ class WordPdfConverter:
                 OpenAfterExport=False,
                 OptimizeFor=0,
                 CreateBookmarks=1,
-                DocStructureTags=True
+                DocStructureTags=True,
             )
 
             print(f"已转换：{doc_path} -> {pdf_path}")
@@ -141,13 +142,13 @@ def main() -> None:
         input_path.mkdir(parents=True, exist_ok=True)
         print(f"💡 已自动创建输入目录：{input_path}")
         print("请将需要转换的 Word 文档放入该目录后，重新运行本程序。")
-        input("按回车键退出...") # 阻止控制台闪退
+        input("按回车键退出...")  # 阻止控制台闪退
         return
 
     doc_files = collect_docs(input_path, recursive=args.recursive)
     if not doc_files:
         print(f"未找到 Word 文件：{input_path}")
-        input("按回车键退出...") # 阻止控制台闪退
+        input("按回车键退出...")  # 阻止控制台闪退
         return
 
     total = len(doc_files)
@@ -169,7 +170,7 @@ def main() -> None:
         return
 
     print(f"\n✅ 处理完成：{success}/{total} 个文件已成功转换为 PDF！")
-    input("按回车键退出...") # 阻止控制台闪退
+    input("按回车键退出...")  # 阻止控制台闪退
 
 
 if __name__ == "__main__":

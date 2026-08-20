@@ -467,12 +467,7 @@ class PDFSanitizer:
             len(words) <= 5
             and len(t) <= 48
             and not re.search(r"[.?:;]$", t)
-            and (
-                comp.endswith("journal")
-                or "journalof" in comp
-                or "infections" in comp
-                or "&" in t
-            )
+            and (comp.endswith("journal") or "journalof" in comp or "infections" in comp or "&" in t)
         )
 
     @staticmethod
@@ -583,11 +578,7 @@ class PDFSanitizer:
             return False
         if re.search(r"[\*∗]\s*$", s) or "@" in s:
             return True
-        if (
-            s.count(",") >= 1
-            and re.match(r"^[A-Z][\w\-\.']+(?:\s*,\s*[A-Z][\w\-\.']*)+", s)
-            and len(s) < 120
-        ):
+        if s.count(",") >= 1 and re.match(r"^[A-Z][\w\-\.']+(?:\s*,\s*[A-Z][\w\-\.']*)+", s) and len(s) < 120:
             return True
         if re.search(r"\b[A-Z][a-z]+\s+[A-Z][a-z]+\s+[a-f1-9](?:,|$)", s):
             return True
@@ -662,9 +653,7 @@ class PDFSanitizer:
             if (
                 _CITATION_INSTRUCTION_IN_TEXT.search(head)
                 or re.search(r"(?i)\bpress\b", head)
-                or re.search(
-                    r"(?i)\b(?:scheiermann|klinman|[A-Z][a-z]+,\s*[A-Z]\.)\b", head
-                )
+                or re.search(r"(?i)\b(?:scheiermann|klinman|[A-Z][a-z]+,\s*[A-Z]\.)\b", head)
             ):
                 t = t[m.start() :].strip()
         t = re.sub(
@@ -681,9 +670,7 @@ class PDFSanitizer:
             ).strip()
 
         # Strip trailing noise like " - PMC", " | PubMed", etc.
-        t = re.sub(r"(?i)(?:\s*[-|]\s*(?:PMC|PubMed|Europe\s+PMC|NCBI|NIH|medRxiv|bioRxiv))+$", "", t).strip()
-
-        return t
+        return re.sub(r"(?i)(?:\s*[-|]\s*(?:PMC|PubMed|Europe\s+PMC|NCBI|NIH|medRxiv|bioRxiv))+$", "", t).strip()
 
     @staticmethod
     def _format_roman_token(w: str) -> str:
@@ -869,9 +856,7 @@ class PDFSanitizer:
                     continue
                 for line in b["lines"]:
                     spans = line.get("spans", [])
-                    line_text = " ".join(
-                        s.get("text", "").strip() for s in spans if s.get("text", "").strip()
-                    ).strip()
+                    line_text = " ".join(s.get("text", "").strip() for s in spans if s.get("text", "").strip()).strip()
                     if not line_text:
                         continue
                     max_size = max((s.get("size", 0) for s in spans), default=0)
@@ -888,11 +873,7 @@ class PDFSanitizer:
                     continue
                 refined = PDFSanitizer._strip_guidance_cover_prefix(candidate)
                 refined = PDFSanitizer._strip_noise_prefix_from_title(refined)
-                if (
-                    refined
-                    and len(refined) >= 8
-                    and not PDFSanitizer._is_toxic_title_candidate(refined)
-                ):
+                if refined and len(refined) >= 8 and not PDFSanitizer._is_toxic_title_candidate(refined):
                     return refined
 
         except Exception:
@@ -1070,9 +1051,7 @@ class PDFSanitizer:
     def _scan_payload(self, pdf_path: Path) -> tuple[str, str]:
         """融合元数据、视觉层级、Block 版面与 OCR 的综合探针。"""
         if fitz is None:
-            logger.warning(
-                "action=fitz_missing file=%s hint=pip install pymupdf", pdf_path.name
-            )
+            logger.warning("action=fitz_missing file=%s hint=pip install pymupdf", pdf_path.name)
             return pdf_path.stem, "XXXX"
 
         title = ""
@@ -1158,8 +1137,7 @@ class PDFSanitizer:
                     Path(pdf_path).unlink()
                 except OSError as e:
                     logger.warning(
-                        "action=copy_succeeded_delete_failed src=%s reason=%s "
-                        "hint=output_written_close_locked_input",
+                        "action=copy_succeeded_delete_failed src=%s reason=%s hint=output_written_close_locked_input",
                         pdf_path,
                         e,
                     )
@@ -1169,8 +1147,7 @@ class PDFSanitizer:
                     logger.debug("action=move_retry src=%s reason=%s", pdf_path, e)
                     continue
                 logger.warning(
-                    "action=move_failed src=%s target=%s reason=%s "
-                    "hint=close_locked_input_then_retry",
+                    "action=move_failed src=%s target=%s reason=%s hint=close_locked_input_then_retry",
                     pdf_path,
                     target_path,
                     e,
@@ -1206,12 +1183,8 @@ class PDFSanitizer:
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-    parser = argparse.ArgumentParser(
-        description="PDF 标题驱动重命名（支持递归遍历子文件夹）"
-    )
-    parser.add_argument(
-        "--input", "-i", default="input", help="输入目录（相对 17_PDF_Title_Renamer/）"
-    )
+    parser = argparse.ArgumentParser(description="PDF 标题驱动重命名（支持递归遍历子文件夹）")
+    parser.add_argument("--input", "-i", default="input", help="输入目录（相对 17_PDF_Title_Renamer/）")
     parser.add_argument(
         "--output",
         "-o",

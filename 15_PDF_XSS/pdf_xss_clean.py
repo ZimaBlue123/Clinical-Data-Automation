@@ -12,6 +12,7 @@
   python pdf_xss_clean.py --no-recursive
   python pdf_xss_clean.py --no-keep-structure
 """
+
 from __future__ import annotations
 
 import argparse
@@ -116,9 +117,7 @@ def main() -> None:
     default_input = base_dir / "input"
     default_output = base_dir / "output"
 
-    parser = argparse.ArgumentParser(
-        description="批量清理 PDF 中潜在 XSS/恶意脚本内容"
-    )
+    parser = argparse.ArgumentParser(description="批量清理 PDF 中潜在 XSS/恶意脚本内容")
     parser.add_argument(
         "--input",
         default=str(default_input),

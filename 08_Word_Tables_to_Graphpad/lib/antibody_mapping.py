@@ -43,9 +43,7 @@ _AGE_NORM = {
 }
 
 # 数值 95%CI 模式：3 个数（lo, mid, up），lo ≤ mid ≤ up
-_95CI_RE = re.compile(
-    r"([0-9]+(?:\.[0-9]+)?)\s*[（(]\s*([0-9]+(?:\.[0-9]+)?)\s*[,，]\s*([0-9]+(?:\.[0-9]+)?)\s*[)）]"
-)
+_95CI_RE = re.compile(r"([0-9]+(?:\.[0-9]+)?)\s*[（(]\s*([0-9]+(?:\.[0-9]+)?)\s*[,，]\s*([0-9]+(?:\.[0-9]+)?)\s*[)）]")
 # 阳转率 95%CI 模式：百分数
 _95CI_PCT_RE = re.compile(
     r"([0-9]+(?:\.[0-9]+)?)%\s*[（(]\s*([0-9]+(?:\.[0-9]+)?)%\s*[,，]\s*([0-9]+(?:\.[0-9]+)?)%\s*[)）]"
@@ -134,15 +132,13 @@ class AntibodyDataset:
         key = (dp.age_band, dp.metric, dp.time_point)
         self.data[key] = dp
 
-    def get(
-        self, age_band: str, metric: str, time_point: str
-    ) -> AntibodyDataPoint | None:
+    def get(self, age_band: str, metric: str, time_point: str) -> AntibodyDataPoint | None:
         return self.data.get((age_band, metric, time_point))
 
     def coverage(self) -> dict[str, int]:
         """返回 (age_band, metric) 下的时间点完整数。"""
         cov: dict[str, int] = {}
-        for (ab, m, tp), dp in self.data.items():
+        for (ab, m, _tp), dp in self.data.items():
             if dp.is_complete():
                 key = f"{ab}/{m}"
                 cov[key] = cov.get(key, 0) + 1
@@ -162,7 +158,7 @@ def _split_two_groups(s: str) -> tuple[str, str]:
     return parts[0], parts[1]
 
 
-def extract_antibody_dataset(paragraphs: list[str], antibody: str) -> AntibodyDataset:
+def extract_antibody_dataset(paragraphs: list[str], antibody: str) -> AntibodyDataset:  # noqa: PLR0915 - TODO: 下个迭代重构 # noqa: PLR0912 - TODO: 下个迭代重构
     """从 docx 段落列表中抽取指定抗体（gE / VZV）的完整数据集。
 
     句式识别条件：

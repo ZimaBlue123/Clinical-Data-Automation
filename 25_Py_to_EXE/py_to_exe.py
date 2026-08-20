@@ -21,6 +21,7 @@
   python py_to_exe.py --batch --modules 18_PDF_eCTD_Converter,19_PDF_Merge
   python py_to_exe.py --batch --auto-discover --fail-fast
 """
+
 from __future__ import annotations
 
 import argparse
@@ -30,16 +31,13 @@ import sys
 from pathlib import Path
 
 # 路径基准（frozen 兼容：与 18_PDF_eCTD_Converter 同样的判断方式）
-BASE_DIR = (
-    Path(sys.executable).resolve().parent
-    if getattr(sys, "frozen", False)
-    else Path(__file__).resolve().parent
-)
+BASE_DIR = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
 
 
 # ---------------------------------------------------------------------------
 # 单脚本模式（旧用法，100% 向后兼容）
 # ---------------------------------------------------------------------------
+
 
 def _ensure_dirs() -> tuple[Path, Path]:
     """启动时确保 input/ output/ 存在。"""
@@ -61,11 +59,17 @@ def _build_pyinstaller_cmd_single(
 ) -> list[str]:
     """单脚本模式的 PyInstaller 命令构造。"""
     cmd = [
-        sys.executable, "-m", "PyInstaller",
-        "--noconfirm", "--clean",
-        "--distpath", str(out_dir),
-        "--workpath", str(out_dir / "_build"),
-        "--specpath", str(out_dir / "_spec"),
+        sys.executable,
+        "-m",
+        "PyInstaller",
+        "--noconfirm",
+        "--clean",
+        "--distpath",
+        str(out_dir),
+        "--workpath",
+        str(out_dir / "_build"),
+        "--specpath",
+        str(out_dir / "_spec"),
     ]
     if onefile:
         cmd.append("--onefile")
@@ -79,7 +83,7 @@ def _build_pyinstaller_cmd_single(
     return cmd
 
 
-def _run_single(args: argparse.Namespace, input_dir: Path, output_dir: Path) -> int:
+def _run_single(args: argparse.Namespace, input_dir: Path, output_dir: Path) -> int:  # noqa: PLR0912 - TODO: 下个迭代重构
     """单脚本模式：选输入脚本 → 跑 PyInstaller → 清理。"""
     # 1. 选输入脚本
     if args.input:
@@ -155,6 +159,7 @@ def _run_single(args: argparse.Namespace, input_dir: Path, output_dir: Path) -> 
 # 批量模式（新用法，分发到 build_all）
 # ---------------------------------------------------------------------------
 
+
 def _run_batch(args: argparse.Namespace) -> int:
     """批量模式：转发到 build_all.BatchRunner。"""
     # 延迟 import 避免不必要的依赖加载（用户走单脚本模式时不需要 yaml/pandas）
@@ -162,8 +167,7 @@ def _run_batch(args: argparse.Namespace) -> int:
         from build_all import BatchRunner
     except ModuleNotFoundError as exc:
         print(
-            f"批量模式依赖加载失败: {exc}\n"
-            f"请运行: {sys.executable} -m pip install pyyaml pandas openpyxl",
+            f"批量模式依赖加载失败: {exc}\n请运行: {sys.executable} -m pip install pyyaml pandas openpyxl",
             file=sys.stderr,
         )
         return 2
@@ -182,37 +186,47 @@ def _run_batch(args: argparse.Namespace) -> int:
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="将 Python 脚本打包为 EXE（支持单脚本与批量模式）"
-    )
+    parser = argparse.ArgumentParser(description="将 Python 脚本打包为 EXE（支持单脚本与批量模式）")
 
     # === 旧用法（向后兼容） ===
     parser.add_argument("--input", help="单脚本模式：输入 .py 路径")
     parser.add_argument("--output", help="单脚本模式：输出目录（默认 output/）")
     parser.add_argument("--name", help="EXE 文件名（不含扩展名）")
     parser.add_argument(
-        "--onefile", dest="onefile", action="store_true", default=True,
+        "--onefile",
+        dest="onefile",
+        action="store_true",
+        default=True,
         help="单文件模式（默认开启）",
     )
     parser.add_argument(
-        "--dir", dest="dir_mode", action="store_true",
+        "--dir",
+        dest="dir_mode",
+        action="store_true",
         help="目录模式（关闭 onefile）",
     )
     parser.add_argument("--noconsole", action="store_true", help="隐藏控制台黑窗口")
     parser.add_argument("--icon", help="图标路径（.ico）")
     parser.add_argument(
-        "--clean-artifacts", dest="clean_artifacts", action="store_true", default=True,
+        "--clean-artifacts",
+        dest="clean_artifacts",
+        action="store_true",
+        default=True,
         help="打包后清理 build/spec 中间产物（默认开启）",
     )
     parser.add_argument(
-        "--no-clean-artifacts", dest="clean_artifacts", action="store_false",
+        "--no-clean-artifacts",
+        dest="clean_artifacts",
+        action="store_false",
         help="不清理中间产物",
     )
 
     # === 新增：批量模式 ===
     parser.add_argument(
-        "--batch", action="store_true",
+        "--batch",
+        action="store_true",
         help="批量打包模式（需配合 --manifest / --auto-discover / --modules）",
     )
     parser.add_argument(
@@ -220,7 +234,8 @@ def parse_args() -> argparse.Namespace:
         help="manifest YAML 路径（默认 ./manifest.yaml；传 --batch 时生效）",
     )
     parser.add_argument(
-        "--auto-discover", action="store_true",
+        "--auto-discover",
+        action="store_true",
         help="自动扫描仓库各 NN_*/ 模块的主程序（需配合 --batch）",
     )
     parser.add_argument(
@@ -228,11 +243,14 @@ def parse_args() -> argparse.Namespace:
         help="逗号分隔的模块名列表（如 18_PDF_eCTD_Converter,19_PDF_Merge），覆盖 manifest",
     )
     parser.add_argument(
-        "--fail-fast", action="store_true",
+        "--fail-fast",
+        action="store_true",
         help="批量模式遇错即停（默认失败继续）",
     )
     parser.add_argument(
-        "--workers", type=int, default=1,
+        "--workers",
+        type=int,
+        default=1,
         help="批量模式并发数（默认 1；PyInstaller CPU 密集，建议 ≤ CPU 核数）",
     )
 

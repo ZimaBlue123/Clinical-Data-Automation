@@ -14,6 +14,7 @@ WiFi 密码查看工具（13 模块）
   python wifi_passwords.py --encoding gbk --quiet
 
 """
+
 from __future__ import annotations
 
 import argparse
@@ -21,7 +22,6 @@ import csv
 import subprocess
 from pathlib import Path
 from collections.abc import Iterable
-
 
 
 PROFILE_MARKERS = ("All User Profile", "所有用户配置文件")
@@ -37,7 +37,6 @@ def run_netsh(args: list[str], encoding: str) -> str:
     except subprocess.CalledProcessError as exc:
         print(f"错误：netsh 执行失败（{exc.returncode}）。可能需要管理员权限。")
         return ""
-
 
 
 def extract_profiles(output: str) -> list[str]:
@@ -74,14 +73,12 @@ def iter_wifi_credentials(encoding: str) -> Iterable[tuple[str, str]]:
             yield name, password
 
 
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="WiFi 密码查看工具（Windows）")
     parser.add_argument("--output", default=None, help="输出 CSV 路径")
     parser.add_argument("--encoding", default="gbk", help="netsh 输出编码（默认 gbk）")
     parser.add_argument("--quiet", action="store_true", help="不在控制台显示")
     return parser.parse_args()
-
 
 
 def main() -> None:
@@ -107,7 +104,6 @@ def main() -> None:
             print(f"网络名称：{ssid}, 密码：{password}")
 
     print(f"已输出：{output_path}（共 {len(rows)} 条）")
-
 
 
 if __name__ == "__main__":

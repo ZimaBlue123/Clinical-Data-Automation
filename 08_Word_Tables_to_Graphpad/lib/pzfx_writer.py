@@ -38,10 +38,7 @@ class PzfxValue:
 
     def __init__(self, *triples) -> None:
         # 允许灵活构造: PzfxValue(t1, t2, t3) 或 PzfxValue([t1, t2, t3])
-        if len(triples) == 1 and isinstance(triples[0], (list, tuple)):
-            arr = list(triples[0])
-        else:
-            arr = list(triples)
+        arr = list(triples[0]) if len(triples) == 1 and isinstance(triples[0], (list, tuple)) else list(triples)
         if len(arr) != 3:
             raise ValueError(f"PzfxValue 需要 3 条 Triple，收到 {len(arr)}")
         # frozen + __init__ 套路：使用 object.__setattr__
@@ -65,7 +62,7 @@ def fmt_num(v: float) -> str:
     return f"{v:.4f}".rstrip("0").rstrip(".")
 
 
-def rewrite_pzfx_data(
+def rewrite_pzfx_data(  # noqa: PLR0915 - TODO: 下个迭代重构 # noqa: PLR0912 - TODO: 下个迭代重构
     src: Path | str,
     dst: Path | str,
     *,
@@ -108,21 +105,15 @@ def rewrite_pzfx_data(
     title_m = re.search(r"<Title>([^<]*)</Title>", t_inner)
     title = title_m.group(1) if title_m else ""
     if not title.startswith(age_band) or not title.endswith(metric):
-        raise ValueError(
-            f"{src_p.name} Table {table_id} Title={title!r} 不匹配 {age_band}{metric}"
-        )
+        raise ValueError(f"{src_p.name} Table {table_id} Title={title!r} 不匹配 {age_band}{metric}")
 
     # 3) 定位 2 个 YColumn × 3 Subcolumn（按文本出现顺序）
     yc_iter = list(re.finditer(r"<YColumn\s[^>]*>.*?</YColumn>", t_inner, re.DOTALL))
     if len(yc_iter) < 2:
-        raise ValueError(
-            f"{src_p.name} Table {table_id} 仅有 {len(yc_iter)} 个 YColumn"
-        )
+        raise ValueError(f"{src_p.name} Table {table_id} 仅有 {len(yc_iter)} 个 YColumn")
 
     # 收集待替换区间（绝对位置）
-    replacements: list[
-        tuple[int, int, str]
-    ] = []  # (abs_start, abs_end, new_subcolumn_xml)
+    replacements: list[tuple[int, int, str]] = []  # (abs_start, abs_end, new_subcolumn_xml)
     audit: list[str] = []
 
     for yi, yc_m in enumerate(yc_iter[:2]):
@@ -132,9 +123,7 @@ def rewrite_pzfx_data(
 
         sub_iter = list(re.finditer(r"<Subcolumn>.*?</Subcolumn>", yc_inner, re.DOTALL))
         if len(sub_iter) != 3:
-            raise ValueError(
-                f"{src_p.name} Table {table_id}/{yc_title} Subcolumn={len(sub_iter)} 应=3"
-            )
+            raise ValueError(f"{src_p.name} Table {table_id}/{yc_title} Subcolumn={len(sub_iter)} 应=3")
 
         for si, sub_m in enumerate(sub_iter):
             old_sub = sub_m.group(0)
@@ -146,9 +135,7 @@ def rewrite_pzfx_data(
             new_val = new_values.get((yi, si))
             if new_val is None:
                 # None 表示不替换（保留原值）
-                audit.append(
-                    f"{table_id} | {yc_title} | yi={yi} si={si}({col_type}) | 保持 {old_ds}"
-                )
+                audit.append(f"{table_id} | {yc_title} | yi={yi} si={si}({col_type}) | 保持 {old_ds}")
                 continue
 
             # 构造新 d 序列（按 3 个时间点）
@@ -171,10 +158,7 @@ def rewrite_pzfx_data(
             new_sub_text = f"<Subcolumn>{new_d_lines}{tail_nl}</Subcolumn>"
 
             replacements.append((abs_start, abs_end, new_sub_text))
-            audit.append(
-                f"{table_id} | {yc_title} | yi={yi} si={si}({col_type}) | "
-                f"old={old_ds} → new={new_ds}"
-            )
+            audit.append(f"{table_id} | {yc_title} | yi={yi} si={si}({col_type}) | old={old_ds} → new={new_ds}")
 
     # 4) 从后往前替换
     replacements.sort(key=lambda x: x[0], reverse=True)

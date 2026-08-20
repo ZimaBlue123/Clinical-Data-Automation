@@ -159,11 +159,9 @@ def _load_glossary(path: Path | None) -> dict[str, str]:
 
 
 class TranslatorProtocol(Protocol):
-    def batch_translate(self, texts: Iterable[object]) -> list[str]:
-        ...
+    def batch_translate(self, texts: Iterable[object]) -> list[str]: ...
 
-    def self_test(self) -> tuple[bool, str]:
-        ...
+    def self_test(self) -> tuple[bool, str]: ...
 
 
 class TranslatorsFreeTranslator:
@@ -191,7 +189,11 @@ class TranslatorsFreeTranslator:
                 out.append(s)
                 continue
             try:
-                tr = str(self._ts.translate_text(s[:4800], translator=self.engine, from_language=self.src, to_language=self.dst)).strip()
+                tr = str(
+                    self._ts.translate_text(
+                        s[:4800], translator=self.engine, from_language=self.src, to_language=self.dst
+                    )
+                ).strip()  # noqa: E501
                 out.append(tr if tr else s)
                 time.sleep(self.sleep_s)
             except Exception as e:  # noqa: BLE001
@@ -249,7 +251,11 @@ class DeepLTranslator:
     def self_test(self) -> tuple[bool, str]:
         sample = "Serious adverse event" if self.src == "en" else "严重不良事件"
         r = self.batch_translate([sample])[0]
-        return (True, f"自检成功: {sample} -> {r}") if r and r != sample else (False, f"自检失败: {self.last_error or '返回原文'}")
+        return (
+            (True, f"自检成功: {sample} -> {r}")
+            if r and r != sample
+            else (False, f"自检失败: {self.last_error or '返回原文'}")
+        )  # noqa: E501
 
 
 class LibreTranslateTranslator:
@@ -283,7 +289,11 @@ class LibreTranslateTranslator:
     def self_test(self) -> tuple[bool, str]:
         sample = "Serious adverse event" if self.src == "en" else "严重不良事件"
         r = self.batch_translate([sample])[0]
-        return (True, f"自检成功: {sample} -> {r}") if r and r != sample else (False, f"自检失败: {self.last_error or '返回原文'}")
+        return (
+            (True, f"自检成功: {sample} -> {r}")
+            if r and r != sample
+            else (False, f"自检失败: {self.last_error or '返回原文'}")
+        )  # noqa: E501
 
 
 class FallbackTranslator:
@@ -315,7 +325,9 @@ class FallbackTranslator:
 
 
 class SmartTranslator:
-    def __init__(self, base: TranslatorProtocol, direction: str, memory: TranslationMemory, glossary: dict[str, str]) -> None:
+    def __init__(
+        self, base: TranslatorProtocol, direction: str, memory: TranslationMemory, glossary: dict[str, str]
+    ) -> None:  # noqa: E501
         self.base = base
         self.direction = direction
         self.memory = memory
@@ -383,6 +395,7 @@ class SmartTranslator:
 def _try_import_win32():
     try:
         import win32com.client as win32  # type: ignore
+
         return win32
     except Exception:  # noqa: BLE001
         return None
@@ -409,7 +422,7 @@ def _copy_col_style(ws, src_col_idx: int, dst_col_idx: int, max_row: int) -> Non
         d.alignment = copy(s.alignment)
 
 
-def _iter_docx_runs(doc):
+def _iter_docx_runs(doc):  # noqa: PLR0912 - TODO: 下个迭代重构
     for p in doc.paragraphs:
         for run in p.runs:
             yield run
@@ -432,7 +445,9 @@ def _iter_docx_runs(doc):
                                 yield run
 
 
-def _translate_word_com_extras(docx_path: Path, translator: TranslatorProtocol, include_textboxes: bool, include_footnotes: bool) -> None:
+def _translate_word_com_extras(
+    docx_path: Path, translator: TranslatorProtocol, include_textboxes: bool, include_footnotes: bool
+) -> None:  # noqa: E501
     _ensure_com_thread()
     win32 = _try_import_win32()
     if win32 is None:
@@ -467,7 +482,9 @@ def _translate_word_com_extras(docx_path: Path, translator: TranslatorProtocol, 
         word.Quit()
 
 
-def translate_xlsx_openpyxl(input_path: Path, output_path: Path, translator: TranslatorProtocol, columns: list[str], suffix: str) -> None:
+def translate_xlsx_openpyxl(
+    input_path: Path, output_path: Path, translator: TranslatorProtocol, columns: list[str], suffix: str
+) -> None:  # noqa: E501
     wb = load_workbook(input_path)
     for ws in wb.worksheets:
         header_map: dict[str, int] = {}
@@ -492,7 +509,9 @@ def translate_xlsx_openpyxl(input_path: Path, output_path: Path, translator: Tra
     wb.save(output_path)
 
 
-def translate_xlsx_com(input_path: Path, output_path: Path, translator: TranslatorProtocol, columns: list[str], suffix: str) -> None:
+def translate_xlsx_com(
+    input_path: Path, output_path: Path, translator: TranslatorProtocol, columns: list[str], suffix: str
+) -> None:  # noqa: E501
     _ensure_com_thread()
     win32 = _try_import_win32()
     if win32 is None:
@@ -535,7 +554,9 @@ def translate_xlsx_com(input_path: Path, output_path: Path, translator: Translat
         excel.Quit()
 
 
-def translate_csv(input_path: Path, output_path: Path, translator: TranslatorProtocol, columns: list[str], suffix: str) -> None:
+def translate_csv(
+    input_path: Path, output_path: Path, translator: TranslatorProtocol, columns: list[str], suffix: str
+) -> None:  # noqa: E501
     if "29.0 IME List" in input_path.name:
         df = pd.read_csv(input_path, skiprows=11, encoding="utf-8-sig")
     else:
@@ -547,7 +568,13 @@ def translate_csv(input_path: Path, output_path: Path, translator: TranslatorPro
     df.to_excel(output_path, index=False, engine="openpyxl")
 
 
-def translate_docx(input_path: Path, output_path: Path, translator: TranslatorProtocol, include_textboxes: bool, include_footnotes: bool) -> None:
+def translate_docx(
+    input_path: Path,
+    output_path: Path,
+    translator: TranslatorProtocol,
+    include_textboxes: bool,
+    include_footnotes: bool,
+) -> None:  # noqa: E501
     from docx import Document
 
     doc = Document(input_path)
@@ -561,7 +588,13 @@ def translate_docx(input_path: Path, output_path: Path, translator: TranslatorPr
         _translate_word_com_extras(output_path, translator, include_textboxes, include_footnotes)
 
 
-def translate_doc_via_com(input_path: Path, output_path: Path, translator: TranslatorProtocol, include_textboxes: bool, include_footnotes: bool) -> None:
+def translate_doc_via_com(
+    input_path: Path,
+    output_path: Path,
+    translator: TranslatorProtocol,
+    include_textboxes: bool,
+    include_footnotes: bool,
+) -> None:  # noqa: E501
     _ensure_com_thread()
     win32 = _try_import_win32()
     if win32 is None:
@@ -635,7 +668,7 @@ def translate_pdf_overlay(input_path: Path, output_path: Path, translator: Trans
             continue
 
         translated = translator.batch_translate(texts)
-        for (rect, fontsize, src), tr in zip(spans, translated):
+        for (rect, fontsize, src), tr in zip(spans, translated, strict=False):
             if not tr or tr == src:
                 continue
             unused_area = page.insert_textbox(
@@ -679,7 +712,7 @@ def translate_pdf_bilingual_layer(input_path: Path, output_path: Path, translato
             continue
         tr_lines = translator.batch_translate(src_lines)
         lines.append(f"# Page {pno}")
-        for s, t in zip(src_lines, tr_lines):
+        for s, t in zip(src_lines, tr_lines, strict=False):
             lines.append(f"SRC: {s}")
             lines.append(f"TR : {t}")
             lines.append("")
@@ -696,7 +729,9 @@ def build_translator(cfg: TransConfig, memory: TranslationMemory, glossary: dict
     elif cfg.provider == "libre":
         base = LibreTranslateTranslator(cfg.libre_api_base, cfg.direction, cfg.libre_key or "")
     else:
-        cands: list[tuple[str, TranslatorProtocol]] = [("tsfree", TranslatorsFreeTranslator(cfg.ts_engine, cfg.direction, cfg.ts_sleep))]
+        cands: list[tuple[str, TranslatorProtocol]] = [
+            ("tsfree", TranslatorsFreeTranslator(cfg.ts_engine, cfg.direction, cfg.ts_sleep))
+        ]  # noqa: E501
         if cfg.deepl_key:
             cands.append(("deepl", DeepLTranslator(cfg.deepl_key, cfg.deepl_api_base, cfg.direction)))
         cands.append(("libre", LibreTranslateTranslator(cfg.libre_api_base, cfg.direction, cfg.libre_key or "")))
@@ -731,29 +766,61 @@ def process_one_file(input_path: Path, cfg: TransConfig, translator: SmartTransl
     return out
 
 
-def main() -> None:
+def main() -> None:  # noqa: PLR0915 - TODO: 下个迭代重构 # noqa: PLR0912 - TODO: 下个迭代重构
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     _load_local_env(BASE / ".env")
     parser = argparse.ArgumentParser(description="21 模块：Excel/CSV/Word/PDF 翻译（免费优先）")
     parser.add_argument("--input", "-i", default=str(INPUT_DIR), help="输入文件或目录")
     parser.add_argument("--output", "-o", default=str(OUTPUT_DIR), help="输出目录")
-    parser.add_argument("--direction", choices=["en2zh", "zh2en"], default=os.getenv("TRANSLATION_DIRECTION", "en2zh"), help="翻译方向")
+    parser.add_argument(
+        "--direction", choices=["en2zh", "zh2en"], default=os.getenv("TRANSLATION_DIRECTION", "en2zh"), help="翻译方向"
+    )  # noqa: E501
     parser.add_argument("--columns", default=",".join(DEFAULT_TRANSLATE_COLUMNS), help="Excel/CSV 翻译列（逗号分隔）")
-    parser.add_argument("--provider", choices=["auto", "tsfree", "deepl", "libre"], default=os.getenv("TRANSLATOR_PROVIDER", "auto"), help="翻译引擎")
-    parser.add_argument("--ts-engine", default=os.getenv("TS_TRANSLATOR_ENGINE", "bing"), help="translators 引擎（默认 bing）")
-    parser.add_argument("--ts-sleep", type=float, default=float(os.getenv("TS_SLEEP_SECONDS", "0.5")), help="translators 请求休眠秒数")
+    parser.add_argument(
+        "--provider",
+        choices=["auto", "tsfree", "deepl", "libre"],
+        default=os.getenv("TRANSLATOR_PROVIDER", "auto"),
+        help="翻译引擎",
+    )  # noqa: E501
+    parser.add_argument(
+        "--ts-engine", default=os.getenv("TS_TRANSLATOR_ENGINE", "bing"), help="translators 引擎（默认 bing）"
+    )  # noqa: E501
+    parser.add_argument(
+        "--ts-sleep", type=float, default=float(os.getenv("TS_SLEEP_SECONDS", "0.5")), help="translators 请求休眠秒数"
+    )  # noqa: E501
     parser.add_argument("--deepl-key", default=os.getenv("DEEPL_API_KEY"), help="DeepL API Key")
-    parser.add_argument("--deepl-api-base", default=os.getenv("DEEPL_API_BASE") or DEFAULT_DEEPL_API_BASE, help="DeepL API Base")
-    parser.add_argument("--libre-key", default=os.getenv("LIBRETRANSLATE_API_KEY"), help="LibreTranslate API Key（可选）")
-    parser.add_argument("--libre-api-base", default=os.getenv("LIBRETRANSLATE_API_BASE") or DEFAULT_LIBRE_API_BASE, help="LibreTranslate API Base")
+    parser.add_argument(
+        "--deepl-api-base", default=os.getenv("DEEPL_API_BASE") or DEFAULT_DEEPL_API_BASE, help="DeepL API Base"
+    )  # noqa: E501
+    parser.add_argument(
+        "--libre-key", default=os.getenv("LIBRETRANSLATE_API_KEY"), help="LibreTranslate API Key（可选）"
+    )  # noqa: E501
+    parser.add_argument(
+        "--libre-api-base",
+        default=os.getenv("LIBRETRANSLATE_API_BASE") or DEFAULT_LIBRE_API_BASE,
+        help="LibreTranslate API Base",
+    )  # noqa: E501
     parser.add_argument("--self-test", action="store_true", help="仅执行连通测试")
     parser.add_argument("--skip-preflight", action="store_true", help="跳过处理前自检")
     parser.add_argument("--engine", choices=["auto", "openpyxl", "com"], default="auto", help="xlsx 写回引擎")
-    parser.add_argument("--pdf-mode", choices=["overlay", "bilingual-text-layer"], default=os.getenv("PDF_TRANSLATE_MODE", "overlay"), help="PDF 翻译模式")
-    parser.add_argument("--word-include-textboxes", action="store_true", default=True, help="Word 启用文本框翻译（COM 可用时）")
-    parser.add_argument("--word-include-footnotes", action="store_true", default=True, help="Word 启用脚注翻译（COM 可用时）")
+    parser.add_argument(
+        "--pdf-mode",
+        choices=["overlay", "bilingual-text-layer"],
+        default=os.getenv("PDF_TRANSLATE_MODE", "overlay"),
+        help="PDF 翻译模式",
+    )  # noqa: E501
+    parser.add_argument(
+        "--word-include-textboxes", action="store_true", default=True, help="Word 启用文本框翻译（COM 可用时）"
+    )  # noqa: E501
+    parser.add_argument(
+        "--word-include-footnotes", action="store_true", default=True, help="Word 启用脚注翻译（COM 可用时）"
+    )  # noqa: E501
     parser.add_argument("--max-workers", type=int, default=int(os.getenv("MAX_WORKERS", "1")), help="并发文件数")
-    parser.add_argument("--cache-file", default=os.getenv("TRANSLATION_CACHE_FILE") or str(OUTPUT_DIR / "translation_cache.json"), help="持久化缓存文件")
+    parser.add_argument(
+        "--cache-file",
+        default=os.getenv("TRANSLATION_CACHE_FILE") or str(OUTPUT_DIR / "translation_cache.json"),
+        help="持久化缓存文件",
+    )  # noqa: E501
     parser.add_argument("--no-cache", action="store_true", help="禁用持久化缓存")
     parser.add_argument("--glossary", default=os.getenv("GLOSSARY_FILE"), help="术语词典文件（json/csv/tsv）")
     args = parser.parse_args()
@@ -823,7 +890,11 @@ def main() -> None:
     if cfg.input_path.is_file():
         files = [cfg.input_path]
     elif cfg.input_path.is_dir():
-        files = [p for p in cfg.input_path.iterdir() if p.is_file() and p.suffix.lower() in exts and not p.name.startswith("~$")]
+        files = [
+            p
+            for p in cfg.input_path.iterdir()
+            if p.is_file() and p.suffix.lower() in exts and not p.name.startswith("~$")
+        ]  # noqa: E501
     else:
         raise FileNotFoundError(f"输入不存在: {cfg.input_path}")
     if not files:
@@ -854,7 +925,13 @@ def main() -> None:
                 done_count += 1
                 try:
                     _, out = fut.result()
-                    logger.info("action=process_success index=%s total=%s file=%s output=%s", done_count, len(files), f.name, out)
+                    logger.info(
+                        "action=process_success index=%s total=%s file=%s output=%s",
+                        done_count,
+                        len(files),
+                        f.name,
+                        out,
+                    )  # noqa: E501
                 except Exception as e:  # noqa: BLE001, F841
                     logger.exception("处理失败: file=%s", f.name)
 
@@ -864,4 +941,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

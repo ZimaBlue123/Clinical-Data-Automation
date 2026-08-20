@@ -271,7 +271,7 @@ def _safe_set_style_name(styles_root: ET.Element, style_id: str, new_name: str) 
     return False
 
 
-def normalize_style_names(
+def normalize_style_names(  # noqa: PLR0915 - TODO: 下个迭代重构 # noqa: PLR0912 - TODO: 下个迭代重构
     styles_root: ET.Element,
     styles: list[StyleInfo],
     kept_custom_ids: list[str],
@@ -317,12 +317,11 @@ def normalize_style_names(
 
     heading_para: dict[str, int] = {}
     for s in kept:
-        if s.style_type == "paragraph" and s.outline_level is not None:
-            if 0 <= s.outline_level <= 8:
-                # Exclude caption-like names even if outlineLvl is set.
-                if _is_caption_like(_kw(s)):
-                    continue
-                heading_para[s.style_id] = s.outline_level + 1
+        if s.style_type == "paragraph" and s.outline_level is not None and 0 <= s.outline_level <= 8:
+            # Exclude caption-like names even if outlineLvl is set.
+            if _is_caption_like(_kw(s)):
+                continue
+            heading_para[s.style_id] = s.outline_level + 1
 
     # Assign body paragraph styles
     body_candidates = [
@@ -346,12 +345,7 @@ def normalize_style_names(
         table_assign[s.style_id] = idx
 
     # Assign caption-like paragraph styles
-    caption_candidates = [
-        s
-        for s in kept
-        if s.style_type == "paragraph"
-        and (_caption_category(_kw(s)) is not None)
-    ]
+    caption_candidates = [s for s in kept if s.style_type == "paragraph" and (_caption_category(_kw(s)) is not None)]
     caption_by_cat: dict[str, list[StyleInfo]] = {}
     for s in caption_candidates:
         cat = _caption_category(_kw(s))
@@ -413,9 +407,8 @@ def normalize_style_names(
                 new_name = f"{base}（{i}）"
             used_target_names.add(new_name)
 
-        if new_name != old:
-            if _safe_set_style_name(styles_root, s.style_id, new_name):
-                renames.append((s.style_id, old, new_name))
+        if new_name != old and _safe_set_style_name(styles_root, s.style_id, new_name):
+            renames.append((s.style_id, old, new_name))
 
     return renames
 
@@ -451,7 +444,7 @@ def _write_success_report(
             f.write(f"- {sid}: {old} -> {new}\n")
 
 
-def process_one_docx(
+def process_one_docx(  # noqa: PLR0915 - TODO: 下个迭代重构 # noqa: PLR0912 - TODO: 下个迭代重构
     in_docx: str,
     out_docx: str,
     report_path: str,
@@ -606,4 +599,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

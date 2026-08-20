@@ -31,9 +31,7 @@ def should_scan(path: Path) -> bool:
         return False
     if path.suffix.lower() in SKIP_EXTENSIONS:
         return False
-    if ".git" in path.parts:
-        return False
-    return True
+    return ".git" not in path.parts
 
 
 def scan_file(path: Path) -> list[str]:

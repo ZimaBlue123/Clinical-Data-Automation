@@ -177,14 +177,12 @@ def _build_pzfx_values_for_age_metric(
     return out
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None) -> int:  # noqa: PLR0915 - TODO: 下个迭代重构
     parser = argparse.ArgumentParser(
         description="把 docx 中源抗体的免疫原性数据按 (年龄段 × 指标) 替换到 pzfx 模板，生成目标抗体的新 pzfx。",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument(
-        "--docx", required=True, help="docx 路径（包含源抗体与目标抗体数据）"
-    )
+    parser.add_argument("--docx", required=True, help="docx 路径（包含源抗体与目标抗体数据）")
     parser.add_argument("--pzfx", required=True, help="pzfx 模板路径")
     parser.add_argument("--out", required=True, help="输出 pzfx 路径")
     parser.add_argument(
@@ -219,9 +217,7 @@ def main(argv: list[str] | None = None) -> int:
 
     age_metric_to_table = dict(DEFAULT_AGE_METRIC_TO_TABLE)
     if args.table_map:
-        age_metric_to_table.update(
-            json.loads(Path(args.table_map).read_text(encoding="utf-8"))
-        )
+        age_metric_to_table.update(json.loads(Path(args.table_map).read_text(encoding="utf-8")))
         logger.info("loaded custom table map from %s", args.table_map)
 
     # 1) 读 docx
@@ -282,9 +278,7 @@ def main(argv: list[str] | None = None) -> int:
             new_values=new_values,
             logger=logger,
         )
-        rewrite_log.append(
-            {"table_id": tid, "age": age, "metric": metric, "replaced_subcolumns": n}
-        )
+        rewrite_log.append({"table_id": tid, "age": age, "metric": metric, "replaced_subcolumns": n})
         current = out_path
 
     # 7) 写审计

@@ -86,13 +86,15 @@ def test_target_pdf_extraction_mock(tmp_path: Path) -> None:
         pytest.skip("PyMuPDF (fitz) is not installed")
 
     doc = fitz.open()
-    doc.set_metadata({
-        "title": (
-            "Optimal approaches to data collection and analysis of potential "
-            "immune mediated disorders in clinical trials of new vaccines"
-        ),
-        "creationDate": "D:20130214015733Z",
-    })
+    doc.set_metadata(
+        {
+            "title": (
+                "Optimal approaches to data collection and analysis of potential "
+                "immune mediated disorders in clinical trials of new vaccines"
+            ),
+            "creationDate": "D:20130214015733Z",
+        }
+    )
     page = doc.new_page()
     page.insert_text((50, 50), "Vaccine 31 (2013) 1870-1876", fontsize=6.4)
     page.insert_text((50, 100), "Contents lists available at SciVerse ScienceDirect", fontsize=8.0)
@@ -128,4 +130,3 @@ def test_dedupe_filename(tmp_path: Path) -> None:
     (tmp_path / "Document_Name-2023_1.pdf").touch()
     name2 = sanitizer._dedupe_filename(tmp_path, "Document_Name-2023")
     assert name2 == "Document_Name-2023_2"
-

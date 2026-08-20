@@ -57,4 +57,3 @@ def canonical_sample_id(raw: str) -> str:
     p2 = p2.lower()
 
     return f"{p0}-{p1}-{p2}"
-

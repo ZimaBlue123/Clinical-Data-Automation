@@ -42,9 +42,7 @@ def box_intersects(a: Box, b: Box) -> bool:
     # Non-overlap cases
     if ax1 < bx0 or ax0 > bx1:
         return False
-    if abot < btop or atop > bbot:
-        return False
-    return True
+    return not (abot < btop or atop > bbot)
 
 
 def box_union(a: Box, b: Box) -> Box:
@@ -62,7 +60,7 @@ def merge_boxes(boxes: Sequence[Box], *, pad: float = 2.0, max_boxes: int = 200)
         return []
 
     normalized: list[Box] = []
-    for (x0, top, x1, bottom) in boxes:
+    for x0, top, x1, bottom in boxes:
         nx0 = x0 - pad
         ntop = top - pad
         nx1 = x1 + pad
@@ -193,4 +191,3 @@ def save_boxes_json_v2(
 
     with p.open("w", encoding="utf-8") as f:
         json.dump(serializable, f, indent=2, ensure_ascii=False)
-

@@ -10,10 +10,12 @@ import sys
 from pathlib import Path
 
 # 设置输出编码（Windows兼容）
-if sys.platform == 'win32':
+if sys.platform == "win32":
     import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+
 
 def test_imports():
     """测试所有必要的导入"""
@@ -23,6 +25,7 @@ def test_imports():
 
     try:
         from pptx import Presentation  # noqa: F401
+
         print("[OK] python-pptx 导入成功")
     except ImportError as e:
         print(f"[ERROR] python-pptx 导入失败: {e}")
@@ -30,12 +33,14 @@ def test_imports():
 
     try:
         import pandas as pd  # noqa: F401
+
         print("[OK] pandas 导入成功")
     except ImportError as e:
         print(f"[WARN] pandas 导入失败: {e} (可选)")
 
     try:
         import numpy as np  # noqa: F401
+
         print("[OK] numpy 导入成功")
     except ImportError as e:
         print(f"[WARN] numpy 导入失败: {e} (可选)")
@@ -43,6 +48,7 @@ def test_imports():
     try:
         from sklearn.feature_extraction.text import TfidfVectorizer  # noqa: F401
         from sklearn.metrics.pairwise import cosine_similarity  # noqa: F401
+
         print("[OK] sklearn 导入成功")
     except ImportError as e:
         print(f"[WARN] sklearn 导入失败: {e} (可选)")
@@ -54,6 +60,7 @@ def test_imports():
             auto_discover_ppts,
             build_slide_infos,
         )
+
         print("[OK] merge_ppt 模块导入成功")
     except ImportError as e:
         print(f"[ERROR] merge_ppt 模块导入失败: {e}")
@@ -66,6 +73,7 @@ def test_imports():
             CURATED_SCRIPT,
             SLIDE_BLUEPRINT,
         )
+
         print("[OK] ppt_engine 模块导入成功")
     except ImportError as e:
         print(f"[ERROR] ppt_engine 模块导入失败: {e}")
@@ -131,6 +139,7 @@ def test_ppt_discovery():
     except Exception as e:
         print(f"[ERROR] PPT文件发现失败: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -164,6 +173,7 @@ def test_slide_extraction():
     except Exception as e:
         print(f"[ERROR] 幻灯片提取失败: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 

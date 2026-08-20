@@ -60,11 +60,7 @@ def info(message: str, auto_yes: bool = False) -> None:
 
 
 def collect_docx(input_dir: str, recursive: bool) -> list[str]:
-    pattern = (
-        os.path.join(input_dir, "**", "*.docx")
-        if recursive
-        else os.path.join(input_dir, "*.docx")
-    )
+    pattern = os.path.join(input_dir, "**", "*.docx") if recursive else os.path.join(input_dir, "*.docx")
     files = glob.glob(pattern, recursive=recursive)
     out = []
     for f in files:

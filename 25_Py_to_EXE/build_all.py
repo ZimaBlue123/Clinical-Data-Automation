@@ -17,6 +17,7 @@
     ├─ batch_report_<timestamp>.md     # 人可读汇总
     └─ batch_report_<timestamp>.xlsx   # Excel（复用 18 的 openpyxl 写法）
 """
+
 from __future__ import annotations
 
 import json
@@ -38,33 +39,23 @@ from collections.abc import Iterable
 try:
     import yaml
 except ModuleNotFoundError as exc:
-    raise SystemExit(
-        f"未找到 pyyaml。请运行: {sys.executable} -m pip install pyyaml"
-    ) from exc
+    raise SystemExit(f"未找到 pyyaml。请运行: {sys.executable} -m pip install pyyaml") from exc
 
 try:
     import pandas as pd
 except ModuleNotFoundError as exc:
-    raise SystemExit(
-        f"未找到 pandas。请运行: {sys.executable} -m pip install pandas openpyxl"
-    ) from exc
+    raise SystemExit(f"未找到 pandas。请运行: {sys.executable} -m pip install pandas openpyxl") from exc
 
 try:
     import openpyxl  # noqa: F401
 except ModuleNotFoundError as exc:
-    raise SystemExit(
-        f"未找到 openpyxl。请运行: {sys.executable} -m pip install openpyxl"
-    ) from exc
+    raise SystemExit(f"未找到 openpyxl。请运行: {sys.executable} -m pip install openpyxl") from exc
 
 # ---------------------------------------------------------------------------
 # 路径基准（frozen 兼容）
 # ---------------------------------------------------------------------------
 
-BASE_DIR = (
-    Path(sys.executable).resolve().parent
-    if getattr(sys, "frozen", False)
-    else Path(__file__).resolve().parent
-)
+BASE_DIR = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
 # 假设 25_Py_to_EXE 位于仓库根的下一级（与现有所有 NN_*/ 同级）
 REPO_ROOT = BASE_DIR.parent
 
@@ -80,9 +71,11 @@ logger.setLevel(logging.INFO)
 # 数据类
 # ===========================================================================
 
+
 @dataclass
 class PyInstallerConfig:
     """单次 PyInstaller 调用的参数。"""
+
     onefile: bool = True
     console: bool = True
     icon: str | None = None
@@ -96,6 +89,7 @@ class PyInstallerConfig:
 @dataclass
 class ModuleSpec:
     """manifest 中一个模块的打包规格。"""
+
     module: str
     script: str
     output_name: str | None = None
@@ -123,9 +117,10 @@ class ModuleSpec:
 @dataclass
 class BatchResult:
     """单次打包的结果。"""
+
     module: str
     script: str
-    status: str                       # success | failed | skipped
+    status: str  # success | failed | skipped
     output_exe: str = ""
     size_mb: float = 0.0
     duration_sec: float = 0.0
@@ -138,6 +133,7 @@ class BatchResult:
 # ===========================================================================
 # Manifest 加载
 # ===========================================================================
+
 
 def _to_pyinstaller_config(d: dict | None) -> PyInstallerConfig:
     d = d or {}
@@ -165,13 +161,15 @@ def load_manifest(path: Path) -> tuple[PyInstallerConfig, list[ModuleSpec]]:
     for entry in batch.get("modules", []) or []:
         # 合并 default + per-module 覆盖
         merged = {**(batch.get("default_pyinstaller", {}) or {}), **(entry.get("pyinstaller", {}) or {})}
-        modules.append(ModuleSpec(
-            module=entry["module"],
-            script=entry["script"],
-            output_name=entry.get("output_name"),
-            config=_to_pyinstaller_config(merged),
-            warning=str(entry.get("warning", "") or ""),
-        ))
+        modules.append(
+            ModuleSpec(
+                module=entry["module"],
+                script=entry["script"],
+                output_name=entry.get("output_name"),
+                config=_to_pyinstaller_config(merged),
+                warning=str(entry.get("warning", "") or ""),
+            )
+        )
     return default_cfg, modules
 
 
@@ -223,11 +221,13 @@ def auto_discover(repo_root: Path, only: Iterable[str] | None = None) -> list[Mo
         candidates.sort(key=lambda x: (0 if x.name == "main.py" else 1, x.name))
 
         for script in candidates:
-            out.append(ModuleSpec(
-                module=entry.name,
-                script=script.name,
-                config=PyInstallerConfig(),
-            ))
+            out.append(
+                ModuleSpec(
+                    module=entry.name,
+                    script=script.name,
+                    config=PyInstallerConfig(),
+                )
+            )
     return out
 
 
@@ -235,17 +235,25 @@ def auto_discover(repo_root: Path, only: Iterable[str] | None = None) -> list[Mo
 # 打包执行
 # ===========================================================================
 
+
 def _build_pyinstaller_cmd(spec: ModuleSpec) -> list[str]:
     """为单个 ModuleSpec 构造 PyInstaller 命令行。"""
     cfg = spec.config
     spec.out_dir.mkdir(parents=True, exist_ok=True)
     cmd = [
-        sys.executable, "-m", "PyInstaller",
-        "--noconfirm", "--clean",
-        "--distpath", str(spec.out_dir),
-        "--workpath", str(spec.out_dir / "_build"),
-        "--specpath", str(spec.out_dir / "_spec"),
-        "--name", Path(spec.exe_name).stem,
+        sys.executable,
+        "-m",
+        "PyInstaller",
+        "--noconfirm",
+        "--clean",
+        "--distpath",
+        str(spec.out_dir),
+        "--workpath",
+        str(spec.out_dir / "_build"),
+        "--specpath",
+        str(spec.out_dir / "_spec"),
+        "--name",
+        Path(spec.exe_name).stem,
     ]
     if cfg.onefile:
         cmd.append("--onefile")
@@ -321,7 +329,11 @@ def build_one(spec: ModuleSpec) -> BatchResult:
     else:
         res.status = "failed"
         # 截取 stderr（PyInstaller 主要错误信息在 stderr）
-        res.error = _truncate(proc.stderr) or _truncate(proc.stdout) or f"PyInstaller exit {proc.returncode}, 未找到 EXE: {exe_path}"
+        res.error = (
+            _truncate(proc.stderr)
+            or _truncate(proc.stdout)
+            or f"PyInstaller exit {proc.returncode}, 未找到 EXE: {exe_path}"
+        )  # noqa: E501
 
     # 浮点尾数处理（time.monotonic 差值会有 ~1e-14 的浮点残差）
     res.duration_sec = round(res.duration_sec, 2)
@@ -346,6 +358,7 @@ def build_one(spec: ModuleSpec) -> BatchResult:
 # ===========================================================================
 # 报告输出（JSON / Markdown / Excel 三件套）
 # ===========================================================================
+
 
 def write_reports(results: list[BatchResult], report_dir: Path) -> tuple[Path, Path, Path]:
     """写三件套报告。返回 (json_path, md_path, xlsx_path)。"""
@@ -425,7 +438,18 @@ def write_reports(results: list[BatchResult], report_dir: Path) -> tuple[Path, P
     # --- Excel ---
     df_all = pd.DataFrame([asdict(r) for r in results])
     # 列顺序：把常用字段放前面
-    preferred_cols = ["module", "script", "status", "size_mb", "duration_sec", "exit_code", "warning", "error", "output_exe", "timestamp"]
+    preferred_cols = [
+        "module",
+        "script",
+        "status",
+        "size_mb",
+        "duration_sec",
+        "exit_code",
+        "warning",
+        "error",
+        "output_exe",
+        "timestamp",
+    ]  # noqa: E501
     df_all = df_all[[c for c in preferred_cols if c in df_all.columns]]
     df_warn = df_all[df_all["warning"].astype(str).str.len() > 0] if "warning" in df_all.columns else df_all.iloc[0:0]
     df_fail = df_all[df_all["status"] == "failed"] if "status" in df_all.columns else df_all.iloc[0:0]
@@ -447,6 +471,7 @@ def write_reports(results: list[BatchResult], report_dir: Path) -> tuple[Path, P
 # 批量调度器
 # ===========================================================================
 
+
 class BatchRunner:
     """批量打包调度器。串行执行（PyInstaller CPU 密集，并发收益有限）。"""
 
@@ -463,10 +488,7 @@ class BatchRunner:
         self.base_dir = base_dir
         self.manifest_path = manifest_path
         self.auto_discover = auto_discover
-        self.modules_filter = (
-            [m.strip() for m in modules_filter.split(",") if m.strip()]
-            if modules_filter else None
-        )
+        self.modules_filter = [m.strip() for m in modules_filter.split(",") if m.strip()] if modules_filter else None
         self.fail_fast = fail_fast
         self.workers = max(1, workers)  # TODO: 未来按 workers > 1 走 ProcessPoolExecutor
 
@@ -474,9 +496,7 @@ class BatchRunner:
         """根据参数解析要打包的模块清单。优先级：--modules > manifest > --auto-discover。"""
         if self.modules_filter:
             if not (self.manifest_path or self.auto_discover):
-                raise SystemExit(
-                    "--modules 需要配合 --manifest 或 --auto-discover 提供基础信息"
-                )
+                raise SystemExit("--modules 需要配合 --manifest 或 --auto-discover 提供基础信息")
             if self.manifest_path and self.manifest_path.exists():
                 _, all_specs = load_manifest(self.manifest_path)
             else:
@@ -490,10 +510,7 @@ class BatchRunner:
 
         if self.manifest_path:
             if not self.manifest_path.exists():
-                raise SystemExit(
-                    f"manifest 不存在: {self.manifest_path}\n"
-                    f"提示：可从 manifest.example.yaml 复制后修改"
-                )
+                raise SystemExit(f"manifest 不存在: {self.manifest_path}\n提示：可从 manifest.example.yaml 复制后修改")
             _, specs = load_manifest(self.manifest_path)
             logger.info("从 manifest 加载: %s (共 %d 个模块)", self.manifest_path, len(specs))
             return specs
@@ -517,8 +534,9 @@ class BatchRunner:
             return 0
 
         logger.info("=" * 60)
-        logger.info("批量打包开始：共 %d 个模块（失败策略：%s）",
-                    len(specs), "遇错即停" if self.fail_fast else "失败继续")
+        logger.info(
+            "批量打包开始：共 %d 个模块（失败策略：%s）", len(specs), "遇错即停" if self.fail_fast else "失败继续"
+        )
         logger.info("=" * 60)
 
         results: list[BatchResult] = []
@@ -530,10 +548,9 @@ class BatchRunner:
             res = build_one(spec)
             results.append(res)
             tag = "OK" if res.status == "success" else f"FAIL ({res.status})"
-            logger.info("  -> %s  size=%sMB  time=%.1fs",
-                        tag,
-                        f"{res.size_mb:.1f}" if res.size_mb else "-",
-                        res.duration_sec)
+            logger.info(
+                "  -> %s  size=%sMB  time=%.1fs", tag, f"{res.size_mb:.1f}" if res.size_mb else "-", res.duration_sec
+            )
             if res.status == "failed" and res.error:
                 # 把错误前几行打到日志
                 first_lines = "\n".join(res.error.splitlines()[:5])
@@ -554,8 +571,7 @@ class BatchRunner:
 
         # 终端汇总
         logger.info("=" * 60)
-        logger.info("批量打包结束：成功=%d 失败=%d 跳过=%d 总耗时=%.1fs",
-                    succ, fail, skip, total_time)
+        logger.info("批量打包结束：成功=%d 失败=%d 跳过=%d 总耗时=%.1fs", succ, fail, skip, total_time)
         logger.info("报告：")
         logger.info("  JSON : %s", json_p)
         logger.info("  MD   : %s", md_p)
@@ -578,8 +594,10 @@ class BatchRunner:
 # 独立 CLI 入口（也可被 py_to_exe.py --batch 调用）
 # ---------------------------------------------------------------------------
 
+
 def _standalone_main() -> int:
     import argparse
+
     p = argparse.ArgumentParser(description="批量打包：直接运行 build_all.py")
     p.add_argument("--manifest", help="manifest YAML 路径")
     p.add_argument("--auto-discover", action="store_true", help="自动扫描仓库")
