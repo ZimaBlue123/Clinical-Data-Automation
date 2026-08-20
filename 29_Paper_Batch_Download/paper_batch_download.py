@@ -114,9 +114,18 @@ class PDFSanitizer:
 
         if not words:
             fallback = cleaned_en[:50].strip().replace(" ", "_")
+            fallback = re.sub(r"-(?:XXXX|19[5-9]\d|20[0-2]\d)(?:_\d+)?$", "", fallback)
             return fallback if fallback else "Untitled_Document"
 
-        return "_".join(words)
+        t = "_".join(words)
+
+        # 去除 -XXXX 兜底重复
+        t = re.sub(r"-(?:XXXX|19[5-9]\d|20[0-2]\d)(?:_\d+)?$", "", t)
+
+        # 去除 PMC 等无意义后缀
+        t = re.sub(r"(?i)(?:_[-|]_(?:PMC|PubMed|Europe_PMC|NCBI|NIH|medRxiv|bioRxiv))+$", "", t)
+
+        return t
 
     def _dedupe_filename(self, base_name: str) -> str:
         """量子态文件覆盖防御"""
@@ -168,8 +177,12 @@ class PDFSanitizer:
 
             sorted_sizes = sorted(size_map.keys(), reverse=True)
 
-            # 黑名单：免疫期刊页眉噪点
-            blacklist = {"majorarticle", "researcharticle", "reviewarticle", "clinicalinfectiousdiseases"}
+            # 黑名单：免疫期刊页眉噪点与反爬垃圾
+            blacklist = {
+                "majorarticle", "researcharticle", "reviewarticle", "clinicalinfectiousdiseases",
+                "javascriptisdisabled", "redirecting", "verifythatyourenotarobot",
+                "weneedtoverify", "skiptomaincontent", "officialwebsiteoftheunitedstates"
+            }
 
             for s in sorted_sizes:
                 candidate = " ".join(size_map[s]).strip()
@@ -269,8 +282,10 @@ HEADERS_REQ = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/120.0.0.0 Safari/537.36"
-    )
+        "Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.5",
 }
 
 DOI_PATTERN = re.compile(r"^10\.\d{4,9}/[-._;()/:A-Z0-9]+$", re.I)
@@ -371,12 +386,15 @@ class PaperDownloader:
         retries = self.max_retries if self.safe_mode else 0
         timeout = kwargs.pop("timeout", 15)
         kwargs["timeout"] = timeout
+        kwargs.setdefault("verify", False)
 
         last_exc: Exception | None = None
         for attempt in range(1, retries + 2):
             self._wait_for_host_slot(host)
             try:
+                print(f"[DEBUG] Requesting {method} {url} (Attempt {attempt})", flush=True)
                 response = self.session.request(method, url, **kwargs)
+                print(f"[DEBUG] Response {response.status_code} for {url}", flush=True)
                 self.last_request_ts[host] = time.time()
 
                 if response.status_code in (429, 403) or response.status_code >= 500:
@@ -410,6 +428,17 @@ class PaperDownloader:
     @staticmethod
     def _normalize_query(query: str) -> tuple[str, str | None]:
         cleaned = query.strip()
+
+        # 提取 URL 中的 DOI
+        doi_url_match = re.search(r"(?:https?://(?:dx\.)?doi\.org/)(10\.\d{4,9}/[-._;()/:A-Z0-9]+)", cleaned, re.I)
+        if doi_url_match:
+            return doi_url_match.group(1), "已从 URL 中提取 DOI"
+
+        # 提取 URL 中的 PMID
+        pubmed_url_match = re.search(r"(?:https?://pubmed\.ncbi\.nlm\.nih\.gov/)(\d+)", cleaned, re.I)
+        if pubmed_url_match:
+            return pubmed_url_match.group(1), "已从 URL 中提取 PMID"
+
         if cleaned.startswith("10") and not cleaned.startswith("10."):
             cleaned = f"10.{cleaned[2:]}"
         plos_match = re.match(r"10\.1371/(?P<suffix>.+)$", cleaned, re.I)
@@ -643,6 +672,32 @@ def normalize_path(value: str) -> Path:
 def load_queries_from_file(path: Path) -> list[str]:
     if not path.exists():
         raise FileNotFoundError(f"未找到文件: {path}")
+
+    if path.suffix.lower() == ".pptx":
+        try:
+            from pptx import Presentation
+        except ImportError:
+            logger.error("解析 PPTX 需要 python-pptx 库。请安装：pip install python-pptx")
+            sys.exit(1)
+
+        prs = Presentation(path)
+        links = set()
+        for slide in prs.slides:
+            for shape in slide.shapes:
+                if shape.has_text_frame:
+                    for paragraph in shape.text_frame.paragraphs:
+                        for run in paragraph.runs:
+                            if run.hyperlink and run.hyperlink.address:
+                                links.add(run.hyperlink.address)
+                if shape.has_table:
+                    for row in shape.table.rows:
+                        for cell in row.cells:
+                            for paragraph in cell.text_frame.paragraphs:
+                                for run in paragraph.runs:
+                                    if run.hyperlink and run.hyperlink.address:
+                                        links.add(run.hyperlink.address)
+        return list(links)
+
     return [line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip() and not line.strip().startswith("#")]
 
 def parse_args() -> argparse.Namespace:

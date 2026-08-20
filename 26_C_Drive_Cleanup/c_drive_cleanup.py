@@ -150,16 +150,14 @@ def dir_size(path: Path) -> tuple[int, float]:
                 except OSError:
                     continue
                 total += st.st_size
-                if st.st_mtime > latest:
-                    latest = st.st_mtime
+                latest = max(latest, st.st_mtime)
             for dname in dirnames:
                 dp = Path(dirpath) / dname
                 try:
                     st = dp.stat()
                 except OSError:
                     continue
-                if st.st_mtime > latest:
-                    latest = st.st_mtime
+                latest = max(latest, st.st_mtime)
     except OSError as e:
         logger.warning("dir_size: 访问 %s 失败: %s", path, e)
     return total, latest
@@ -841,11 +839,10 @@ def process_dir_candidates(
                 logger.info("isolated: %s -> %s", c.path, dest)
             else:
                 failed += 1
+        elif remove_dir(c.path):
+            removed += 1
         else:
-            if remove_dir(c.path):
-                removed += 1
-            else:
-                failed += 1
+            failed += 1
     return moved, removed, skipped, failed
 
 
