@@ -40,7 +40,7 @@ def _normalize_word(s: str) -> str:
     return s.lower()
 
 
-def detect_ocr_boxes(
+def detect_ocr_boxes(  # noqa: PLR0915 - TODO: 下个迭代重构 # noqa: PLR0912 - TODO: 下个迭代重构
     doc: fitz.Document,
     *,
     vector_keywords: list[str],
@@ -172,4 +172,3 @@ def detect_ocr_boxes(
             boxes_by_page.pop(pno_str, None)
 
     return boxes_by_page
-

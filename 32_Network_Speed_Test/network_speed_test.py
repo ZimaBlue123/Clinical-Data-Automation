@@ -75,6 +75,7 @@ def _check_output_hidden(cmd: list[str], timeout: int = 10) -> str:
         creationflags=_win_no_window_flags(),
     )
 
+
 # (名称, URL, 最大下载字节；0 表示仅测延迟)
 DOMESTIC_PROBES = [
     ("百度", "https://www.baidu.com/img/flexible/logo/pc/result.png", 512_000),
@@ -284,9 +285,9 @@ def _download_speed(
 def _human_bytes(n: int) -> str:
     if n < 1024:
         return f"{n} B"
-    if n < 1024 ** 2:
+    if n < 1024**2:
         return f"{n / 1024:.1f} KB"
-    return f"{n / 1024 ** 2:.2f} MB"
+    return f"{n / 1024**2:.2f} MB"
 
 
 def _mbps(byte_count: int, seconds: float) -> float | None:
@@ -328,7 +329,7 @@ def _avg_download_mbps(samples: list[SpeedSample]) -> float | None:
     return round(sum(vals) / len(vals), 2)
 
 
-def print_summary(report: RunReport) -> None:
+def print_summary(report: RunReport) -> None:  # noqa: PLR0915 - TODO: 下个迭代重构 # noqa: PLR0912 - TODO: 下个迭代重构
     """终端输出结构化汇总（测速结束后阅读此块即可）。"""
     w = 58
     lines: list[str] = []
@@ -501,9 +502,7 @@ class NetworkSpeedTester:
 
         if self.lan_url:
             session = _build_session("direct", self.socks_port)
-            report.samples.append(
-                self._probe(session, "direct", "lan", "内网 HTTP", self.lan_url, self.max_bytes)
-            )
+            report.samples.append(self._probe(session, "direct", "lan", "内网 HTTP", self.lan_url, self.max_bytes))
 
         try:
             report.local_ip = socket.gethostbyname(socket.gethostname())
@@ -554,9 +553,7 @@ class NetworkSpeedTester:
             logger.info("  路由: SOCKS5h 127.0.0.1:%s", self.socks_port)
             socks_session = _build_session("socks", self.socks_port)
             try:
-                socks = self._probe(
-                    socks_session, "socks", "vpn", "Cloudflare-SOCKS", VPN_COMPARE_URL, cap
-                )
+                socks = self._probe(socks_session, "socks", "vpn", "Cloudflare-SOCKS", VPN_COMPARE_URL, cap)
             except requests.RequestException as e:
                 socks = SpeedSample(
                     label="vpn/Cloudflare-SOCKS",
@@ -582,17 +579,11 @@ class NetworkSpeedTester:
                 "socks_over_direct_ratio": ratio,
             }
             if ratio >= 0.85:
-                summary["conclusion"] = (
-                    f"SOCKS 可达直连的 {pct:.0f}%，代理带宽正常，VPN 隧道有效。"
-                )
+                summary["conclusion"] = f"SOCKS 可达直连的 {pct:.0f}%，代理带宽正常，VPN 隧道有效。"
             elif ratio >= 0.4:
-                summary["conclusion"] = (
-                    f"SOCKS 约为直连的 {pct:.0f}%，代理有损耗但可用，可检查节点负载或协议。"
-                )
+                summary["conclusion"] = f"SOCKS 约为直连的 {pct:.0f}%，代理有损耗但可用，可检查节点负载或协议。"
             else:
-                summary["conclusion"] = (
-                    f"SOCKS 仅约为直连的 {pct:.0f}%，代理瓶颈明显，建议换节点或检查分流。"
-                )
+                summary["conclusion"] = f"SOCKS 仅约为直连的 {pct:.0f}%，代理瓶颈明显，建议换节点或检查分流。"
         elif s_mbps > 0:
             summary = {
                 "socks_mbps": s_mbps,
@@ -725,9 +716,7 @@ def _read_arp_table() -> dict[str, str]:
     return table
 
 
-def _filter_arp_scope(
-    arp: dict[str, str], networks: list[ipaddress.IPv4Network]
-) -> dict[str, str]:
+def _filter_arp_scope(arp: dict[str, str], networks: list[ipaddress.IPv4Network]) -> dict[str, str]:
     """去掉组播/无效 MAC/网段外记录，避免对数百虚假项做探测。"""
     bad_mac = {"00:00:00:00:00:00", "ff:ff:ff:ff:ff:ff"}
     out: dict[str, str] = {}
@@ -829,7 +818,7 @@ def _tcp_port_open(ip: str, port: int) -> bool:
         return False
 
 
-def _guess_device_role(ip: str, gateway: str, local_ip: str, ports: list[int]) -> str:
+def _guess_device_role(ip: str, gateway: str, local_ip: str, ports: list[int]) -> str:  # noqa: PLR0911 - TODO: 下个迭代重构
     if gateway and ip == gateway:
         return "网关/路由器"
     if local_ip and ip == local_ip:
@@ -849,7 +838,7 @@ def _hosts_in_network(net: ipaddress.IPv4Network) -> list[str]:
     return [str(h) for h in net.hosts()]
 
 
-def scan_lan_devices(gateway: str, local_ip: str, deep_scan: bool = False) -> list[LanDevice]:
+def scan_lan_devices(gateway: str, local_ip: str, deep_scan: bool = False) -> list[LanDevice]:  # noqa: PLR0915 - TODO: 下个迭代重构 # noqa: PLR0912 - TODO: 下个迭代重构
     """
     快速模式（默认）：只 Ping「ARP 表里已有 + 网关/本机」，通常十秒内完成。
     深度模式：对全部 /24 地址 Ping（慢，508+ 地址，仅必要时使用）。
@@ -878,14 +867,12 @@ def scan_lan_devices(gateway: str, local_ip: str, deep_scan: bool = False) -> li
         rest = sorted(ping_targets - must)[: max(0, FAST_PING_CAP - len(must))]
         ping_targets = must | set(rest)
         print(
-            f"  快速扫描：ARP 邻居 {len(arp)} 台，仅 Ping 其中 {len(ping_targets)} 台"
-            f"（其余仍列出 IP/MAC，不测延迟）…",
+            f"  快速扫描：ARP 邻居 {len(arp)} 台，仅 Ping 其中 {len(ping_targets)} 台（其余仍列出 IP/MAC，不测延迟）…",
             flush=True,
         )
     else:
         print(
-            f"  快速扫描：Ping {len(ping_targets)} 个邻居"
-            f"（ARP {len(arp)} 条）…",
+            f"  快速扫描：Ping {len(ping_targets)} 个邻居（ARP {len(arp)} 条）…",
             flush=True,
         )
 
@@ -1031,7 +1018,7 @@ def _router_admin_url(gateway: str, open_ports: list[int]) -> str:
     return f"http://{gateway}/"
 
 
-def run_lan_occupancy_survey(save_json: bool = False, deep_scan: bool = False) -> dict[str, object]:
+def run_lan_occupancy_survey(save_json: bool = False, deep_scan: bool = False) -> dict[str, object]:  # noqa: PLR0915 - TODO: 下个迭代重构
     """
     排查「局域网里有哪些设备在线」及本机连接情况，并给出按 IP/MAC 限速的操作指引。
     说明：单台电脑无法直接测量「其他设备占了多少 Mbps」，需结合路由器流量统计。
@@ -1044,11 +1031,7 @@ def run_lan_occupancy_survey(save_json: bool = False, deep_scan: bool = False) -
     admin_url = _router_admin_url(gateway, router_ports)
     conn_stats = _local_connection_stats()
 
-    others = [
-        d
-        for d in devices
-        if d.ip not in (gateway, local_ip) and (d.ping_ms is not None or d.mac)
-    ]
+    others = [d for d in devices if d.ip not in (gateway, local_ip) and (d.ping_ms is not None or d.mac)]
 
     w = 60
     print()

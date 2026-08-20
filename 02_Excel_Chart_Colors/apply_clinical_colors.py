@@ -73,8 +73,7 @@ def _normalize_series_key(title: str) -> str:
     # 去掉常见度量词（仅末尾）
     t = re.sub(r"(发生率|例数|人数|频数|n|N|%|％)\s*$", "", t).strip()
     # 压缩空白
-    t = re.sub(r"\s+", " ", t).strip()
-    return t
+    return re.sub(r"\s+", " ", t).strip()
 
 
 def _extract_series_title(block: str) -> str:
@@ -105,7 +104,7 @@ def _interactive_color_menu() -> tuple[list[str], str, str]:
     print("    2. Lancet - High Contrast")
     print("    3. NEJM - Professional/Steady")
     print()
-    choice = (input("Choice [1]: ").strip() or "1")
+    choice = input("Choice [1]: ").strip() or "1"
     if choice not in JOURNAL_PALETTES:
         choice = "1"
     entry = JOURNAL_PALETTES[choice]
@@ -285,6 +284,7 @@ def main() -> None:
     args = parser.parse_args()
 
     import sys
+
     # 非交互环境默认使用 NPG
     palette_choice = args.palette
     if not palette_choice and not sys.stdin.isatty():

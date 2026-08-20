@@ -34,4 +34,3 @@ def merge_boxes_by_page(
         if page_boxes_merged:
             out[str(pno)] = page_boxes_merged
     return out
-

@@ -60,4 +60,3 @@ def save_text_map_json(output_path: str | Path, text_map: dict[str, str]) -> Non
     p.parent.mkdir(parents=True, exist_ok=True)
     with p.open("w", encoding="utf-8") as f:
         json.dump(text_map, f, indent=2, ensure_ascii=False)
-

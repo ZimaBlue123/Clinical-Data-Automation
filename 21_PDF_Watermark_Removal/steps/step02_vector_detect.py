@@ -50,4 +50,3 @@ def detect_vector_boxes(
             boxes_by_page[str(pno + 1)] = page_boxes
 
     return boxes_by_page
-

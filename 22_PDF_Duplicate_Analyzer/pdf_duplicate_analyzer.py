@@ -13,6 +13,7 @@ PDF 跨文件夹重复分析（20 模块）
 用法（配置文件，多任务）：
   python pdf_duplicate_analyzer.py --config jobs.example.json
 """
+
 from __future__ import annotations
 
 import argparse
@@ -77,9 +78,7 @@ def collect_pdfs(root: Path, folder_names: list[str]) -> list[dict]:
                     "name": pdf.name,
                     "path": pdf,
                     "page1_text": text,
-                    "page1_hash": hashlib.md5(text.encode("utf-8")).hexdigest()
-                    if text
-                    else "",
+                    "page1_hash": hashlib.md5(text.encode("utf-8")).hexdigest() if text else "",
                     "error": err,
                 }
             )
@@ -172,9 +171,7 @@ def format_report(path_label: str, root: Path, folders: list[str], dupes: list[d
             lines.append(f"  - 文件: {name}")
             lines.append(f"    重复类型: {', '.join(reasons)}")
             for e in sorted(entries, key=lambda x: (x["dup_folder"], x["dup_name"])):
-                lines.append(
-                    f"    → 与 [{e['dup_folder']}] 中的「{e['dup_name']}」重复"
-                )
+                lines.append(f"    → 与 [{e['dup_folder']}] 中的「{e['dup_name']}」重复")
             lines.append("")
         lines.append("")
 
@@ -223,9 +220,7 @@ def load_jobs_from_config(config_path: Path) -> list[dict]:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="在同一根目录的多个子文件夹之间检测 PDF 重复（文件名或首页文本）"
-    )
+    parser = argparse.ArgumentParser(description="在同一根目录的多个子文件夹之间检测 PDF 重复（文件名或首页文本）")
     parser.add_argument(
         "--root",
         default=None,

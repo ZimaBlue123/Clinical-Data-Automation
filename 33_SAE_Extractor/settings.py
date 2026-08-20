@@ -87,7 +87,11 @@ def check_environment(settings: Settings) -> dict[str, Any]:
         "python": {"ok": True},
         "tesseract": {"ok": False, "source": None, "detail": ""},
         "poppler": {"ok": False, "source": None, "detail": ""},
-        "api": {"base_url": settings.api_base_url, "token_set": bool(settings.api_token), "model_id": settings.model_id},
+        "api": {
+            "base_url": settings.api_base_url,
+            "token_set": bool(settings.api_token),
+            "model_id": settings.model_id,
+        },  # noqa: E501
         "paths": {
             "project_root": str(settings.project_root),
             "input_dir": str(settings.input_dir),
@@ -100,7 +104,11 @@ def check_environment(settings: Settings) -> dict[str, Any]:
             ok, detail = _run_version_cmd([settings.tesseract_cmd, "--version"])
             result["tesseract"] = {"ok": ok, "source": "TESSERACT_CMD", "detail": detail}
         else:
-            result["tesseract"] = {"ok": False, "source": "TESSERACT_CMD", "detail": f"路径不存在: {settings.tesseract_cmd}"}
+            result["tesseract"] = {
+                "ok": False,
+                "source": "TESSERACT_CMD",
+                "detail": f"路径不存在: {settings.tesseract_cmd}",
+            }  # noqa: E501
     else:
         which = shutil.which("tesseract")
         if which:

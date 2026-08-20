@@ -194,5 +194,5 @@ def build_table_mapping_plan(
         "subtables": subtables_out,
         "subtable_cat_samples": sub_cat_samples,
         "top_k_per_subtable": top_k_per_subtable,
-        "note": "你需要从每个 subtable 的候选列表里选择真正对应的 Word 表格（table_index）。然后把你的选择写成 table-map-json 供程序二次运行。",
+        "note": "你需要从每个 subtable 的候选列表里选择真正对应的 Word 表格（table_index）。然后把你的选择写成 table-map-json 供程序二次运行。",  # noqa: E501
     }

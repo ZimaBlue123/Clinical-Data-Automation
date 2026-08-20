@@ -76,9 +76,7 @@ def build_date_rules() -> ReplaceRuleSet:
     x1 = r"[XxＸｘ]"
     x_pair = rf"{x1}\s*{x1}"
     year = r"(?:2026|２０２６)"
-    re_slash = re.compile(
-        rf"{year}\s*(?:/|／)?\s*{x_pair}\s*(?:/|／)?\s*{x_pair}\s*日?"
-    )
+    re_slash = re.compile(rf"{year}\s*(?:/|／)?\s*{x_pair}\s*(?:/|／)?\s*{x_pair}\s*日?")
     re_cn = re.compile(rf"{year}\s*年\s*{x_pair}\s*月\s*{x_pair}\s*日")
     return ReplaceRuleSet(
         literals=[],
@@ -183,18 +181,14 @@ def process_docx(in_path: str, output_path: str, rules: ReplaceRuleSet) -> Repla
             z.extractall(work_dir)
 
         xml_files = iter_package_xml_files(work_dir)
-        stats.before = sum(
-            replace_in_xml_tree(etree.parse(x).getroot(), rules, False) for x in xml_files
-        )
+        stats.before = sum(replace_in_xml_tree(etree.parse(x).getroot(), rules, False) for x in xml_files)
 
         for x in xml_files:
             tree = etree.parse(x)
             replace_in_xml_tree(tree.getroot(), rules, True)
             tree.write(x, encoding="UTF-8", xml_declaration=True)
 
-        stats.after = sum(
-            replace_in_xml_tree(etree.parse(x).getroot(), rules, False) for x in xml_files
-        )
+        stats.after = sum(replace_in_xml_tree(etree.parse(x).getroot(), rules, False) for x in xml_files)
 
         os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
         with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_DEFLATED) as z:

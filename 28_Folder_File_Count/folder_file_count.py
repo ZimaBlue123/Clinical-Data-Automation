@@ -10,6 +10,7 @@
   python folder_file_count.py --path "D:\\data"
   python folder_file_count.py --path "D:\\data" --output "output"
 """
+
 from __future__ import annotations
 
 import argparse
@@ -62,10 +63,6 @@ def build_tree_summary(root: Path) -> tuple[list[dict[str, int | str]], list[str
     return rows, lines
 
 
-
-
-
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="统计目录内所有文件数量")
     parser.add_argument("--path", default=None, help="待统计的文件夹路径")
@@ -74,7 +71,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main() -> None:
+def main() -> None:  # noqa: PLR0915 - TODO: 下个迭代重构 # noqa: PLR0912 - TODO: 下个迭代重构
     base_dir = Path(__file__).resolve().parent
     output_dir = base_dir / "output"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -95,7 +92,6 @@ def main() -> None:
         if not target.is_absolute():
             target = Path.cwd() / target
 
-
     if not target.exists() or not target.is_dir():
         if sys.stdin.isatty():
             for _ in range(3):
@@ -112,9 +108,6 @@ def main() -> None:
             print("请确认盘符已挂载、路径无多余空格，并使用完整路径。", file=sys.stderr)
             sys.exit(1)
 
-
-
-
     out_dir = Path(args.output) if args.output else output_dir
     if not out_dir.is_absolute():
         out_dir = output_dir / out_dir
@@ -125,13 +118,8 @@ def main() -> None:
     tree_rows, tree_lines = build_tree_summary(target)
     file_rows = [row for row in tree_rows if row.get("type") == "file"]
     tree_display_rows = [
-        {"level": row["level"], "tree": line}
-        for row, line in zip(tree_rows, tree_lines)
+        {"level": row["level"], "tree": line} for row, line in zip(tree_rows, tree_lines, strict=False)
     ]
-
-
-
-
 
     txt_path = out_dir / "folder_file_count.txt"
     with txt_path.open("w", encoding="utf-8") as f:
@@ -154,14 +142,11 @@ def main() -> None:
     df_subdirs = pd.DataFrame(subdir_rows)
     df_tree = pd.DataFrame(tree_display_rows)
 
-
     xlsx_path = out_dir / "folder_file_count.xlsx"
     with pd.ExcelWriter(xlsx_path, engine="openpyxl") as writer:
         df_total.to_excel(writer, index=False, sheet_name="total")
         df_subdirs.to_excel(writer, index=False, sheet_name="subdirs")
         df_tree.to_excel(writer, index=False, sheet_name="tree")
-
-
 
     print(f"已输出：{txt_path}")
     print(f"已输出：{xlsx_path}")

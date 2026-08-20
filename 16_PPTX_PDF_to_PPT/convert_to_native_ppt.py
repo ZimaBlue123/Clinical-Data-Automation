@@ -7,12 +7,14 @@ PPTX/PDF 转原生可编辑 PPT（全要素原位蒙版重建版）
 3. 纯血原位替换 (PPTX)：直接修改原 PPT，保留所有已有可编辑元素，仅对图片进行 OCR 坐标映射和遮盖覆盖。
 4. 绝对尺寸锁定 (PDF)：动态读取原始页面比例，拒绝图像拉伸压扁。
 """
+
 from __future__ import annotations
 
 import os
+
 # 屏蔽底层报警
-os.environ['PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK'] = 'True'
-os.environ["GLOG_minloglevel"] = "2"
+os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
+os.environ["GLOG_MINLOGLEVEL"] = "2"
 
 import logging
 import tempfile
@@ -76,7 +78,7 @@ class ClinicalDocConverter:
 
         for page_num in tqdm(range(len(doc)), desc="🖼️ PDF页面转换及解析"):
             page = doc.load_page(page_num)
-            pix = page.get_pixmap(matrix=fitz.Matrix(300/72, 300/72), alpha=False)
+            pix = page.get_pixmap(matrix=fitz.Matrix(300 / 72, 300 / 72), alpha=False)
             img_path = os.path.join(temp_dir, f"page_{page_num}.png")
             pix.save(img_path)
 
@@ -140,7 +142,7 @@ class ClinicalDocConverter:
         result = self.table_engine(img_path)
 
         for region in result:
-            bbox = region['bbox'] # [x1, y1, x2, y2]
+            bbox = region["bbox"]  # [x1, y1, x2, y2]
 
             # 将图片的像素坐标，映射为 PPT 中的 Pt 坐标
             r_left = base_left + (bbox[0] * scale_x)
@@ -162,7 +164,7 @@ class ClinicalDocConverter:
             elif region.get("type") in ["text", "title", "figure_caption", "table_caption"]:
                 try:
                     # 将识别出的多行文本拼合
-                    texts = [item['text'] for item in region['res']]
+                    texts = [item["text"] for item in region["res"]]
                     full_text = "\n".join(texts)
                     self._render_text_to_slide(full_text, slide, r_left, r_top, r_width, r_height)
                 except Exception as e:  # noqa: F841
@@ -219,6 +221,7 @@ class ClinicalDocConverter:
                 else:
                     run.font.size = Pt(9)
 
+
 # ----------------- 启动区 -----------------
 def main() -> None:
     base_dir = Path(__file__).resolve().parent
@@ -238,6 +241,7 @@ def main() -> None:
 
     converter = ClinicalDocConverter()
     converter.process_file(input_path, output_path)
+
 
 if __name__ == "__main__":
     main()

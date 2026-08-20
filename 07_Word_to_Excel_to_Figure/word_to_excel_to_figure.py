@@ -294,7 +294,7 @@ def _extract_table_matrix(table: Any) -> tuple[list[list[str]], list[list[float 
     return text_matrix, num_matrix
 
 
-def _match_cat_and_val_columns(
+def _match_cat_and_val_columns(  # noqa: PLR0912 - TODO: 下个迭代重构
     text_matrix: list[list[str]],
     num_matrix: list[list[float | None]],
     cat_values: list[str],
@@ -524,17 +524,18 @@ def _find_skeleton_xlsx(template_xlsx_arg: str | None) -> Path:
         return p
 
     # 优先从 Template/ 找
-    candidates = [p for p in TEMPLATE_DIR.iterdir() if p.is_file() and p.suffix.lower() == ".xlsx"] if TEMPLATE_DIR.exists() else []
+    candidates = (
+        [p for p in TEMPLATE_DIR.iterdir() if p.is_file() and p.suffix.lower() == ".xlsx"]
+        if TEMPLATE_DIR.exists()
+        else []
+    )  # noqa: E501
     # 兼容：也允许旧行为（模块根目录）
     if not candidates:
         candidates = [p for p in MODULE_DIR.iterdir() if p.is_file() and p.suffix.lower() == ".xlsx"]
 
     if len(candidates) == 0:
         raise ValueError(
-            "未找到骨架 Excel。\n"
-            "请把一份骨架 xlsx 放到："
-            f"{TEMPLATE_DIR}\n"
-            "或者运行时用 `--template-xlsx` 指定骨架路径。"
+            f"未找到骨架 Excel。\n请把一份骨架 xlsx 放到：{TEMPLATE_DIR}\n或者运行时用 `--template-xlsx` 指定骨架路径。"
         )
     if len(candidates) != 1:
         raise ValueError(
@@ -544,7 +545,7 @@ def _find_skeleton_xlsx(template_xlsx_arg: str | None) -> Path:
     return candidates[0]
 
 
-def _select_best_skeleton_xlsx(
+def _select_best_skeleton_xlsx(  # noqa: PLR0915 - TODO: 下个迭代重构 # noqa: PLR0912 - TODO: 下个迭代重构
     template_xlsx_arg: str | None,
     template_dir: Path,
     word_parts: list[Path],
@@ -556,7 +557,11 @@ def _select_best_skeleton_xlsx(
     if template_xlsx_arg:
         return _find_skeleton_xlsx(template_xlsx_arg)
 
-    candidates = [p for p in template_dir.iterdir() if p.is_file() and p.suffix.lower() == ".xlsx"] if template_dir.exists() else []
+    candidates = (
+        [p for p in template_dir.iterdir() if p.is_file() and p.suffix.lower() == ".xlsx"]
+        if template_dir.exists()
+        else []
+    )  # noqa: E501
     if not candidates:
         raise ValueError(f"未找到骨架 xlsx：{template_dir}")
     if len(candidates) == 1:
@@ -638,7 +643,7 @@ def _select_best_skeleton_xlsx(
     return best_path
 
 
-def _write_output_and_self_check(
+def _write_output_and_self_check(  # noqa: PLR0915 - TODO: 下个迭代重构 # noqa: PLR0912 - TODO: 下个迭代重构
     template_path: Path,
     out_path: Path,
     word_parts: list[Path],
@@ -702,15 +707,26 @@ def _write_output_and_self_check(
 
             # 对每个 series(cat/val) 做一次填充
             for idx, sr in enumerate(series_refs, 1):
-                logger.info("填充 series %d/%d: %s!%s -> %s!%s", idx, len(series_refs),
-                            sr.cat.sheet, (sr.cat.min_row, sr.cat.min_col), sr.val.sheet, (sr.val.min_row, sr.val.min_col))
+                logger.info(
+                    "填充 series %d/%d: %s!%s -> %s!%s",
+                    idx,
+                    len(series_refs),
+                    sr.cat.sheet,
+                    (sr.cat.min_row, sr.cat.min_col),
+                    sr.val.sheet,
+                    (sr.val.min_row, sr.val.min_col),
+                )  # noqa: E501
 
                 tcat_ws = template_wb[sr.cat.sheet]
                 tval_ws = template_wb[sr.val.sheet]
 
                 # 提取模板 cat/val 值（假设是 1 列：min_col==max_col）
-                template_cat_values = [tcat_ws.cell(sr.cat.min_row + k, sr.cat.min_col).value for k in range(sr.cat.nrows)]
-                template_val_values = [tval_ws.cell(sr.val.min_row + k, sr.val.min_col).value for k in range(sr.val.nrows)]
+                template_cat_values = [
+                    tcat_ws.cell(sr.cat.min_row + k, sr.cat.min_col).value for k in range(sr.cat.nrows)
+                ]  # noqa: E501
+                template_val_values = [
+                    tval_ws.cell(sr.val.min_row + k, sr.val.min_col).value for k in range(sr.val.nrows)
+                ]  # noqa: E501
 
                 template_cat_values_norm = [_strip_word_cell_text(v) for v in template_cat_values]
                 template_is_proportion = _detect_template_is_proportion(template_val_values)
@@ -734,10 +750,7 @@ def _write_output_and_self_check(
                     subtable_id = _subtable_id_from_cell_range(sr.cat)
                     refs = table_mapping.get(subtable_id) if table_mapping else None
                     if not refs:
-                        raise ValueError(
-                            f"未找到 subtable_id 对应的 table_mapping：{subtable_id}\n"
-                            f"当前 series={sr}"
-                        )
+                        raise ValueError(f"未找到 subtable_id 对应的 table_mapping：{subtable_id}\n当前 series={sr}")
 
                     seen_table_ids: set[tuple[int, int]] = set()
                     for ref in refs:
@@ -796,7 +809,7 @@ def _write_output_and_self_check(
 
                 # 再对 val 用 table 匹配抽取
                 # 为复用匹配函数，将 cat/val 都在同一个 table 中匹配
-                def _fill_val_from_tables() -> None:
+                def _fill_val_from_tables() -> None:  # noqa: PLR0915 - TODO: 下个迭代重构
                     nonlocal extracted_count
                     # 简化：用任意一个 ws 作为 template_ws 读取值
                     template_ws = template_wb[sr.val.sheet]
@@ -821,7 +834,9 @@ def _write_output_and_self_check(
                                 pending_updates[(sr.val.sheet, sr.val.min_row + k, sr.val.min_col)] = tval
                                 continue
 
-                            scaled = _coerce_word_number_scale(float(wnum), template_is_proportion=template_is_proportion)
+                            scaled = _coerce_word_number_scale(
+                                float(wnum), template_is_proportion=template_is_proportion
+                            )  # noqa: E501
                             extracted_count += 1
                             # 若模板该格是整数，则尽量按整数写回
                             if isinstance(tval, (int, float)) and abs(float(tval) - round(float(tval))) < 1e-9:
@@ -839,7 +854,7 @@ def _write_output_and_self_check(
                     val_header_keys_norm = [_strip_word_cell_text(v) for v in val_header_keys if v is not None]
                     val_header_keys_norm = [v for v in val_header_keys_norm if v]
 
-                    def find_val_for_one_label(label_norm: str) -> float:
+                    def find_val_for_one_label(label_norm: str) -> float:  # noqa: PLR0912 - TODO: 下个迭代重构
                         """
                         在包含 label_norm 的表格行中：
                         - 用 val_header_keys_norm 先确定“更像值列”的列（列头匹配优先）
@@ -891,7 +906,9 @@ def _write_output_and_self_check(
                                 return sum(1 for rr in range(R) if num_matrix[rr][cc] is not None)
 
                             ordered_cols = list(range(C))
-                            ordered_cols.sort(key=lambda cc: (col_header_score[cc], col_numeric_score(cc)), reverse=True)
+                            ordered_cols.sort(
+                                key=lambda cc: (col_header_score[cc], col_numeric_score(cc)), reverse=True
+                            )  # noqa: E501
 
                             for rr in range(R):
                                 # 这一行是否出现过该 label？
@@ -904,7 +921,9 @@ def _write_output_and_self_check(
                                     wnum = num_matrix[rr][cc]
                                     if wnum is None:
                                         continue
-                                    scaled = _coerce_word_number_scale(float(wnum), template_is_proportion=template_is_proportion)
+                                    scaled = _coerce_word_number_scale(
+                                        float(wnum), template_is_proportion=template_is_proportion
+                                    )  # noqa: E501
                                     return float(scaled)
 
                         raise ValueError(f"未能在 Word 表中定位 label={label_norm!r} 的可解析 val")
@@ -921,7 +940,9 @@ def _write_output_and_self_check(
                             extracted_count += 1
                             # 若模板是整数，尽量写回整数
                             if isinstance(tval, (int, float)) and abs(float(tval) - round(float(tval))) < 1e-9:
-                                pending_updates[(sr.val.sheet, sr.val.min_row + k, sr.val.min_col)] = int(round(extracted))
+                                pending_updates[(sr.val.sheet, sr.val.min_row + k, sr.val.min_col)] = int(
+                                    round(extracted)
+                                )  # noqa: E501
                             else:
                                 pending_updates[(sr.val.sheet, sr.val.min_row + k, sr.val.min_col)] = extracted
                         except Exception:
@@ -1063,9 +1084,7 @@ def _self_check_extraction_coverage(
         extracted = int(st.get("extracted_count", 0) or 0)
         ratio = extracted / exp if exp else 0.0
         if ratio < min_extracted_ratio:
-            errors.append(
-                f"series_index={st.get('series_index')} 抽取覆盖率过低: {extracted}/{exp} ({ratio:.2%})"
-            )
+            errors.append(f"series_index={st.get('series_index')} 抽取覆盖率过低: {extracted}/{exp} ({ratio:.2%})")
 
     if errors:
         sample = "\n".join(errors[:10])
@@ -1089,7 +1108,9 @@ def main() -> None:
     )
     parser.add_argument("--output-xlsx", default=None, help="输出 Excel 路径（默认：output/replicate_<骨架名>.xlsx）")
     parser.add_argument("--plan-only", action="store_true", help="仅生成 Excel 子表 -> Word 表映射候选，并退出")
-    parser.add_argument("--plan-out-json", default=None, help="plan-only 输出的 JSON 路径（默认：output/table_mapping_plan_*.json）")
+    parser.add_argument(
+        "--plan-out-json", default=None, help="plan-only 输出的 JSON 路径（默认：output/table_mapping_plan_*.json）"
+    )  # noqa: E501
     parser.add_argument("--table-map-json", default=None, help="使用你确认后的 table 映射 JSON 来限定数据抓取来源")
     parser.add_argument("--verbose", "-v", action="store_true", help="显示更详细日志")
 
@@ -1177,4 +1198,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

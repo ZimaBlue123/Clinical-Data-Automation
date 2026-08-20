@@ -8,11 +8,7 @@ from typing import Any
 
 from settings import load_settings, check_environment
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
 
 
 class ClinicalDataGuard:
@@ -33,16 +29,10 @@ class ClinicalDataGuard:
         self.model_id = model_id
 
         self.session = requests.Session()
-        self.session.headers.update({
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {token}"
-        })
+        self.session.headers.update({"Content-Type": "application/json", "Authorization": f"Bearer {token}"})
 
         retry_strategy = Retry(
-            total=3,
-            backoff_factor=1.0,
-            status_forcelist=[429, 500, 502, 503, 504],
-            allowed_methods=["POST"]
+            total=3, backoff_factor=1.0, status_forcelist=[429, 500, 502, 503, 504], allowed_methods=["POST"]
         )
         adapter = HTTPAdapter(max_retries=retry_strategy)
         self.session.mount("http://", adapter)
@@ -105,7 +95,7 @@ class ClinicalDataGuard:
                 normalized[k] = v
         return normalized
 
-    def extract(self, clinical_text: str, timeout: int = 120) -> dict[str, Any] | None:
+    def extract(self, clinical_text: str, timeout: int = 120) -> dict[str, Any] | None:  # noqa: PLR0911 - TODO: 下个迭代重构
         if not isinstance(clinical_text, str) or not clinical_text.strip():
             logging.warning("输入文本为空或非字符串，跳过提取。")
             return None
@@ -114,21 +104,17 @@ class ClinicalDataGuard:
             "model": self.model_id,
             "messages": [
                 {"role": "system", "content": self.system_prompt},
-                {"role": "user", "content": f"病历文本：\n{clinical_text}"}
+                {"role": "user", "content": f"病历文本：\n{clinical_text}"},
             ],
             "temperature": 0.0,
             "top_p": 0.1,
-            "response_format": {"type": "json_object"}
+            "response_format": {"type": "json_object"},
         }
 
         logging.info(f"发起 SAE 实体提取请求 | 文本长度: {len(clinical_text)} 字符")
 
         try:
-            response = self.session.post(
-                self.endpoint,
-                json=payload,
-                timeout=timeout
-            )
+            response = self.session.post(self.endpoint, json=payload, timeout=timeout)
             response.raise_for_status()
 
             response_json = response.json()
@@ -166,7 +152,9 @@ class ClinicalDataGuard:
 if __name__ == "__main__":
     settings = load_settings()
     env = check_environment(settings)
-    logging.info(f"环境自检摘要 | Tesseract: {env['tesseract']['ok']} | Poppler: {env['poppler']['ok']} | Token已配置: {env['api']['token_set']}")
+    logging.info(
+        f"环境自检摘要 | Tesseract: {env['tesseract']['ok']} | Poppler: {env['poppler']['ok']} | Token已配置: {env['api']['token_set']}"
+    )  # noqa: E501
 
     if not settings.api_token:
         raise SystemExit(
@@ -176,11 +164,7 @@ if __name__ == "__main__":
             "然后重试。"
         )
 
-    extractor = ClinicalDataGuard(
-        base_url=settings.api_base_url,
-        token=settings.api_token,
-        model_id=settings.model_id
-    )
+    extractor = ClinicalDataGuard(base_url=settings.api_base_url, token=settings.api_token, model_id=settings.model_id)
 
     test_clinical_text = """
     受试者编号 S-0012，于2026年3月10日因“持续高热伴胸闷”入院。

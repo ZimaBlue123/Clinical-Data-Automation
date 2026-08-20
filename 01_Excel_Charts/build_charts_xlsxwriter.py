@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pandas as pd
 from openpyxl import load_workbook
+import sys
 
 BASE = Path(__file__).resolve().parent
 DEFAULT_INPUT = BASE / "input" / "不同剂量组ADR分析 (TFL).xlsx"
@@ -124,7 +125,7 @@ COLOR_MAP = {
     "低剂量佐剂组": "#ED7D31",  # Soft Orange
     "高剂量佐剂组": "#C00000",  # Deep Brick Red
     # 安慰剂组 (中性灰)
-    "安慰剂组": "#7F7F7F",      # Medium Gray - Baseline
+    "安慰剂组": "#7F7F7F",  # Medium Gray - Baseline
 }
 
 # 非临床配色时的固定色板（与 GROUP_NAMES 顺序一致）
@@ -137,7 +138,7 @@ LEGACY_COLORS = [
 ]
 
 
-def _get_series_color(name: str, use_clinical: bool) -> str:
+def _get_series_color(name: str, use_clinical: bool) -> str:  # noqa: PLR0911 - TODO: 下个迭代重构
     """
     根据系列名称返回 HEX 颜色。
 
@@ -180,7 +181,7 @@ def _get_series_color(name: str, use_clinical: bool) -> str:
     return COLOR_MAP["安慰剂组"]
 
 
-def _read_source_data():
+def _read_source_data():  # noqa: PLR0915 - TODO: 下个迭代重构 # noqa: PLR0912 - TODO: 下个迭代重构
     """
     用 openpyxl 仅读取数据，不写入任何图表。
 
@@ -225,7 +226,7 @@ def _read_source_data():
                 "counts": [[] for _ in range(5)],
                 "rates": [[] for _ in range(5)],
             }
-            for ar, tr in zip(adr_rows, total_rows):
+            for ar, tr in zip(adr_rows, total_rows, strict=False):
                 chart_data["adr_names"].append(ws_data.cell(ar, 1).value or "")
                 for i, col in enumerate([3, 6, 9, 12, 15]):
                     v = ws_data.cell(tr, col).value
@@ -242,7 +243,7 @@ def _read_source_data():
             group_names = []
             for c in range(2, 7):  # B..F
                 v = ws_data.cell(1, c).value
-                group_names.append(str(v).strip() if v is not None else f"Group{c-1}")
+                group_names.append(str(v).strip() if v is not None else f"Group{c - 1}")
             adr_names = []
             values = [[] for _ in range(5)]
             for r in range(3, ws_data.max_row + 1):
@@ -274,7 +275,7 @@ def _read_source_data():
             wb.close()
 
 
-def build(use_clinical_colors: bool = False):
+def build(use_clinical_colors: bool = False):  # noqa: PLR0915 - TODO: 下个迭代重构 # noqa: PLR0912 - TODO: 下个迭代重构
     """
     构建 Excel 图表。
 
@@ -302,7 +303,9 @@ def build(use_clinical_colors: bool = False):
             print(f"警告: 无法删除旧文件 {OUT}: {e}")
             # 继续尝试写入，可能会失败但至少尝试一下
 
-    with pd.ExcelWriter(str(OUT), engine="xlsxwriter", engine_kwargs={"options": {"nan_inf_to_errors": True}}) as writer:
+    with pd.ExcelWriter(
+        str(OUT), engine="xlsxwriter", engine_kwargs={"options": {"nan_inf_to_errors": True}}
+    ) as writer:  # noqa: E501
         workbook = writer.book
         pct_fmt = workbook.add_format({"num_format": "0.00%"})
         # 主表：原样写回数据（公式或值）
@@ -343,13 +346,15 @@ def build(use_clinical_colors: bool = False):
                 col_letter = chr(66 + i)  # B,C,D,E,F
                 series_name = f"{GROUP_NAMES[i]}-例数"
                 color = _get_series_color(series_name, use_clinical_colors)
-                col_chart.add_series({
-                    "name": f"=ChartData!${col_letter}$1",
-                    "categories": f"=ChartData!$A$2:$A${1 + n_cat}",
-                    "values": f"=ChartData!${col_letter}$2:${col_letter}${1 + n_cat}",
-                    "fill": {"color": color},
-                    "border": {"color": "#FFFFFF", "width": 0.5} if use_clinical_colors else {"color": "black"},
-                })
+                col_chart.add_series(
+                    {
+                        "name": f"=ChartData!${col_letter}$1",
+                        "categories": f"=ChartData!$A$2:$A${1 + n_cat}",
+                        "values": f"=ChartData!${col_letter}$2:${col_letter}${1 + n_cat}",
+                        "fill": {"color": color},
+                        "border": {"color": "#FFFFFF", "width": 0.5} if use_clinical_colors else {"color": "black"},
+                    }
+                )
 
             # 折线 5 个系列（发生率，次坐标 y2_axis）
             for i in range(5):
@@ -363,20 +368,24 @@ def build(use_clinical_colors: bool = False):
                     "y2_axis": 1,
                 }
                 if use_clinical_colors:
-                    line_kwargs.update({
-                        "line": {"width": 1.5, "color": color},
-                        "marker": {
-                            "type": "circle",
-                            "size": 5,
-                            "border": {"color": color},
-                            "fill": {"color": color},
-                        },
-                    })
+                    line_kwargs.update(
+                        {
+                            "line": {"width": 1.5, "color": color},
+                            "marker": {
+                                "type": "circle",
+                                "size": 5,
+                                "border": {"color": color},
+                                "fill": {"color": color},
+                            },
+                        }
+                    )
                 else:
-                    line_kwargs.update({
-                        "line": {"width": 1.25, "color": LEGACY_COLORS[i]},
-                        "marker": {"type": "circle", "size": 5},
-                    })
+                    line_kwargs.update(
+                        {
+                            "line": {"width": 1.25, "color": LEGACY_COLORS[i]},
+                            "marker": {"type": "circle", "size": 5},
+                        }
+                    )
                 line_chart.add_series(line_kwargs)
 
             col_chart.combine(line_chart)
@@ -388,33 +397,39 @@ def build(use_clinical_colors: bool = False):
 
             title = "不同剂量组ADR发生情况（临床规范配色）" if use_clinical_colors else "不同剂量组ADR发生情况"
             chart.set_title({"name": title})
-            chart.set_x_axis({
-                "name": "",
-                "major_tick_mark": "outside",
-                "line": {"color": "black", "width": 0.75},
-            })
-            chart.set_y_axis({
-                "name": "例数 (n)",
-                "major_gridlines": {"visible": False},
-                "major_tick_mark": "outside",
-                "line": {"color": "black", "width": 0.75},
-                "num_format": "0",
-                "name_font": {"size": 10, "name": "Arial"},
-                "min": y_min,
-                "max": y_max,
-                "major_unit": y_unit,
-            })
-            line_chart.set_y2_axis({
-                "name": "发生率 (%)",
-                "major_gridlines": {"visible": False},
-                "major_tick_mark": "outside",
-                "line": {"color": "black", "width": 0.75},
-                "num_format": "0.00%",
-                "min": r_min,
-                "max": r_max,
-                "major_unit": r_unit,
-                "name_font": {"size": 10, "name": "Arial"},
-            })
+            chart.set_x_axis(
+                {
+                    "name": "",
+                    "major_tick_mark": "outside",
+                    "line": {"color": "black", "width": 0.75},
+                }
+            )
+            chart.set_y_axis(
+                {
+                    "name": "例数 (n)",
+                    "major_gridlines": {"visible": False},
+                    "major_tick_mark": "outside",
+                    "line": {"color": "black", "width": 0.75},
+                    "num_format": "0",
+                    "name_font": {"size": 10, "name": "Arial"},
+                    "min": y_min,
+                    "max": y_max,
+                    "major_unit": y_unit,
+                }
+            )
+            line_chart.set_y2_axis(
+                {
+                    "name": "发生率 (%)",
+                    "major_gridlines": {"visible": False},
+                    "major_tick_mark": "outside",
+                    "line": {"color": "black", "width": 0.75},
+                    "num_format": "0.00%",
+                    "min": r_min,
+                    "max": r_max,
+                    "major_unit": r_unit,
+                    "name_font": {"size": 10, "name": "Arial"},
+                }
+            )
             chart.set_legend({"position": "bottom"})
             ws.insert_chart("L6", chart)
         else:
@@ -430,29 +445,33 @@ def build(use_clinical_colors: bool = False):
             chart = workbook.add_chart({"type": "column"})
             for i in range(5):
                 col_letter = chr(66 + i)  # B..F
-                chart.add_series({
-                    "name": f"=ChartData!${col_letter}$1",
-                    "categories": f"=ChartData!$A$2:$A${1 + n_cat}",
-                    "values": f"=ChartData!${col_letter}$2:${col_letter}${1 + n_cat}",
-                    "fill": {"color": LEGACY_COLORS[i]},
-                    "border": {"color": "black"},
-                })
+                chart.add_series(
+                    {
+                        "name": f"=ChartData!${col_letter}$1",
+                        "categories": f"=ChartData!$A$2:$A${1 + n_cat}",
+                        "values": f"=ChartData!${col_letter}$2:${col_letter}${1 + n_cat}",
+                        "fill": {"color": LEGACY_COLORS[i]},
+                        "border": {"color": "black"},
+                    }
+                )
 
             # 坐标轴范围与表格数据匹配
             dy_min, dy_max, dy_unit = _axis_bounds_from_duration(chart_data["values"])
 
             chart.set_title({"name": "不同剂量组ADR持续时间"})
             chart.set_x_axis({"line": {"color": "black", "width": 0.75}})
-            chart.set_y_axis({
-                "name": "持续时间（天）",
-                "major_gridlines": {"visible": False},
-                "line": {"color": "black", "width": 0.75},
-                "num_format": "0.0",
-                "name_font": {"size": 10, "name": "Arial"},
-                "min": dy_min,
-                "max": dy_max,
-                "major_unit": dy_unit,
-            })
+            chart.set_y_axis(
+                {
+                    "name": "持续时间（天）",
+                    "major_gridlines": {"visible": False},
+                    "line": {"color": "black", "width": 0.75},
+                    "num_format": "0.0",
+                    "name_font": {"size": 10, "name": "Arial"},
+                    "min": dy_min,
+                    "max": dy_max,
+                    "major_unit": dy_unit,
+                }
+            )
             chart.set_legend({"position": "bottom"})
             ws.insert_chart("H3", chart)
 
@@ -489,12 +508,13 @@ if __name__ == "__main__":
         build(use_clinical_colors=args.clinical_colors)
     except FileNotFoundError as e:
         print(f"错误: 文件未找到 - {e}")
-        exit(1)
+        sys.exit(1)
     except ValueError as e:
         print(f"错误: 数据格式错误 - {e}")
-        exit(1)
+        sys.exit(1)
     except Exception as e:
         print(f"错误: {e}")
         import traceback
+
         traceback.print_exc()
-        exit(1)
+        sys.exit(1)

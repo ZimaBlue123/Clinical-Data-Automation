@@ -2,6 +2,7 @@
 按 config 从 PDF 检索内容并写入 Excel 对应位置。
 用法: python main.py [--config config.yaml]
 """
+
 from __future__ import annotations
 
 import argparse
@@ -28,9 +29,7 @@ from src.pdf_reader import (
 
 # 配置日志
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
 )
 logger = logging.getLogger(__name__)
 
@@ -72,7 +71,7 @@ def resolve_path(base_dir: Path, path_str: str) -> Path:
     return p.resolve()
 
 
-def run_rule(
+def run_rule(  # noqa: PLR0915 - TODO: 下个迭代重构 # noqa: PLR0912 - TODO: 下个迭代重构 # noqa: PLR0911 - TODO: 下个迭代重构
     rule: dict,
     pdf_path: Path,
     wb,
@@ -202,7 +201,7 @@ def run_rule(
     print(f"  [跳过] {name}: 请配置 keyword 或 page")
 
 
-def main():
+def main():  # noqa: PLR0915 - TODO: 下个迭代重构 # noqa: PLR0912 - TODO: 下个迭代重构
     """主函数。"""
     parser = argparse.ArgumentParser(description="从 PDF 按规则检索并写入 Excel")
     parser.add_argument("--config", "-c", default="config.yaml", help="配置文件路径")
@@ -210,7 +209,9 @@ def main():
     parser.add_argument("--output", "-o", default=None, help="可选：覆盖 config 中的 excel_path")
     parser.add_argument("--overwrite", action="store_true", help="覆盖已存在输出 Excel")
     parser.add_argument("--verbose", "-v", action="store_true", help="显示详细日志")
-    parser.add_argument("--exclusion-json", default=None, help="可选：水印排除框 boxes.json 路径（用于跳过疑似干扰区域）")
+    parser.add_argument(
+        "--exclusion-json", default=None, help="可选：水印排除框 boxes.json 路径（用于跳过疑似干扰区域）"
+    )  # noqa: E501
     parser.add_argument(
         "--no-mapping-audit",
         action="store_true",
@@ -219,7 +220,7 @@ def main():
     parser.add_argument(
         "--mapping-audit-output",
         default=None,
-        help="可选：将 mapping_audit 单独写入该 JSON 路径；未指定时合并到同目录 *_watermark_report.json 或写入 *_mapping_audit.json",
+        help="可选：将 mapping_audit 单独写入该 JSON 路径；未指定时合并到同目录 *_watermark_report.json 或写入 *_mapping_audit.json",  # noqa: E501
     )
     args = parser.parse_args()
 
@@ -305,10 +306,7 @@ def main():
                     pdf_stem = stem[: -len("_boxes")] if stem.endswith("_boxes") else stem
                     out_dir = excl_path.parent
 
-                    if args.mapping_audit_output:
-                        audit_out = resolve_path(base_dir, args.mapping_audit_output)
-                    else:
-                        audit_out = None
+                    audit_out = resolve_path(base_dir, args.mapping_audit_output) if args.mapping_audit_output else None
 
                     wm_path = out_dir / f"{pdf_stem}_watermark_report.json"
                     standalone_path = out_dir / f"{pdf_stem}_mapping_audit.json"

@@ -89,9 +89,7 @@ def batch_set_scaling(input_dir: str, output_dir: str, max_workers: int = 4) -> 
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         # 构建 Future 映射
-        future_to_pdf = {
-            executor.submit(fix_pdf_zoom, pdf, out_path / pdf.name): pdf for pdf in pdf_files
-        }
+        future_to_pdf = {executor.submit(fix_pdf_zoom, pdf, out_path / pdf.name): pdf for pdf in pdf_files}
 
         success_cnt = 0
         for future in as_completed(future_to_pdf):

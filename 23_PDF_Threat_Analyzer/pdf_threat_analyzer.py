@@ -29,6 +29,7 @@ PDF 威胁分析与工业级安全剥离工具（模块 23）。
   2  自检 / 依赖前置失败
   130 用户中断
 """
+
 from __future__ import annotations
 
 import argparse
@@ -70,6 +71,7 @@ def _configure_logging(verbose: bool = False) -> None:
 @dataclass
 class EngineStatus:
     """外部引擎可用性快照。"""
+
     fitz: bool = False
     pypdf: bool = False
     qpdf: bool = False
@@ -90,11 +92,13 @@ def detect_engines() -> EngineStatus:
     status = EngineStatus()
     try:
         import fitz  # noqa: F401
+
         status.fitz = True
     except Exception:
         pass
     try:
         from pypdf import PdfReader  # noqa: F401
+
         status.pypdf = True
     except Exception:
         pass
@@ -110,12 +114,12 @@ def detect_engines() -> EngineStatus:
 RISK_KEYWORDS: dict[bytes, int] = {
     b"/JavaScript": 3,
     b"/JS": 3,
-    b"/OpenAction": 2,   # 自动执行动作
-    b"/AA": 2,           # 附加动作
-    b"/Launch": 3,       # 启动外部程序
+    b"/OpenAction": 2,  # 自动执行动作
+    b"/AA": 2,  # 附加动作
+    b"/Launch": 3,  # 启动外部程序
     b"/EmbeddedFiles": 2,
     b"/SubmitForm": 1,
-    b"/URI": 1,          # 外部链接（仅按出现计数，不区分协议）
+    b"/URI": 1,  # 外部链接（仅按出现计数，不区分协议）
 }
 
 # 已知恶意 URL 协议（用于 sanitize 步骤定向剥离，不参与风险评分）
@@ -129,8 +133,7 @@ MMAP_THRESHOLD_BYTES = 1 * 1024 * 1024
 # key: 关键字 bytes；value: (权重, 编译后的 pattern)
 # pattern 在关键字后接 [^a-zA-Z0-9] 边界，避免误报 /JavaScriptable 这类带后缀的合法名。
 COMPILED_RISK_PATTERNS: dict[bytes, tuple[int, re.Pattern[bytes]]] = {
-    kw: (weight, re.compile(re.escape(kw) + b"[^a-zA-Z0-9]"))
-    for kw, weight in RISK_KEYWORDS.items()
+    kw: (weight, re.compile(re.escape(kw) + b"[^a-zA-Z0-9]")) for kw, weight in RISK_KEYWORDS.items()
 }
 
 
@@ -157,8 +160,7 @@ class PDFThreatAnalyzer:
 
     # -- 内部工具 ----------------------------------------------------------
     def _log_error(self, message: str) -> None:
-        logger.error("action=analysis_error file=%s reason=%s",
-                     self.file_path.name, message)
+        logger.error("action=analysis_error file=%s reason=%s", self.file_path.name, message)
         self.report["errors"].append(message)
 
     # -- 三层检测 ----------------------------------------------------------
@@ -223,7 +225,7 @@ class PDFThreatAnalyzer:
         self.report["raw_keyword_hits"][key_str] = count
         self.report["risk_score"] += weight * count
 
-    def _extract_structural_data(self) -> None:
+    def _extract_structural_data(self) -> None:  # noqa: PLR0912 - TODO: 下个迭代重构
         """解析 PDF 结构树，提取 URL 并识别加密。"""
         try:
             from pypdf import PdfReader  # 复用探测结果
@@ -274,10 +276,7 @@ class PDFThreatAnalyzer:
         url_list = sorted(urls)
         self.report["extracted_urls"] = url_list
         # 标记可疑 URL（恶意协议）
-        suspicious = [
-            u for u in url_list
-            if any(u.lower().startswith(p) for p in BAD_URL_PROTOCOLS)
-        ]
+        suspicious = [u for u in url_list if any(u.lower().startswith(p) for p in BAD_URL_PROTOCOLS)]
         self.report["suspicious_urls"] = suspicious
         if suspicious:
             self.report["risk_score"] += len(suspicious) * 2  # 恶意协议链接加权
@@ -306,14 +305,15 @@ class PDFThreatAnalyzer:
             self._log_error("非标准 PDF 文件结构")
             return self.report
 
-        logger.info("action=analyze_start file=%s size_bytes=%s",
-                    self.file_path.name, self.report["file_size_bytes"])
+        logger.info("action=analyze_start file=%s size_bytes=%s", self.file_path.name, self.report["file_size_bytes"])
         self._scan_raw_binary()
         self._extract_structural_data()
         self._calculate_risk_level()
         logger.info(
             "action=analyze_done file=%s risk_level=%s score=%s",
-            self.file_path.name, self.report["risk_level"], self.report["risk_score"],
+            self.file_path.name,
+            self.report["risk_level"],
+            self.report["risk_score"],
         )
         return self.report
 
@@ -350,7 +350,7 @@ class PDFSanitizer:
         return False, "无可用 sanitize 引擎（需 fitz 或 pypdf）"
 
     # -- fitz 路径（mupdf 内核，参考 15_PDF_XSS） ----------------------------
-    def _sanitize_with_fitz(self, src: Path, dst: Path) -> tuple[bool, str]:
+    def _sanitize_with_fitz(self, src: Path, dst: Path) -> tuple[bool, str]:  # noqa: PLR0915 - TODO: 下个迭代重构 # noqa: PLR0912 - TODO: 下个迭代重构
         try:
             import fitz  # type: ignore
         except ImportError:
@@ -424,6 +424,7 @@ class PDFSanitizer:
         if self.engines.pypdf and intermediate is not None:
             try:
                 from pypdf import PdfReader, PdfWriter  # type: ignore
+
                 reader = PdfReader(str(intermediate))
                 writer = PdfWriter()
                 for page in reader.pages:
@@ -467,8 +468,7 @@ class PDFSanitizer:
             ok, msg = self._qpdf_linearize_check(dst)
             qpdf_msg = f"; qpdf-check={'ok' if ok else 'fail'}"
             if not ok:
-                logger.warning("action=qpdf_check_failed file=%s reason=%s",
-                               dst.name, msg)
+                logger.warning("action=qpdf_check_failed file=%s reason=%s", dst.name, msg)
 
         engine_used = (
             f"fitz(annots={removed_annots}, links={removed_links}, embeds={removed_embeds})"
@@ -477,12 +477,13 @@ class PDFSanitizer:
         )
         logger.info(
             "action=sanitize_success file=%s engine=%s",
-            dst.name, engine_used,
+            dst.name,
+            engine_used,
         )
         return True, engine_used
 
     # -- pypdf 降级路径（基础结构级剥离） ------------------------------------
-    def _sanitize_with_pypdf(self, src: Path, dst: Path) -> tuple[bool, str]:
+    def _sanitize_with_pypdf(self, src: Path, dst: Path) -> tuple[bool, str]:  # noqa: PLR0912 - TODO: 下个迭代重构
         try:
             from pypdf import PdfReader, PdfWriter  # type: ignore
         except ImportError:
@@ -538,7 +539,9 @@ class PDFSanitizer:
         try:
             result = subprocess.run(
                 ["qpdf", "--check", str(pdf_path)],
-                capture_output=True, text=True, timeout=60,
+                capture_output=True,
+                text=True,
+                timeout=60,
             )
             if result.returncode == 0:
                 return True, "ok"
@@ -601,8 +604,7 @@ def run_batch(
                     "output_path": str(sanitized_path) if ok else None,
                 }
                 if not ok:
-                    logger.warning("action=sanitize_failed file=%s reason=%s",
-                                   pdf.name, msg)
+                    logger.warning("action=sanitize_failed file=%s reason=%s", pdf.name, msg)
 
             success += 1
         except Exception as exc:  # noqa: BLE001
@@ -613,8 +615,7 @@ def run_batch(
     summary = build_summary(reports, success, failed)
     summary_path = output_dir / f"threat_summary_{datetime.now():%Y%m%d_%H%M%S}.txt"
     summary_path.write_text(summary, encoding="utf-8")
-    logger.info("action=batch_done success=%s failed=%s total=%s",
-                success, failed, len(pdfs))
+    logger.info("action=batch_done success=%s failed=%s total=%s", success, failed, len(pdfs))
     logger.info("action=summary_written path=%s", summary_path)
     return 0 if failed == 0 else 1
 
@@ -638,13 +639,11 @@ def build_summary(reports: list[dict[str, Any]], success: int, failed: int) -> s
     ]
     sorted_reports = sorted(
         reports,
-        key=lambda r: {"HIGH": 0, "MEDIUM": 1, "LOW": 2, "UNKNOWN": 3}.get(
-            r.get("risk_level", "UNKNOWN"), 4),
+        key=lambda r: {"HIGH": 0, "MEDIUM": 1, "LOW": 2, "UNKNOWN": 3}.get(r.get("risk_level", "UNKNOWN"), 4),
     )
     for r in sorted_reports:
         lines.append(
-            f"  [{r.get('risk_level', 'UNKNOWN'):>7}] {r.get('file_name', '?')}"
-            f"  score={r.get('risk_score', 0)}"
+            f"  [{r.get('risk_level', 'UNKNOWN'):>7}] {r.get('file_name', '?')}  score={r.get('risk_score', 0)}"
         )
     return "\n".join(lines)
 
@@ -668,9 +667,7 @@ def self_check(output_dir: Path | None = None) -> int:
 
     # 1) 构造最小化测试 PDF（含 /JavaScript 模拟威胁）
     test_pdf_bytes = build_test_pdf_with_javascript()
-    with tempfile.NamedTemporaryFile(
-        prefix="selfcheck_", suffix=".pdf", delete=False
-    ) as tmp:
+    with tempfile.NamedTemporaryFile(prefix="selfcheck_", suffix=".pdf", delete=False) as tmp:
         tmp.write(test_pdf_bytes)
         tmp_path = Path(tmp.name)
     try:
@@ -681,9 +678,10 @@ def self_check(output_dir: Path | None = None) -> int:
         # 3) 验证关键字段
         assertions: list[tuple[bool, str]] = [
             (report["is_valid_pdf"], "is_valid_pdf 应为 True"),
-            ("/JavaScript" in report["raw_keyword_hits"]
-             or "/JS" in report["raw_keyword_hits"],
-             "raw_keyword_hits 应命中 /JavaScript 或 /JS"),
+            (
+                "/JavaScript" in report["raw_keyword_hits"] or "/JS" in report["raw_keyword_hits"],
+                "raw_keyword_hits 应命中 /JavaScript 或 /JS",
+            ),
             (report["risk_score"] > 0, "risk_score 应 > 0"),
             (report["risk_level"] in ("MEDIUM", "HIGH"), "risk_level 应为 MEDIUM 或 HIGH"),
         ]
@@ -709,10 +707,7 @@ def self_check(output_dir: Path | None = None) -> int:
             else:
                 # 重新扫描剥离后的 PDF，验证 /JavaScript 已消失
                 post = PDFThreatAnalyzer(sanitized).analyze()
-                js_remaining = (
-                    "/JavaScript" in post["raw_keyword_hits"]
-                    or "/JS" in post["raw_keyword_hits"]
-                )
+                js_remaining = "/JavaScript" in post["raw_keyword_hits"] or "/JS" in post["raw_keyword_hits"]
                 print(f"  {'✅' if not js_remaining else '❌'} sanitize 后 /JavaScript 已剥离（engine={msg}）")
                 if js_remaining:
                     logger.error("action=self_check_failed reason=sanitize_incomplete")
@@ -755,38 +750,54 @@ def build_test_pdf_with_javascript() -> bytes:
     writer.add_blank_page(width=612, height=792)
 
     # 注入 /OpenAction 指向一个 /JavaScript 动作
-    js_action = DictionaryObject({
-        NameObject("/Type"): NameObject("/Action"),
-        NameObject("/S"): NameObject("/JavaScript"),
-        NameObject("/JS"): TextStringObject("app.alert('payload')"),
-    })
+    js_action = DictionaryObject(
+        {
+            NameObject("/Type"): NameObject("/Action"),
+            NameObject("/S"): NameObject("/JavaScript"),
+            NameObject("/JS"): TextStringObject("app.alert('payload')"),
+        }
+    )
     writer._root_object[NameObject("/OpenAction")] = js_action
 
     # 注入 /AA（附加动作字典，触发时也可执行 JS）
-    writer._root_object[NameObject("/AA")] = DictionaryObject({
-        NameObject("/WC"): js_action,  # Will Close 时执行
-    })
+    writer._root_object[NameObject("/AA")] = DictionaryObject(
+        {
+            NameObject("/WC"): js_action,  # Will Close 时执行
+        }
+    )
 
     # 注入 /Names → /JavaScript（Named Action 入口）
-    writer._root_object[NameObject("/Names")] = DictionaryObject({
-        NameObject("/JavaScript"): DictionaryObject({
-            NameObject("/Names"): ArrayObject([
-                TextStringObject("selfcheck"),
-                js_action,
-            ]),
-        }),
-        NameObject("/EmbeddedFiles"): DictionaryObject({
-            NameObject("/Names"): ArrayObject([
-                TextStringObject("dummy"),
-                DictionaryObject({NameObject("/F"): TextStringObject("dummy.bin")}),
-            ]),
-        }),
-    })
+    writer._root_object[NameObject("/Names")] = DictionaryObject(
+        {
+            NameObject("/JavaScript"): DictionaryObject(
+                {
+                    NameObject("/Names"): ArrayObject(
+                        [
+                            TextStringObject("selfcheck"),
+                            js_action,
+                        ]
+                    ),
+                }
+            ),
+            NameObject("/EmbeddedFiles"): DictionaryObject(
+                {
+                    NameObject("/Names"): ArrayObject(
+                        [
+                            TextStringObject("dummy"),
+                            DictionaryObject({NameObject("/F"): TextStringObject("dummy.bin")}),
+                        ]
+                    ),
+                }
+            ),
+        }
+    )
 
     # 注入 /AcroForm（XSS 常见载体，sanitize 时移除）
-    writer._root_object[NameObject("/AcroForm")] = DictionaryObject({
-        NameObject("/Fields"): ArrayObject(),
-    })
+    writer._root_object[NameObject("/AcroForm")] = DictionaryObject(
+        {
+            NameObject("/Fields"): ArrayObject(),
+        }
+    )
 
     buf = io.BytesIO()
     writer.write(buf)
@@ -805,43 +816,59 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         description="PDF 威胁分析与工业级安全剥离（无渲染 / 静态扫描）",
     )
     parser.add_argument(
-        "--input", default=str(default_input),
+        "--input",
+        default=str(default_input),
         help="输入 PDF 文件或目录（默认: 模块 input/）",
     )
     parser.add_argument(
-        "--output", default=str(default_output),
+        "--output",
+        default=str(default_output),
         help="输出目录（默认: 模块 output/）",
     )
     parser.add_argument(
-        "--sanitize", action="store_true",
+        "--sanitize",
+        action="store_true",
         help="生成剥离威胁后的安全 PDF（*_sanitized.pdf）",
     )
     parser.add_argument(
-        "--no-sanitize", dest="sanitize", action="store_false",
+        "--no-sanitize",
+        dest="sanitize",
+        action="store_false",
         help="仅输出分析报告，不生成安全 PDF（默认）",
     )
     parser.add_argument(
-        "--engine", choices=("auto", "fitz", "pypdf"), default="auto",
+        "--engine",
+        choices=("auto", "fitz", "pypdf"),
+        default="auto",
         help="sanitize 引擎选择（默认 auto: fitz 优先，pypdf 降级）",
     )
     parser.add_argument(
-        "--recursive", dest="recursive", action="store_true", default=True,
+        "--recursive",
+        dest="recursive",
+        action="store_true",
+        default=True,
         help="递归遍历子目录（默认开启）",
     )
     parser.add_argument(
-        "--no-recursive", dest="recursive", action="store_false",
+        "--no-recursive",
+        dest="recursive",
+        action="store_false",
         help="不递归遍历",
     )
     parser.add_argument(
-        "--overwrite", action="store_true",
+        "--overwrite",
+        action="store_true",
         help="覆盖已存在的输出文件",
     )
     parser.add_argument(
-        "--self-check", action="store_true",
+        "--self-check",
+        action="store_true",
         help="运行标准自检（生成测试 PDF → 分析 → 验证）",
     )
     parser.add_argument(
-        "-v", "--verbose", action="store_true",
+        "-v",
+        "--verbose",
+        action="store_true",
         help="DEBUG 级日志",
     )
     parser.set_defaults(sanitize=False)
@@ -861,8 +888,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.sanitize and not (engines.fitz or engines.pypdf):
         logger.error("action=preflight_failed reason=no_sanitize_engine")
-        print("❌ 启用 --sanitize 需安装 fitz 或 pypdf（见 requirements.txt）",
-              file=sys.stderr)
+        print("❌ 启用 --sanitize 需安装 fitz 或 pypdf（见 requirements.txt）", file=sys.stderr)
         return 2
 
     if args.sanitize and args.engine == "fitz" and not engines.fitz:

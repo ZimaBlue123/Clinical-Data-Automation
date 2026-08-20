@@ -12,6 +12,7 @@
   python ppt_to_pdf.py --input "D:\\PPT" --output "D:\\PDF"
   python ppt_to_pdf.py --overwrite
 """
+
 from __future__ import annotations
 
 import argparse

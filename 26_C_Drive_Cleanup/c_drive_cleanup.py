@@ -40,6 +40,7 @@ CLI
     python c_drive_cleanup.py --targets "C:\\Temp" "C:\\Python314"
     python c_drive_cleanup.py --python-only          # 只看 Python 孤儿候选
 """
+
 from __future__ import annotations
 
 # ruff: noqa: S110, S112  —— os.walk / stat 在系统扫描中遇到 OSError 跳过的合理场景
@@ -69,8 +70,18 @@ logging.basicConfig(
 # ----------------------------------------------------------------------------
 
 USELESS_EXTS: set[str] = {
-    ".tmp", ".temp", ".bak", ".old", ".log", ".dmp", ".chk",
-    ".gid", ".~tmp", ".cache", ".crdownload", ".part",
+    ".tmp",
+    ".temp",
+    ".bak",
+    ".old",
+    ".log",
+    ".dmp",
+    ".chk",
+    ".gid",
+    ".~tmp",
+    ".cache",
+    ".crdownload",
+    ".part",
 }
 
 DEFAULT_REL_DIRS: list[str] = [r"C:\\Windows\\Temp"]
@@ -150,16 +161,14 @@ def dir_size(path: Path) -> tuple[int, float]:
                 except OSError:
                     continue
                 total += st.st_size
-                if st.st_mtime > latest:
-                    latest = st.st_mtime
+                latest = max(latest, st.st_mtime)
             for dname in dirnames:
                 dp = Path(dirpath) / dname
                 try:
                     st = dp.stat()
                 except OSError:
                     continue
-                if st.st_mtime > latest:
-                    latest = st.st_mtime
+                latest = max(latest, st.st_mtime)
     except OSError as e:
         logger.warning("dir_size: 访问 %s 失败: %s", path, e)
     return total, latest
@@ -326,19 +335,40 @@ _DEEP_HIT_NAMES: set[str] = {
 
 # 默认白名单：这些名字的目录永远不会被识别为 review 候选
 _WHITELIST_BASENAMES: set[str] = {
-    "windows", "boot", "recovery", "system volume information",
-    "msocache", "intel", "nvidia", "amd", "drivers",
-    "$recycle.bin", "found.000", "found.001",
-    "program files", "program files (x86)",
-    "programdata", "users",
+    "windows",
+    "boot",
+    "recovery",
+    "system volume information",
+    "msocache",
+    "intel",
+    "nvidia",
+    "amd",
+    "drivers",
+    "$recycle.bin",
+    "found.000",
+    "found.001",
+    "program files",
+    "program files (x86)",
+    "programdata",
+    "users",
     "perflogs",
 }
 
 # 根级硬命中名字（大小写不敏感）：出现在 C:\ 根上就直接走 review 判定
 _HARD_HIT_BASENAMES: tuple[str, ...] = (
-    "anaconda3", "miniconda3", "miniforge3", "enthought",
-    "python314", "python313", "python312", "python311", "python310",
-    "python39", "python38", "python37", "python36",
+    "anaconda3",
+    "miniconda3",
+    "miniforge3",
+    "enthought",
+    "python314",
+    "python313",
+    "python312",
+    "python311",
+    "python310",
+    "python39",
+    "python38",
+    "python37",
+    "python36",
 )
 
 
@@ -569,12 +599,10 @@ def _is_ide_main_install(path: Path) -> bool:
             return True
     # 退化：以主 exe 名压制同名目录
     exe_hint = _IDE_MAIN_EXES.get(name_low)
-    if exe_hint:
-        return True
-    return False
+    return bool(exe_hint)
 
 
-def _is_ide_junk(path: Path) -> tuple[bool, list[str]]:
+def _is_ide_junk(path: Path) -> tuple[bool, list[str]]:  # noqa: PLR0911 - TODO: 下个迭代重构
     """IDE 临时 / 升级残留识别——以 "明确不是主安装根" 为前提。
 
     只匹配以下模式:
@@ -605,14 +633,32 @@ def _is_ide_junk(path: Path) -> tuple[bool, list[str]]:
 
     # 2) 已知 IDE 产品名 + 子目录名为 cache/log/tmp
     known_ide_prods = {
-        "cursor", "code", "code - insiders",
-        "pycharm", "intellij", "clion", "rider", "webstorm",
-        "goland", "datagrip", "phpstorm", "rubymine",
+        "cursor",
+        "code",
+        "code - insiders",
+        "pycharm",
+        "intellij",
+        "clion",
+        "rider",
+        "webstorm",
+        "goland",
+        "datagrip",
+        "phpstorm",
+        "rubymine",
     }
     cache_subdirs = {
-        "cache", "cacheddata", "gpucache", "log", "logs", "tmp",
-        "crashdumps", "sharedb", "code cache", "blob_storage",
-        "webpack-cache", "local cache",
+        "cache",
+        "cacheddata",
+        "gpucache",
+        "log",
+        "logs",
+        "tmp",
+        "crashdumps",
+        "sharedb",
+        "code cache",
+        "blob_storage",
+        "webpack-cache",
+        "local cache",
     }
     if parent_low in known_ide_prods and name_low in cache_subdirs:
         return True, [f"ide:{parent_low}_{name_low}"]
@@ -659,7 +705,7 @@ def _is_windows_update_cache(path: Path) -> tuple[bool, list[str]]:
     return False, []
 
 
-def collect_dir_candidates(
+def collect_dir_candidates(  # noqa: PLR0915 - TODO: 下个迭代重构 # noqa: PLR0912 - TODO: 下个迭代重构
     *,
     roots: Iterable[Path] | None = None,
     python_only: bool = False,
@@ -841,11 +887,10 @@ def process_dir_candidates(
                 logger.info("isolated: %s -> %s", c.path, dest)
             else:
                 failed += 1
+        elif remove_dir(c.path):
+            removed += 1
         else:
-            if remove_dir(c.path):
-                removed += 1
-            else:
-                failed += 1
+            failed += 1
     return moved, removed, skipped, failed
 
 
@@ -861,11 +906,15 @@ def write_file_report(output_dir: Path, candidates: list[FileCandidate], action:
         w = csv.writer(f)
         w.writerow(["path", "size_bytes", "mtime", "reasons", "action"])
         for c in candidates:
-            w.writerow([
-                str(c.path), c.size,
-                time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(c.mtime)),
-                ";".join(c.reasons), action,
-            ])
+            w.writerow(
+                [
+                    str(c.path),
+                    c.size,
+                    time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(c.mtime)),
+                    ";".join(c.reasons),
+                    action,
+                ]
+            )
     return p
 
 
@@ -876,11 +925,17 @@ def write_dir_report(output_dir: Path, candidates: list[DirCandidate], action: s
         w = csv.writer(f)
         w.writerow(["path", "size_bytes", "size_human", "last_mtime", "risk", "reasons", "action"])
         for c in sorted(candidates, key=lambda x: -x.size):
-            w.writerow([
-                str(c.path), c.size, format_size(c.size),
-                time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(c.last_mtime)),
-                c.risk, ";".join(c.reasons), action,
-            ])
+            w.writerow(
+                [
+                    str(c.path),
+                    c.size,
+                    format_size(c.size),
+                    time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(c.last_mtime)),
+                    c.risk,
+                    ";".join(c.reasons),
+                    action,
+                ]
+            )
     return p
 
 
@@ -893,35 +948,39 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
         description="C 盘垃圾 / 空文件 / 无用目录清理（默认仅扫描）",
     )
-    p.add_argument("--delete", action="store_true",
-                   help="执行删除（默认仅扫描；仅作用于 safe 级）")
-    p.add_argument("--include-review", action="store_true",
-                   help="同时处理 review 级候选（孤儿 Python / Node / 大型缓存），"
-                        "默认移动到 output/_quarantine_<ts>/ 而非直接删")
-    p.add_argument("--include-dangerous", action="store_true",
-                   help="允许处理 dangerous 级（Windows 更新缓存，强烈不建议；保留仅用于审计）")
-    p.add_argument("--days", type=int, default=7,
-                   help="文件级仅处理修改时间早于 N 天的文件（默认 7）")
-    p.add_argument("--min-dir-age-days", type=int, default=0,
-                   help="目录级候选须最近 N 天内有修改（默认 0 = 不限）；仅用于过滤 review/dangerous")
-    p.add_argument("--min-dir-size-mb", type=int, default=10,
-                   help="review 级目录最小字节阈值（MB，默认 10；硬命中总是绕过该阈值）")
-    p.add_argument("--roots", nargs="*", default=None,
-                   help="目录级扫描根（覆盖默认；多个用空格分隔，例如 --roots C:\\ D:\\ E:\\）")
-    p.add_argument("--keep", nargs="*", default=None,
-                   help="额外加白的 basename 列表（不会被识别为 review 候选）")
-    p.add_argument("--targets", nargs="*", default=None,
-                   help="自定义文件级扫描根目录（覆盖默认）")
-    p.add_argument("--remove-empty-dirs", action="store_true",
-                   help="删除文件级扫描后留下的空目录")
-    p.add_argument("--python-only", action="store_true",
-                   help="目录级仅扫描 Python 孤儿")
-    p.add_argument("--top", type=int, default=15,
-                   help="控制台展示 Top N 大候选目录（默认 15）")
-    p.add_argument("--no-quarantine", action="store_true",
-                   help="review 级候选直接 rmtree 而非移动到隔离目录（不可恢复）")
-    p.add_argument("--explain", action="store_true",
-                   help="在控制台额外打印每个候选的命中原因")
+    p.add_argument("--delete", action="store_true", help="执行删除（默认仅扫描；仅作用于 safe 级）")
+    p.add_argument(
+        "--include-review",
+        action="store_true",
+        help="同时处理 review 级候选（孤儿 Python / Node / 大型缓存），默认移动到 output/_quarantine_<ts>/ 而非直接删",
+    )
+    p.add_argument(
+        "--include-dangerous",
+        action="store_true",
+        help="允许处理 dangerous 级（Windows 更新缓存，强烈不建议；保留仅用于审计）",
+    )
+    p.add_argument("--days", type=int, default=7, help="文件级仅处理修改时间早于 N 天的文件（默认 7）")
+    p.add_argument(
+        "--min-dir-age-days",
+        type=int,
+        default=0,
+        help="目录级候选须最近 N 天内有修改（默认 0 = 不限）；仅用于过滤 review/dangerous",
+    )
+    p.add_argument(
+        "--min-dir-size-mb", type=int, default=10, help="review 级目录最小字节阈值（MB，默认 10；硬命中总是绕过该阈值）"
+    )
+    p.add_argument(
+        "--roots", nargs="*", default=None, help="目录级扫描根（覆盖默认；多个用空格分隔，例如 --roots C:\\ D:\\ E:\\）"
+    )
+    p.add_argument("--keep", nargs="*", default=None, help="额外加白的 basename 列表（不会被识别为 review 候选）")
+    p.add_argument("--targets", nargs="*", default=None, help="自定义文件级扫描根目录（覆盖默认）")
+    p.add_argument("--remove-empty-dirs", action="store_true", help="删除文件级扫描后留下的空目录")
+    p.add_argument("--python-only", action="store_true", help="目录级仅扫描 Python 孤儿")
+    p.add_argument("--top", type=int, default=15, help="控制台展示 Top N 大候选目录（默认 15）")
+    p.add_argument(
+        "--no-quarantine", action="store_true", help="review 级候选直接 rmtree 而非移动到隔离目录（不可恢复）"
+    )
+    p.add_argument("--explain", action="store_true", help="在控制台额外打印每个候选的命中原因")
     return p.parse_args()
 
 
@@ -935,7 +994,7 @@ def _is_admin() -> bool:
         return False
 
 
-def main() -> None:
+def main() -> None:  # noqa: PLR0915 - TODO: 下个迭代重构 # noqa: PLR0912 - TODO: 下个迭代重构
     if sys.platform != "win32":
         print("提示: 脚本按 Windows C 盘路径设计，其他系统请使用 --targets 指定目录。")
 
@@ -1040,7 +1099,7 @@ def main() -> None:
 
     if args.explain and dirs:
         print("\n入选原因解释（最多 20 条）:")
-        for c in sorted(dirs, key=lambda x: (x.risk_prior(), -x.size))[:top_n or 20]:
+        for c in sorted(dirs, key=lambda x: (x.risk_prior(), -x.size))[: top_n or 20]:
             print(f"  [{c.risk:8s}] {format_size(c.size):>10s}  {c.path}")
             for r in c.reasons:
                 print(f"      - {r}")

@@ -58,16 +58,12 @@ except ModuleNotFoundError as exc:  # pragma: no cover
 try:
     import pandas as pd
 except ModuleNotFoundError as exc:  # pragma: no cover
-    raise SystemExit(
-        f"未找到 pandas。请运行: {sys.executable} -m pip install pandas openpyxl"
-    ) from exc
+    raise SystemExit(f"未找到 pandas。请运行: {sys.executable} -m pip install pandas openpyxl") from exc
 
 try:
     import openpyxl  # noqa: F401 — pandas Excel 导出引擎
 except ModuleNotFoundError as exc:  # pragma: no cover
-    raise SystemExit(
-        f"未找到 openpyxl（Excel 报告依赖）。请运行: {sys.executable} -m pip install openpyxl"
-    ) from exc
+    raise SystemExit(f"未找到 openpyxl（Excel 报告依赖）。请运行: {sys.executable} -m pip install openpyxl") from exc
 
 
 # eCTD 与 XSS 共同封杀的恶意协议与外部前缀（保守策略：外部一律视为风险）
@@ -193,7 +189,7 @@ def _check_disk_space(target_dir: Path, needed_bytes: int) -> tuple[bool, str]:
     return True, ""
 
 
-def _verify_output_pdf(
+def _verify_output_pdf(  # noqa: PLR0911 - TODO: 下个迭代重构
     output_path: Path,
     *,
     expected_pages: int,
@@ -435,9 +431,7 @@ def _dest_has_valid_action(dest: object, page_count: int) -> bool:
     if kind == fitz.LINK_GOTO:
         tp = dest.get("page")
         return isinstance(tp, int) and 0 <= tp < page_count
-    if kind in (fitz.LINK_GOTOR, fitz.LINK_LAUNCH):
-        return True
-    return False
+    return kind in (fitz.LINK_GOTOR, fitz.LINK_LAUNCH)
 
 
 def _effective_toc_pages(toc: list, page_count: int) -> list[int]:
@@ -553,9 +547,7 @@ def _repair_toc(doc: fitz.Document) -> tuple[int, list[str]]:
     if _toc_needs_flatten(toc, page_count):
         new_toc = _flatten_toc_for_ectd(toc, effective_pages, page_count)
         repaired = len(new_toc)
-        notes.append(
-            f"目录已扁平化为一级书签（共 {len(new_toc)} 条），避免无动作父节点（6.5）"
-        )
+        notes.append(f"目录已扁平化为一级书签（共 {len(new_toc)} 条），避免无动作父节点（6.5）")
     else:
         for i, item in enumerate(toc):
             if len(item) < 3:
@@ -746,7 +738,7 @@ class ECTDComplianceCleaner:
             }
         )
 
-    def process_pdf(self, pdf_path: Path, output_path: Path, *, validate_only: bool) -> bool:
+    def process_pdf(self, pdf_path: Path, output_path: Path, *, validate_only: bool) -> bool:  # noqa: PLR0915 - TODO: 下个迭代重构 # noqa: PLR0912 - TODO: 下个迭代重构 # noqa: PLR0911 - TODO: 下个迭代重构
         status = "FAILED"
         details: list[str] = []
         msg = ""
@@ -858,9 +850,7 @@ class ECTDComplianceCleaner:
                     if new_toc:
                         doc.set_toc(new_toc)
                         report_has_toc = True
-                        details.append(
-                            f"已自动补全书签（模式 {self.auto_bookmarks}，共 {len(new_toc)} 条，规则 6.23）"
-                        )
+                        details.append(f"已自动补全书签（模式 {self.auto_bookmarks}，共 {len(new_toc)} 条，规则 6.23）")
                 except Exception:
                     logger.exception("自动补全书签失败: file=%s", pdf_path)
                 if not doc.get_toc():
@@ -947,9 +937,7 @@ class ECTDComplianceCleaner:
             risky_before_save = _ectd_risky_font_names(doc)
             if risky_before_save:
                 sample = ", ".join(sorted(risky_before_save)[:5])
-                details.append(
-                    f"警告: 仍检测到 eCTD 高风险字体名（可能需人工换字体或重排版）: {sample}"
-                )
+                details.append(f"警告: 仍检测到 eCTD 高风险字体名（可能需人工换字体或重排版）: {sample}")
 
             if doc.get_toc():
                 toc_repairs += _repair_toc(doc)[0]
@@ -1057,7 +1045,9 @@ class ECTDComplianceCleaner:
                 if not warn_df.empty:
                     warn_df.to_excel(writer, sheet_name="结构警告", index=False)
         except (PermissionError, OSError):
-            alt = self.report_path.with_name(f"{self.report_path.stem}_{_now_str().replace(':', '-')}{self.report_path.suffix}")
+            alt = self.report_path.with_name(
+                f"{self.report_path.stem}_{_now_str().replace(':', '-')}{self.report_path.suffix}"
+            )  # noqa: E501
             logger.warning("报告目标无法写入，改用备用路径: %s", alt)
             with pd.ExcelWriter(alt, engine="openpyxl") as writer:
                 df.to_excel(writer, sheet_name="全部", index=False)
@@ -1067,7 +1057,7 @@ class ECTDComplianceCleaner:
         logger.info("eCTD 审计报告已生成: %s", self.report_path)
 
 
-def main() -> None:
+def main() -> None:  # noqa: PLR0915 - TODO: 下个迭代重构 # noqa: PLR0912 - TODO: 下个迭代重构
     if sys.platform == "win32":
         for stream in (sys.stdout, sys.stderr):
             try:
@@ -1082,9 +1072,7 @@ def main() -> None:
     # - 源码运行：以脚本所在目录为根目录
     # - 冻结运行：以 exe 所在目录为根目录（便于复制到任意路径/电脑直接用）
     base_dir = (
-        Path(sys.executable).resolve().parent
-        if getattr(sys, "frozen", False)
-        else Path(__file__).resolve().parent
+        Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
     )
     default_input = base_dir / "input"
     default_output = base_dir / "output"
@@ -1146,15 +1134,9 @@ def main() -> None:
 
     input_path = Path(args.input).expanduser().resolve()
     output_dir = Path(args.output).expanduser()
-    if not output_dir.is_absolute():
-        output_dir = (base_dir / output_dir).resolve()
-    else:
-        output_dir = output_dir.resolve()
+    output_dir = (base_dir / output_dir).resolve() if not output_dir.is_absolute() else output_dir.resolve()
     report_path = Path(args.report).expanduser()
-    if not report_path.is_absolute():
-        report_path = (base_dir / report_path).resolve()
-    else:
-        report_path = report_path.resolve()
+    report_path = (base_dir / report_path).resolve() if not report_path.is_absolute() else report_path.resolve()
 
     pdf_files = _collect_pdfs(input_path, recursive=args.recursive)
     if not pdf_files:
@@ -1199,10 +1181,7 @@ def main() -> None:
                     base_input_dir,
                 )
                 rel = Path(pdf_path.name)
-            if args.keep_name:
-                out_path = output_dir / rel
-            else:
-                out_path = (output_dir / rel).with_name(f"{rel.stem}_ectd.pdf")
+            out_path = output_dir / rel if args.keep_name else (output_dir / rel).with_name(f"{rel.stem}_ectd.pdf")
         elif args.keep_name:
             out_path = output_dir / pdf_path.name
         else:
@@ -1230,4 +1209,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

@@ -33,11 +33,7 @@ from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
 
 # 配置日志
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
 logger = logging.getLogger(__name__)
 
 
@@ -166,6 +162,7 @@ CHAPTERS = [
 # 辅助函数
 # =============================================================================
 
+
 def _slide_has_table(slide) -> bool:
     """判断幻灯片是否包含表格。"""
     try:
@@ -202,7 +199,7 @@ def _slide_contains_keywords(slide_info: SlideInfo, keywords: dict[str, list[str
         return False
 
     # 检查是否包含任何关键词
-    for key, keyword_list in keywords.items():
+    for _key, keyword_list in keywords.items():
         for keyword in keyword_list:
             keyword_lower = keyword.lower()
             # 更灵活的匹配：包含关键词或关键词的一部分
@@ -216,7 +213,7 @@ def _slide_contains_keywords(slide_info: SlideInfo, keywords: dict[str, list[str
     return False
 
 
-def _calculate_slide_score(slide_info: SlideInfo, priority: dict) -> int:
+def _calculate_slide_score(slide_info: SlideInfo, priority: dict) -> int:  # noqa: PLR0912 - TODO: 下个迭代重构
     """计算幻灯片优先级得分。"""
     score = 0
 
@@ -224,9 +221,8 @@ def _calculate_slide_score(slide_info: SlideInfo, priority: dict) -> int:
     score += slide_info.shape_count * 10
 
     # 包含表格
-    if priority.get("has_table", False):
-        if getattr(slide_info, "has_table", False):
-            score += 100
+    if priority.get("has_table", False) and getattr(slide_info, "has_table", False):
+        score += 100
 
     # 包含特定数字
     if "contains_n64_n32" in priority:
@@ -257,11 +253,10 @@ def _calculate_slide_score(slide_info: SlideInfo, priority: dict) -> int:
             score += 200  # 高分确保归集
 
     # 对比表格
-    if priority.get("has_comparison_table", False):
-        if getattr(slide_info, "has_table", False):
-            text = (slide_info.text_content or "").lower()
-            if "对比" in text or "comparison" in text:
-                score += 100
+    if priority.get("has_comparison_table", False) and getattr(slide_info, "has_table", False):
+        text = (slide_info.text_content or "").lower()
+        if "对比" in text or "comparison" in text:
+            score += 100
 
     return score
 
@@ -336,7 +331,9 @@ def deduplicate_slides(slide_infos: list[SlideInfo], similarity_threshold: float
 
     # 返回保留的幻灯片
     kept = [slide_infos[i] for i in range(len(slide_infos)) if i not in to_remove]
-    logger.info(f"Deduplication complete: Original {len(slide_infos)} slides, kept {len(kept)}, removed {len(to_remove)}")
+    logger.info(
+        f"Deduplication complete: Original {len(slide_infos)} slides, kept {len(kept)}, removed {len(to_remove)}"
+    )  # noqa: E501
     return kept
 
 
@@ -427,7 +424,7 @@ def add_chapter_divider_slide(prs: Presentation, chapter_id: str, chapter_title:
         logger.error(f"Failed to create chapter divider: {e}")
 
 
-def integrate_ppts() -> None:
+def integrate_ppts() -> None:  # noqa: PLR0915 - TODO: 下个迭代重构 # noqa: PLR0912 - TODO: 下个迭代重构
     """主函数：整合PPT文件。"""
     input_dir = get_merge_dir()
     output_dir = get_output_dir()
@@ -604,7 +601,7 @@ def integrate_ppts() -> None:
                 standardize_slide_layout(new_slide)
                 slide_count += 1
 
-                log_msg = f"章节 {chapter_id}: 添加幻灯片 '{slide_info.slide_title[:50]}...' (来源: {slide_info.source_ppt}, 原始索引: {slide_info.source_index + 1})"
+                log_msg = f"章节 {chapter_id}: 添加幻灯片 '{slide_info.slide_title[:50]}...' (来源: {slide_info.source_ppt}, 原始索引: {slide_info.source_index + 1})"  # noqa: E501
                 integration_log.append(log_msg)
                 print(f"  [OK] {log_msg}")
             except Exception as e:

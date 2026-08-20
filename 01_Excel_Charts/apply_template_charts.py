@@ -39,9 +39,7 @@ TFL = BASE / "不同剂量组ADR分析 (TFL).xlsx"
 def get_template_path() -> Path:
     matches = list(BASE.glob(TEMPLATE_PATTERN))
     if not matches:
-        raise FileNotFoundError(
-            "未找到模板文件（*Template.xlsx）。请将模板放在 01_Excel_Charts 目录下。"
-        )
+        raise FileNotFoundError("未找到模板文件（*Template.xlsx）。请将模板放在 01_Excel_Charts 目录下。")
     return matches[0]
 
 
@@ -129,4 +127,3 @@ def apply():
 
 if __name__ == "__main__":
     apply()
-
