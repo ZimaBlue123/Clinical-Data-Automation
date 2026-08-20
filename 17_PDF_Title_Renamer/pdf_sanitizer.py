@@ -615,6 +615,19 @@ class PDFSanitizer:
             return True
         norm = PDFSanitizer._normalize_ws_lower(s)
         comp = PDFSanitizer._compress_for_masthead(s)
+        if any(
+            bot_noise in comp
+            for bot_noise in (
+                "javascriptisdisabled",
+                "redirecting",
+                "verifythatyourenotarobot",
+                "weneedtoverify",
+                "skiptomaincontent",
+                "officialwebsiteoftheunitedstates",
+            )
+        ):
+            return True
+            
         return (
             bool(_CITATION_INSTRUCTION_IN_TEXT.search(norm))
             or PDFSanitizer._is_publisher_status_line(s)
@@ -666,6 +679,10 @@ class PDFSanitizer:
                 "",
                 t,
             ).strip()
+            
+        # Strip trailing noise like " - PMC", " | PubMed", etc.
+        t = re.sub(r"(?i)(?:\s*[-|]\s*(?:PMC|PubMed|Europe\s+PMC|NCBI|NIH|medRxiv|bioRxiv))+$", "", t).strip()
+        
         return t
 
     @staticmethod
@@ -761,7 +778,7 @@ class PDFSanitizer:
         return result
 
     @staticmethod
-    def _simplify_filename(name: str, max_words: int = 22, max_chars: int = 40) -> str:
+    def _simplify_filename(name: str, max_words: int = 15, max_chars: int = 40) -> str:
         name = PDFSanitizer._split_on_smart_colon(name)
         is_chinese = bool(re.search(r"[\u4e00-\u9fa5]", name))
 
@@ -1102,7 +1119,10 @@ class PDFSanitizer:
 
         final_title = (title or "").strip()
         if not final_title or PDFSanitizer._is_toxic_title_candidate(final_title):
-            final_title = pdf_path.stem
+            stem = pdf_path.stem
+            # 去除原文件名中已经包含的 -XXXX 或 -YYYY 后缀，防止重复
+            stem = re.sub(r"-(?:XXXX|19[5-9]\d|20[0-2]\d)(?:_\d+)?$", "", stem)
+            final_title = stem
 
         return final_title, year
 

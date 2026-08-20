@@ -269,8 +269,10 @@ HEADERS_REQ = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/120.0.0.0 Safari/537.36"
-    )
+        "Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.5",
 }
 
 DOI_PATTERN = re.compile(r"^10\.\d{4,9}/[-._;()/:A-Z0-9]+$", re.I)
@@ -371,12 +373,15 @@ class PaperDownloader:
         retries = self.max_retries if self.safe_mode else 0
         timeout = kwargs.pop("timeout", 15)
         kwargs["timeout"] = timeout
+        kwargs.setdefault("verify", False)
 
         last_exc: Exception | None = None
         for attempt in range(1, retries + 2):
             self._wait_for_host_slot(host)
             try:
+                print(f"[DEBUG] Requesting {method} {url} (Attempt {attempt})", flush=True)
                 response = self.session.request(method, url, **kwargs)
+                print(f"[DEBUG] Response {response.status_code} for {url}", flush=True)
                 self.last_request_ts[host] = time.time()
 
                 if response.status_code in (429, 403) or response.status_code >= 500:
@@ -410,6 +415,17 @@ class PaperDownloader:
     @staticmethod
     def _normalize_query(query: str) -> tuple[str, str | None]:
         cleaned = query.strip()
+        
+        # 提取 URL 中的 DOI
+        doi_url_match = re.search(r"(?:https?://(?:dx\.)?doi\.org/)(10\.\d{4,9}/[-._;()/:A-Z0-9]+)", cleaned, re.I)
+        if doi_url_match:
+            return doi_url_match.group(1), "已从 URL 中提取 DOI"
+            
+        # 提取 URL 中的 PMID
+        pubmed_url_match = re.search(r"(?:https?://pubmed\.ncbi\.nlm\.nih\.gov/)(\d+)", cleaned, re.I)
+        if pubmed_url_match:
+            return pubmed_url_match.group(1), "已从 URL 中提取 PMID"
+
         if cleaned.startswith("10") and not cleaned.startswith("10."):
             cleaned = f"10.{cleaned[2:]}"
         plos_match = re.match(r"10\.1371/(?P<suffix>.+)$", cleaned, re.I)
