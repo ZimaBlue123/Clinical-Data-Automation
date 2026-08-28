@@ -7,6 +7,9 @@
 
 ## [Unreleased]
 
+### Added
+- 新增 `34_Image_to_PDF` 模块：支持批量将图片转为 PDF（单图转 PDF 及多图合并），自动处理透明背景与不同色彩空间，提高兼容性。
+
 ### Changed
 - **阶段三：核心配置文件更新（2026-06-26，Refs: chore/code-health-2026-06-26）**
   - `.gitignore`：新增 `.pyright/` 目录排除（pyright 类型检查缓存）
