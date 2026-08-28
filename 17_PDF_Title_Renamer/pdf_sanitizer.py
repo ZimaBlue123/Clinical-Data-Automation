@@ -1,4 +1,4 @@
-"""
+﻿"""
 本地文献重塑协议 (PDF Sanitizer v7.2 - 多源置信度仲裁与高精度版式解析)
 Vibe: Academic Cyberpunk
 Engine: PyMuPDF | Chrono-Tracker | Visual Hierarchy | Block Layout | Subtitle Severance | OCR
@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import io
+import json
 import logging
 from pathlib import Path
 import re
@@ -396,6 +397,10 @@ class PDFSanitizer:
         recursive: bool = True,
         keep_structure: bool = True,
         overwrite: bool = False,
+        max_words: int = 40,
+        max_chars: int = 200,
+        export_plan: str | None = None,
+        apply_plan: str | None = None,
     ) -> None:
         self.base_dir = Path(__file__).resolve().parent
         self.input_dir = self.base_dir / input_dir
@@ -403,6 +408,10 @@ class PDFSanitizer:
         self.recursive = recursive
         self.keep_structure = keep_structure
         self.overwrite = overwrite
+        self.max_words = max_words
+        self.max_chars = max_chars
+        self.export_plan = export_plan
+        self.apply_plan = apply_plan
 
         self.input_dir.mkdir(parents=True, exist_ok=True)
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -764,8 +773,7 @@ class PDFSanitizer:
                 result.append(w)
         return result
 
-    @staticmethod
-    def _simplify_filename(name: str, max_words: int = 15, max_chars: int = 40) -> str:
+    def _simplify_filename(self, name: str) -> str:
         name = PDFSanitizer._split_on_smart_colon(name)
         is_chinese = bool(re.search(r"[\u4e00-\u9fa5]", name))
 
@@ -785,10 +793,10 @@ class PDFSanitizer:
             cleaned_cjk = cleaned.replace(" ", "").replace("/", "")
             if not cleaned_cjk:
                 return "未命名文献_Untitled"
-            return cleaned_cjk[:max_chars]
+            return cleaned_cjk[:self.max_chars]
 
         cleaned_en = PDFSanitizer._smart_title_case(cleaned)
-        words = cleaned_en.split()[:max_words]
+        words = cleaned_en.split()[:self.max_words]
         words = [w.replace("/", "") for w in words]
 
         metadata_blocklist = {
@@ -813,14 +821,19 @@ class PDFSanitizer:
             words.pop(0)
 
         if not words:
-            fallback = cleaned_en[:50].strip().replace(" ", "_")
+            fallback = cleaned_en[:self.max_chars].strip().replace(" ", "_")
             return fallback if fallback else "Untitled_Document"
 
         joined_preview = " ".join(words)
         if PDFSanitizer._is_toxic_title_candidate(joined_preview):
             return "Untitled_Document"
 
-        return "_".join(words)
+        res = "_".join(words)
+        if len(res) > self.max_chars:
+            res = res[:self.max_chars]
+            if "_" in res:
+                res = res.rsplit("_", 1)[0]
+        return res
 
     def _dedupe_filename(self, target_dir: Path, base_name: str) -> str:
         candidate = base_name
@@ -1154,8 +1167,66 @@ class PDFSanitizer:
                 )
         return False, False
 
-    def execute(self) -> None:
+    def execute(self) -> None:  # noqa: PLR0912, PLR0915
         """主控重命名循环。"""
+        if self.apply_plan:
+            plan_path = self.base_dir / self.apply_plan
+            if not plan_path.exists():
+                logger.error("action=apply_plan_failed reason=file_not_found path=%s", plan_path)
+                return
+            with plan_path.open(encoding="utf-8") as f:
+                plan_data = json.load(f)
+
+            success_count = 0
+            skipped_count = 0
+            base_input_dir = self.input_dir.resolve()
+
+            for item in tqdm(plan_data, desc="Applying Plan", unit="file", ascii=" ▖▘▝▗▚▞█"):
+                pdf_path = self.base_dir / item["original_path"]
+                if not pdf_path.exists():
+                    logger.warning("action=apply_skip_not_found file=%s", pdf_path)
+                    skipped_count += 1
+                    continue
+
+                chronological_name = item["proposed_name"]
+
+                if self.keep_structure:
+                    try:
+                        rel_parent = pdf_path.resolve().relative_to(base_input_dir).parent
+                        target_dir = (self.output_dir / rel_parent).resolve()
+                    except ValueError:
+                        target_dir = self.output_dir.resolve()
+                else:
+                    target_dir = self.output_dir.resolve()
+                target_dir.mkdir(parents=True, exist_ok=True)
+
+                target_path = target_dir / f"{chronological_name}.pdf"
+                if target_path.exists():
+                    if not self.overwrite:
+                        skipped_count += 1
+                        continue
+                    try:
+                        target_path.unlink()
+                    except Exception:
+                        pass
+
+                final_safe_name = self._dedupe_filename(target_dir, chronological_name)
+                target_path = target_dir / f"{final_safe_name}.pdf"
+
+                try:
+                    shutil.copy2(str(pdf_path), str(target_path))
+                    try:
+                        Path(pdf_path).unlink()
+                    except OSError:
+                        pass
+                    success_count += 1
+                except OSError as e:
+                    logger.warning("action=apply_failed src=%s reason=%s", pdf_path, e)
+                    skipped_count += 1
+
+            logger.info("action=apply_plan_complete success=%s skipped=%s", success_count, skipped_count)
+            return
+
         pattern = "**/*.pdf" if self.recursive else "*.pdf"
         pdf_targets = [p for p in self.input_dir.glob(pattern) if p.is_file()]
 
@@ -1163,8 +1234,28 @@ class PDFSanitizer:
             logger.warning("action=input_not_found input=%s", self.input_dir)
             return
 
-        logger.info("action=rename_start targets=%s ocr=%s", len(pdf_targets), OCR_AVAILABLE)
+        if self.export_plan:
+            plan_data = []
+            for pdf_path in tqdm(pdf_targets, desc="Exporting Plan", unit="file", ascii=" ▖▘▝▗▚▞█"):
+                raw_title, year = self._scan_payload(pdf_path)
+                simplified_name = self._simplify_filename(raw_title)
+                chronological_name = f"{simplified_name}-{year}"
+                rel_path = str(pdf_path.resolve().relative_to(self.base_dir))
 
+                plan_data.append({
+                    "original_path": rel_path,
+                    "raw_title": raw_title,
+                    "year": year,
+                    "proposed_name": chronological_name
+                })
+
+            plan_path = self.base_dir / self.export_plan
+            with plan_path.open("w", encoding="utf-8") as f:
+                json.dump(plan_data, f, ensure_ascii=False, indent=4)
+            logger.info("action=export_plan_complete path=%s", plan_path)
+            return
+
+        logger.info("action=rename_start targets=%s ocr=%s", len(pdf_targets), OCR_AVAILABLE)
         success_count = 0
         skipped_count = 0
         base_input_dir = self.input_dir.resolve()
@@ -1204,6 +1295,10 @@ if __name__ == "__main__":
         help="是否在输出目录中保留相对目录结构（默认开启）",
     )
     parser.add_argument("--overwrite", action="store_true", help="覆盖已存在的输出文件")
+    parser.add_argument("--max-words", type=int, default=40, help="英文标题保留的最大单词数（默认 40）")
+    parser.add_argument("--max-chars", type=int, default=200, help="总文件名长度的安全截断字符数（默认 200）")
+    parser.add_argument("--export-plan", type=str, default=None, help="导出重命名草案 JSON 文件路径（不执行重命名）")
+    parser.add_argument("--apply-plan", type=str, default=None, help="根据给定的重命名草案 JSON 文件执行重命名")
     args = parser.parse_args()
 
     sanitizer = PDFSanitizer(
@@ -1212,5 +1307,10 @@ if __name__ == "__main__":
         recursive=args.recursive,
         keep_structure=args.keep_structure,
         overwrite=args.overwrite,
+        max_words=args.max_words,
+        max_chars=args.max_chars,
+        export_plan=args.export_plan,
+        apply_plan=args.apply_plan,
     )
     sanitizer.execute()
+
