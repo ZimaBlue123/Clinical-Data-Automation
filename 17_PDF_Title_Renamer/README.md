@@ -1,4 +1,4 @@
-# 17_PDF_Title_Renamer
+﻿# 17_PDF_Title_Renamer
 
 PDF 文献按**正文标题 + 年份**自动重命名，并从 `input/` **剪切**到 `output/`（非复制）。引擎 **PDF Sanitizer v7.2**，面向 Elsevier / PLOS / Nature 系、MDPI 精确期刊集、FDA Guidance 封面等多版式学术文献。
 
@@ -38,6 +38,29 @@ python pdf_sanitizer.py
 **年份**：期刊页眉 `(2014)`、版权/出版关键词、FDA docket、元数据创建日期等，依次回退。
 
 ## 命令行参数
+
+| 参数 | 默认 | 说明 |
+|------|------|------|
+| --input / -i | input | 输入目录（相对本模块） |
+| --output / -o | output | 输出目录 |
+| --recursive / --no-recursive | 开启 | 是否递归子文件夹 |
+| --keep-structure / --no-keep-structure | 开启 | 输出是否保留相对目录结构 |
+| --overwrite | 关闭 | 覆盖已存在的目标 PDF |
+| --max-words | 40 | 长标题截断单词数（防止超长标题） |
+| --max-chars | 200 | 绝对最大字符数（防止 OS 路径越界） |
+| --export-plan | None | 不执行重命名，仅提取原名并导出为 JSON 草案 |
+| --apply-plan | None | 根据导出的 JSON 草案执行实际的重命名与移动 |
+
+示例：
+
+```bash
+python pdf_sanitizer.py -i "D:\Papers\inbox" -o "output" --no-keep-structure --overwrite
+# AI 协同重命名工作流：
+python pdf_sanitizer.py --export-plan rename_plan.json
+python pdf_sanitizer.py --apply-plan rename_plan.json
+```
+
+## 依赖
 
 | 参数 | 默认 | 说明 |
 |------|------|------|
