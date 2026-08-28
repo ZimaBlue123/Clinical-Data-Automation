@@ -396,6 +396,8 @@ class PDFSanitizer:
         recursive: bool = True,
         keep_structure: bool = True,
         overwrite: bool = False,
+        max_words: int = 40,
+        max_chars: int = 200,
     ) -> None:
         self.base_dir = Path(__file__).resolve().parent
         self.input_dir = self.base_dir / input_dir
@@ -403,6 +405,8 @@ class PDFSanitizer:
         self.recursive = recursive
         self.keep_structure = keep_structure
         self.overwrite = overwrite
+        self.max_words = max_words
+        self.max_chars = max_chars
 
         self.input_dir.mkdir(parents=True, exist_ok=True)
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -764,8 +768,7 @@ class PDFSanitizer:
                 result.append(w)
         return result
 
-    @staticmethod
-    def _simplify_filename(name: str, max_words: int = 15, max_chars: int = 40) -> str:
+    def _simplify_filename(self, name: str) -> str:
         name = PDFSanitizer._split_on_smart_colon(name)
         is_chinese = bool(re.search(r"[\u4e00-\u9fa5]", name))
 
@@ -785,10 +788,10 @@ class PDFSanitizer:
             cleaned_cjk = cleaned.replace(" ", "").replace("/", "")
             if not cleaned_cjk:
                 return "未命名文献_Untitled"
-            return cleaned_cjk[:max_chars]
+            return cleaned_cjk[:self.max_chars]
 
         cleaned_en = PDFSanitizer._smart_title_case(cleaned)
-        words = cleaned_en.split()[:max_words]
+        words = cleaned_en.split()[:self.max_words]
         words = [w.replace("/", "") for w in words]
 
         metadata_blocklist = {
@@ -813,14 +816,19 @@ class PDFSanitizer:
             words.pop(0)
 
         if not words:
-            fallback = cleaned_en[:50].strip().replace(" ", "_")
+            fallback = cleaned_en[:self.max_chars].strip().replace(" ", "_")
             return fallback if fallback else "Untitled_Document"
 
         joined_preview = " ".join(words)
         if PDFSanitizer._is_toxic_title_candidate(joined_preview):
             return "Untitled_Document"
 
-        return "_".join(words)
+        res = "_".join(words)
+        if len(res) > self.max_chars:
+            res = res[:self.max_chars]
+            if "_" in res:
+                res = res.rsplit("_", 1)[0]
+        return res
 
     def _dedupe_filename(self, target_dir: Path, base_name: str) -> str:
         candidate = base_name
@@ -1204,6 +1212,8 @@ if __name__ == "__main__":
         help="是否在输出目录中保留相对目录结构（默认开启）",
     )
     parser.add_argument("--overwrite", action="store_true", help="覆盖已存在的输出文件")
+    parser.add_argument("--max-words", type=int, default=40, help="英文标题保留的最大单词数（默认 40）")
+    parser.add_argument("--max-chars", type=int, default=200, help="总文件名长度的安全截断字符数（默认 200）")
     args = parser.parse_args()
 
     sanitizer = PDFSanitizer(
@@ -1212,5 +1222,7 @@ if __name__ == "__main__":
         recursive=args.recursive,
         keep_structure=args.keep_structure,
         overwrite=args.overwrite,
+        max_words=args.max_words,
+        max_chars=args.max_chars,
     )
     sanitizer.execute()
