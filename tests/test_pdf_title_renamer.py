@@ -1,4 +1,4 @@
-"""单元测试：17_PDF_Title_Renamer 标题提取与重命名规范。"""
+﻿"""单元测试：17_PDF_Title_Renamer 标题提取与重命名规范。"""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from pdf_sanitizer import PDFSanitizer  # noqa: E402
 def test_smart_title_case_scientific_tokens() -> None:
     """测试科学缩写与大小写格式化。"""
     raw = "optimal approaches for cpg and mrna vaccines in phase IIa trials"
-    simplified = PDFSanitizer._simplify_filename(raw)
+    simplified = PDFSanitizer()._simplify_filename(raw)
     assert "Optimal_Approaches_for_CpG_and_mRNA_Vaccines_in_Phase_IIa_Trials" in simplified
 
 
@@ -25,25 +25,25 @@ def test_smart_colon_and_clinical_phase() -> None:
     """测试冒号处理：副标题包含 clinical/phase 时保留，否则截断。"""
     # 包含 phase/trial 保留
     title_with_phase = "A Novel Adjuvant: A Phase I/IIa Randomized Trial"
-    simplified1 = PDFSanitizer._simplify_filename(title_with_phase)
+    simplified1 = PDFSanitizer()._simplify_filename(title_with_phase)
     assert "Phase_I_IIa" in simplified1
     assert "Randomized_Trial" in simplified1
 
     # 普通副标题截断
     title_normal = "Vaccine Development: An Overview of the Last Century"
-    simplified2 = PDFSanitizer._simplify_filename(title_normal)
+    simplified2 = PDFSanitizer()._simplify_filename(title_normal)
     assert simplified2 == "Vaccine_Development"
 
     # 中文冒号硬截断
     title_cn = "重组新型冠状病毒疫苗：临床安全性评估与观察"
-    simplified_cn = PDFSanitizer._simplify_filename(title_cn)
+    simplified_cn = PDFSanitizer()._simplify_filename(title_cn)
     assert simplified_cn == "重组新型冠状病毒疫苗"
 
 
 def test_smart_bracket_removal() -> None:
     """测试括号处理：保留专业术语内容，删除无意义纯符号。"""
     raw = "Expression of Antigen in (Pichia pastoris) System [10.1016/j.vaccine]"
-    simplified = PDFSanitizer._simplify_filename(raw)
+    simplified = PDFSanitizer()._simplify_filename(raw)
     assert "Pichia_Pastoris" in simplified
     assert "[" not in simplified
     assert "]" not in simplified
