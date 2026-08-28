@@ -51,7 +51,7 @@ Two rules define the structure:
 - **PowerPoint (03-05)**: `03_PPT_Merge` → `04_PPT_Watermark_Removal` → `05_PPT_to_PDF`
 - **Word (06-11)**: `06_Word_to_PDF` → … → `10_Word_Style_Cleaner` → `11_Word_Text_Replace`
 - **PDF (12-23)**: `12_PDF_Batch_to_Excel` → `13_PDF_to_Excel_Rule_Extract` → `14_PDF_to_PPT` → `15_PDF_XSS` → `16_PPTX_PDF_to_PPT` → `17_PDF_Title_Renamer` → `18_PDF_eCTD_Converter` → `19_PDF_Merge` → `20_PDF_Bookmark_Inherit_Zoom` → `21_PDF_Watermark_Removal` → `22_PDF_Duplicate_Analyzer` → `23_PDF_Threat_Analyzer`
-- **Utilities (22-32)**: `22_PDF_Duplicate_Analyzer` → `24_File_Translator` → `25_Py_to_EXE` → `26_C_Drive_Cleanup` → `27_WiFi_Passwords` → `28_Folder_File_Count` → `29_Paper_Batch_Download` → `30_Proxy_Config_Export` → `31_DNS_Leak_Detector` → `32_Network_Speed_Test` → `33_SAE_Extractor`
+- **Utilities (24-34)**: `24_File_Translator` → `25_Py_to_EXE` → `26_C_Drive_Cleanup` → `27_WiFi_Passwords` → `28_Folder_File_Count` → `29_Paper_Batch_Download` → `30_Proxy_Config_Export` → `31_DNS_Leak_Detector` → `32_Network_Speed_Test` → `33_SAE_Extractor` → `34_Image_to_PDF`
 
 ## Project structure
 
@@ -530,6 +530,23 @@ Helper scripts at repo root (`scripts/`, Windows PowerShell):
 - `start_tunnel.ps1`: SSH local port forward. **Requires `SAE_TUNNEL_SSH_HOST`**; optional `SAE_TUNNEL_SSH_USER`, `SAE_TUNNEL_LOCAL_PORT`, `SAE_TUNNEL_REMOTE_BIND`. Run: `powershell -ExecutionPolicy Bypass -File .\scripts\start_tunnel.ps1`
 
 Manual secret scan: `pre-commit run detect-sensitive-secrets --all-files`.
+
+---
+
+### 34 Image to PDF (`34_Image_to_PDF`)
+
+Purpose: Batch convert images (supports `.jpg`, `.jpeg`, `.png`, `.bmp`, `.webp`, `.tiff` etc.) to PDF format. Supports converting single images to individual PDFs, or merging all images in a directory into a single multi-page PDF. Includes robustness handling for color space conversions and transparency.
+
+```bash
+cd 34_Image_to_PDF
+# Default mode: each image creates an individual PDF
+python image_to_pdf.py
+
+# Merge mode: all images merged into one PDF, sorted by filename
+python image_to_pdf.py --merge
+```
+Input directory: `34_Image_to_PDF/input/`
+Output directory: `34_Image_to_PDF/output/`
 
 ## Configuration
 

@@ -80,7 +80,7 @@ ruff check . --fix
 - **PowerPoint 相关（03-05）**：`03_PPT_Merge` → `04_PPT_Watermark_Removal` → `05_PPT_to_PDF`
 - **Word 相关（06-11）**：`06_Word_to_PDF` → … → `10_Word_Style_Cleaner` → `11_Word_Text_Replace`
 - **PDF 相关（12-23）**：`12_PDF_Batch_to_Excel` → `13_PDF_to_Excel_Rule_Extract` → `14_PDF_to_PPT` → `15_PDF_XSS` → `16_PPTX_PDF_to_PPT` → `17_PDF_Title_Renamer` → `18_PDF_eCTD_Converter` → `19_PDF_Merge` → `20_PDF_Bookmark_Inherit_Zoom` → `21_PDF_Watermark_Removal` → `22_PDF_Duplicate_Analyzer` → `23_PDF_Threat_Analyzer`
-- **其他工具（22-32）**：`22_PDF_Duplicate_Analyzer` → `24_File_Translator` → `25_Py_to_EXE` → `26_C_Drive_Cleanup` → `27_WiFi_Passwords` → `28_Folder_File_Count` → `29_Paper_Batch_Download` → `30_Proxy_Config_Export` → `31_DNS_Leak_Detector` → `32_Network_Speed_Test` → `33_SAE_Extractor`
+- **其他工具（24-34）**：`24_File_Translator` 、 `25_Py_to_EXE` 、 `26_C_Drive_Cleanup` 、 `27_WiFi_Passwords` 、 `28_Folder_File_Count` 、 `29_Paper_Batch_Download` 、 `30_Proxy_Config_Export` 、 `31_DNS_Leak_Detector` 、 `32_Network_Speed_Test` 、 `33_SAE_Extractor` 、 `34_Image_to_PDF`
 
 ## 项目结构
 
@@ -782,6 +782,23 @@ python cli.py pdf-batch
 - `start_tunnel.ps1`：建立 SSH 本地端口转发；须设置 **`SAE_TUNNEL_SSH_HOST`**（及可选 `SAE_TUNNEL_SSH_USER`、`SAE_TUNNEL_LOCAL_PORT`、`SAE_TUNNEL_REMOTE_BIND`）。用法：`powershell -ExecutionPolicy Bypass -File .\scripts\start_tunnel.ps1`
 
 手动全量扫描敏感信息：`pre-commit run detect-sensitive-secrets --all-files`（需已 `pre-commit install` 或直接安装 `pre-commit`）。
+
+---
+
+### 34 图片转 PDF（`34_Image_to_PDF`）
+
+用途：批量将图片文件（支持 `.jpg`, `.jpeg`, `.png`, `.bmp`, `.webp`, `.tiff` 等）转换为 PDF。支持单张转换，也支持合并为一个多页 PDF，并针对不同色彩空间和透明背景做了防报错优化。
+
+```bash
+cd 34_Image_to_PDF
+# 默认模式：目录内每张图片分别生成独立 PDF
+python image_to_pdf.py
+
+# 合并模式：目录内所有图片按名称排序后合并为一个 PDF
+python image_to_pdf.py --merge
+```
+输入目录：`34_Image_to_PDF/input/`
+输出目录：`34_Image_to_PDF/output/`
 
 ## 配置说明
 
