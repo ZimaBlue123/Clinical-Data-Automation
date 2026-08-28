@@ -1167,29 +1167,29 @@ class PDFSanitizer:
                 )
         return False, False
 
-    def execute(self) -> None:
+    def execute(self) -> None:  # noqa: PLR0912, PLR0915
         """主控重命名循环。"""
         if self.apply_plan:
             plan_path = self.base_dir / self.apply_plan
             if not plan_path.exists():
                 logger.error("action=apply_plan_failed reason=file_not_found path=%s", plan_path)
                 return
-            with open(plan_path, "r", encoding="utf-8") as f:
+            with plan_path.open(encoding="utf-8") as f:
                 plan_data = json.load(f)
 
             success_count = 0
             skipped_count = 0
             base_input_dir = self.input_dir.resolve()
-            
+
             for item in tqdm(plan_data, desc="Applying Plan", unit="file", ascii=" ▖▘▝▗▚▞█"):
                 pdf_path = self.base_dir / item["original_path"]
                 if not pdf_path.exists():
                     logger.warning("action=apply_skip_not_found file=%s", pdf_path)
                     skipped_count += 1
                     continue
-                    
+
                 chronological_name = item["proposed_name"]
-                
+
                 if self.keep_structure:
                     try:
                         rel_parent = pdf_path.resolve().relative_to(base_input_dir).parent
@@ -1199,7 +1199,7 @@ class PDFSanitizer:
                 else:
                     target_dir = self.output_dir.resolve()
                 target_dir.mkdir(parents=True, exist_ok=True)
-                
+
                 target_path = target_dir / f"{chronological_name}.pdf"
                 if target_path.exists():
                     if not self.overwrite:
@@ -1209,10 +1209,10 @@ class PDFSanitizer:
                         target_path.unlink()
                     except Exception:
                         pass
-                
+
                 final_safe_name = self._dedupe_filename(target_dir, chronological_name)
                 target_path = target_dir / f"{final_safe_name}.pdf"
-                
+
                 try:
                     shutil.copy2(str(pdf_path), str(target_path))
                     try:
@@ -1223,7 +1223,7 @@ class PDFSanitizer:
                 except OSError as e:
                     logger.warning("action=apply_failed src=%s reason=%s", pdf_path, e)
                     skipped_count += 1
-            
+
             logger.info("action=apply_plan_complete success=%s skipped=%s", success_count, skipped_count)
             return
 
@@ -1241,16 +1241,16 @@ class PDFSanitizer:
                 simplified_name = self._simplify_filename(raw_title)
                 chronological_name = f"{simplified_name}-{year}"
                 rel_path = str(pdf_path.resolve().relative_to(self.base_dir))
-                
+
                 plan_data.append({
                     "original_path": rel_path,
                     "raw_title": raw_title,
                     "year": year,
                     "proposed_name": chronological_name
                 })
-            
+
             plan_path = self.base_dir / self.export_plan
-            with open(plan_path, "w", encoding="utf-8") as f:
+            with plan_path.open("w", encoding="utf-8") as f:
                 json.dump(plan_data, f, ensure_ascii=False, indent=4)
             logger.info("action=export_plan_complete path=%s", plan_path)
             return
