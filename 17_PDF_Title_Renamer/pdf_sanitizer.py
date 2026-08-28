@@ -1,4 +1,4 @@
-"""
+﻿"""
 本地文献重塑协议 (PDF Sanitizer v7.2 - 多源置信度仲裁与高精度版式解析)
 Vibe: Academic Cyberpunk
 Engine: PyMuPDF | Chrono-Tracker | Visual Hierarchy | Block Layout | Subtitle Severance | OCR
@@ -1313,3 +1313,4 @@ if __name__ == "__main__":
         apply_plan=args.apply_plan,
     )
     sanitizer.execute()
+
