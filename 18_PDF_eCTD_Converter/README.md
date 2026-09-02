@@ -53,6 +53,7 @@ python pdf_ectd_converter.py --input "./input" --output "./output" --report "./e
 | `--output` / `-o` | 输出目录（默认 `output/`） |
 | `--report` | Excel 审计报告路径（默认 `ectd_report.xlsx`） |
 | `--overwrite` | 覆盖已存在输出 |
+| `--delete-input / --no-delete-input` | 清洗成功后自动删除源输入文件（默认开启；失败或仅校验时不删除） |
 | `--validate-only` | 仅校验，不写出 PDF |
 | `--add-auto-bookmarks [outline\|pages\|minimal]` | 超 5 页无书签时自动补全（默认 `outline`） |
 | `--no-add-auto-bookmarks` | 禁用自动书签，严格按 6.23 拒收 |
