@@ -13,6 +13,7 @@ eCTD 合规装甲 & XSS 深度清理器（18_PDF_eCTD_Converter）
 - 字体规范化（6.26）：将 Times-Roman / Helvetica 等 PDF 内置名映射为 eCTD 常见认可名，并 subset 嵌入所用字体
 - 书签修复（6.5 / 6.6 / 6.8）：为无动作书签补全 GoTo、修正越界目标、统一承前缩放（zoom=0）
 - 启用快速 Web 查看（Fast Web View / Linearization）（6.22；若当前 MuPDF 不支持线性化则自动降级保存）
+- 清洗成功自动清理输入文件（失败/校验模式保留源文件，支持 --no-delete-input 禁用）
 - 导出合规审计 Excel 报告（便于审计与回溯）
 
 用法：
@@ -1126,6 +1127,12 @@ def main() -> None:  # noqa: PLR0915 - TODO: 下个迭代重构 # noqa: PLR0912 
         default=True,
         help="是否尝试线性化（Fast Web View / Linearization；默认开启）",
     )
+    parser.add_argument(
+        "--delete-input",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="清洗转换成功后是否自动删除源输入文件（默认开启；仅校验模式或处理失败时不会删除）",
+    )
     args = parser.parse_args()
 
     # 自动创建输入/输出目录，保证 exe 复制到新位置后可即开即用
@@ -1193,8 +1200,17 @@ def main() -> None:  # noqa: PLR0915 - TODO: 下个迭代重构 # noqa: PLR0912 
                 logger.info("校验通过: %s", pdf_path.name)
             else:
                 logger.info("处理成功: %s => %s", pdf_path.name, out_path.name)
+                if args.delete_input:
+                    if pdf_path.resolve() != out_path.resolve():
+                        try:
+                            pdf_path.unlink()
+                            logger.info("已清理源输入文件: %s", pdf_path.name)
+                        except Exception as exc:
+                            logger.warning("清理源输入文件失败: file=%s, error=%s", pdf_path.name, exc)
+                    else:
+                        logger.warning("输入与输出路径相同，跳过删除源文件: %s", pdf_path.name)
         else:
-            logger.error("处理失败: %s", pdf_path.name)
+            logger.error("处理失败（保留源输入文件）: %s", pdf_path.name)
 
     cleaner.export_report()
     warn_count = sum(1 for r in cleaner.report_rows if r.get("源PDF结构警告"))
